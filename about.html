@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us - InstaDoc Metric Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        .about-hero {
+            background: linear-gradient(135deg, var(--primary-navy) 0%, var(--jade-green) 100%);
+            padding: 6rem 0 4rem;
+            text-align: center;
+            color: var(--white);
+        }
+        
+        .about-hero h1 {
+            font-size: clamp(2.5rem, 5vw, 3.5rem);
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+        }
+        
+        .about-hero p {
+            font-size: 1.25rem;
+            max-width: 700px;
+            margin: 0 auto;
+            opacity: 0.95;
+        }
+        
+        .about-content-section {
+            padding: 5rem 0;
+            background: var(--white);
+        }
+        
+        .about-content {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .about-content h2 {
+            font-size: 2.25rem;
+            color: var(--primary-navy);
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .about-content h3 {
+            font-size: 1.75rem;
+            color: var(--primary-blue);
+            margin: 3rem 0 1.5rem;
+            font-weight: 700;
+        }
+        
+        .about-content p {
+            color: var(--dark-gray);
+            line-height: 1.8;
+            margin-bottom: 1.5rem;
+            font-size: 1.063rem;
+        }
+        
+        .values-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+        
+        .value-card {
+            background: var(--off-white);
+            padding: 2rem;
+            border-radius: 12px;
+            border-left: 4px solid var(--accent-blue);
+        }
+        
+        .value-card h4 {
+            font-size: 1.375rem;
+            color: var(--primary-navy);
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+        
+        .value-card p {
+            color: var(--dark-gray);
+            line-height: 1.7;
+            margin: 0;
+        }
+        
+        .team-section {
+            padding: 5rem 0;
+            background: var(--off-white);
+        }
+        
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2.5rem;
+            margin-top: 3rem;
+        }
+        
+        .team-member {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: var(--shadow-md);
+            transition: var(--transition);
+        }
+        
+        .team-member:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .team-member-photo {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            margin: 0 auto 1.5rem;
+            background: var(--primary-green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        
+        .team-member h4 {
+            font-size: 1.25rem;
+            color: var(--primary-navy);
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+        
+        .team-member .role {
+            color: var(--accent-blue);
+            font-weight: 600;
+            margin-bottom: 1rem;
+            font-size: 0.938rem;
+        }
+        
+        .team-member p {
+            color: var(--dark-gray);
+            line-height: 1.6;
+            font-size: 0.938rem;
+        }
+        
+        /* New Section Styles */
+        .about-section {
+            padding: 5rem 0;
+            position: relative;
+        }
+        
+        .about-section:nth-child(even) {
+            background: var(--off-white);
+        }
+        
+        .about-section:nth-child(odd) {
+            background: var(--white);
+        }
+        
+        .section-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            
+        }
+        
+        .section-title {
+            font-size: 2.5rem;
+            color: var(--primary-green);
+            margin-bottom: 2rem;
+            font-weight: 700;
+            text-align: center;
+            
+        }
+        
+        .section-content {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .section-content p {
+            color: var(--dark-gray);
+            line-height: 1.8;
+            margin-bottom: 1.5rem;
+            font-size: 1.063rem;
+        }
+        
+        /* Mission & Vision Side by Side */
+        .mission-vision-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .mission-box,
+        .vision-box {
+            background: var(--white);
+            padding: 3rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            border-left: 4px solid var(--primary-green);
+        }
+        
+        .mission-vision-container h3 {
+            font-size: 2rem;
+            color: var(--primary-green);
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .mission-vision-container p {
+            color: var(--dark-gray);
+            line-height: 1.8;
+            font-size: 1.063rem;
+        }
+        
+        /* Values Section */
+        .values-section .section-title {
+            margin-bottom: 3rem;
+        }
+        
+        .values-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .value-card {
+            background: var(--white);
+            padding: 2.5rem;
+            border-radius: 12px;
+            border-left: 4px solid var(--primary-green);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .value-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        }
+        
+        .value-card h4 {
+            font-size: 1.5rem;
+            color: var(--primary-green);
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+        
+        .value-card p {
+            color: var(--dark-gray);
+            line-height: 1.7;
+            margin: 0;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .mission-vision-container {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+            
+            .section-title {
+                font-size: 2rem;
+            }
+            
+            .values-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .timeline-section {
+            padding: 5rem 0;
+            background: var(--white);
+        }
+        
+        .timeline {
+            max-width: 800px;
+            margin: 3rem auto;
+            position: relative;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--light-green);
+            transform: translateX(-50%);
+        }
+        
+        .timeline-item {
+            margin-bottom: 3rem;
+            position: relative;
+        }
+        
+        .timeline-item:nth-child(odd) {
+            padding-right: 50%;
+            padding-left: 0;
+            text-align: right;
+        }
+        
+        .timeline-item:nth-child(even) {
+            padding-left: 50%;
+            padding-right: 0;
+            text-align: left;
+        }
+        
+        .timeline-content {
+            background: var(--off-white);
+            padding: 2rem;
+            border-radius: 12px;
+            position: relative;
+        }
+        
+        .timeline-content::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: var(--primary-green);
+            border-radius: 50%;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .timeline-item:nth-child(odd) .timeline-content::before {
+            right: -60%;
+        }
+        
+        .timeline-item:nth-child(even) .timeline-content::before {
+            left: -60%;
+        }
+        
+        .timeline-year {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-green);
+            margin-bottom: 0.5rem;
+        }
+        
+        .timeline-content h4 {
+            font-size: 1.25rem;
+            color: var(--primary-navy);
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+        }
+        
+        .timeline-content p {
+            color: var(--dark-gray);
+            line-height: 1.6;
+            margin: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .timeline::before {
+                left: 20px;
+            }
+            
+            .timeline-item:nth-child(odd),
+            .timeline-item:nth-child(even) {
+                padding-left: 60px;
+                padding-right: 0;
+                text-align: left;
+            }
+            
+            .timeline-item:nth-child(odd) .timeline-content::before,
+            .timeline-item:nth-child(even) .timeline-content::before {
+                left: -50px;
+                right: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="main-nav">
+        <div class="nav-container">
+            <a href="index.html" class="logo">
+                <img src="INN.png" alt="InstaDoc Logo" class="logo-img">
+            </a>
+            
+            <button class="mobile-menu-toggle" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            
+            <ul class="nav-menu">
+                <li><a href="index.html" class="nav-link">Home</a></li>
+                <li class="dropdown">
+        <a href="services.html" class="nav-link">Services <span class="arrow">▼</span></a>
+        <ul class="dropdown-content">
+            <li><a href="Real_time_analytics_services.html">Real-Time Analytics</a></li>
+            <li><a href="Performance_Metrics.html">Performance Metrics</a></li>
+            <li><a href="resource_optimization.html">Resource Optimization</a></li>
+            <li><a href="predictive_analytics.html">Predictive Analytics</a></li>
+        </ul>
+    </li>
+                <li><a href="about.html" class="nav-link">About Us</a></li>
+                
+                <li><a href="contact.html" class="nav-link-primary">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+    <br><br>
+    <!-- Decorative Background Elements -->
+    <div class="page-decorations">
+        <div class="bg-circle circle-1"></div>
+        <div class="bg-circle circle-2"></div>
+        <div class="bg-circle circle-3"></div>
+        <div class="bg-circle circle-4"></div>
+        <div class="plus-sign plus-1">+</div>
+        <div class="plus-sign plus-2">+</div>
+        <div class="plus-sign plus-3">+</div>
+        <div class="small-circle sc-1"></div>
+        <div class="small-circle sc-2"></div>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="about-hero">
+        <div class="container">
+            <h1>About InstaDoc Metric Tracker</h1>
+            <p>Pioneering healthcare analytics excellence in Nigeria and beyond</p>
+        </div>
+    </section>
+
+    <!-- About Content Section -->
+    <!-- Our Story Section -->
+    <section class="about-section">
+        <div class="section-container">
+            <h2 class="section-title">Our Story</h2>
+            <div class="section-content">
+                <p>InstaDoc Metric Tracker was founded with a singular mission: to transform healthcare delivery in Nigeria through innovative data analytics and technology. We recognized that healthcare providers were making critical decisions without access to comprehensive, real-time data, leading to inefficiencies and suboptimal patient outcomes.</p>
+                
+                <p>Today, we are proud to be Nigeria's leading healthcare analytics platform, serving over 50 healthcare facilities across the country. Our team of healthcare professionals, data scientists, and technology experts work tirelessly to deliver solutions that make a real difference in patient care.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Mission & Vision Section -->
+    <section class="about-section">
+        <div class="section-container">
+            <div class="mission-vision-container">
+                <div class="mission-box">
+                    <h3>Our Mission</h3>
+                    <p>Our mission is to simplify the complex world of health data. By tracking every vital sign with precision, we provide patients and providers with the clarity needed to make life-enhancing decisions together.</p>
+                </div>
+                
+                <div class="vision-box">
+                    <h3>Our Vision</h3>
+                    <p>To become the universal language of health metrics, where every individual has a clear window into their well-being and every healthcare provider has the real-time insights to deliver personalized, proactive care.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Our Values Section -->
+    <section class="about-section values-section">
+        <div class="section-container">
+            <h2 class="section-title">Our Values</h2>
+            <div class="values-grid">
+                <div class="value-card">
+                    <h4>Excellence</h4>
+                    <p>We pursue the highest standards in everything we do, from product development to customer service, ensuring our solutions deliver exceptional value.</p>
+                </div>
+                
+                <div class="value-card">
+                    <h4>Innovation</h4>
+                    <p>We continuously push boundaries, embracing new technologies and methodologies to stay at the forefront of healthcare analytics.</p>
+                </div>
+                
+                <div class="value-card">
+                    <h4>Integrity</h4>
+                    <p>We maintain the highest ethical standards, ensuring data security, privacy, and transparency in all our operations and relationships.</p>
+                </div>
+                
+                <div class="value-card">
+                    <h4>Collaboration</h4>
+                    <p>We believe in the power of partnership, working closely with healthcare providers to understand their unique challenges and deliver tailored solutions.</p>
+                </div>
+                
+                <div class="value-card">
+                    <h4>Impact</h4>
+                    <p>We measure our success by the positive impact we have on patient care and healthcare delivery, always keeping the end goal in focus.</p>
+                </div>
+                
+                <div class="value-card">
+                    <h4>Accessibility</h4>
+                    <p>We strive to make advanced healthcare analytics accessible to facilities of all sizes, democratizing data-driven healthcare across Nigeria.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Our Journey Section -->
+    <section class="about-section timeline-section">
+        <div class="section-container">
+            <h2 class="section-title">Our Journey</h2>
+            <p style="text-align: center; color: var(--dark-gray); font-size: 1.125rem; margin-bottom: 3rem; max-width: 700px; margin-left: auto; margin-right: auto;">Key milestones in our mission to transform healthcare analytics</p>
+            
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-year">2022</div>
+                        <h4>Foundation</h4>
+                        <p>InstaDoc Metric Tracker was founded in ___ with a vision to revolutionize healthcare analytics.</p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-year">2023</div>
+                        <h4>First Major Partnership</h4>
+                        <p>Secured partnerships with leading hospitals, validating our platform and approach.</p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-year">2024</div>
+                        <h4>Platform Launch</h4>
+                        <p>Officially launched our comprehensive analytics platform with real-time monitoring and predictive capabilities.</p>
+                    </div>
+                </div>
+                
+                
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-year">2025</div>
+                        <h4>AI Integration</h4>
+                        <p>Integrated advanced AI and machine learning capabilities for predictive analytics and clinical decision support.</p>
+                    </div>
+                </div>
+                
+                
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-year">2026</div>
+                        <h4>Future Forward</h4>
+                        <p>Continuing to innovate and expand, setting new standards for healthcare analytics across Africa.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Team Section -->
+    <section class="team-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Our Leadership Team</h2>
+                <p>Meet the experts driving innovation in healthcare analytics</p>
+            </div>
+            
+            <div class="team-grid">
+                <div class="team-member">
+                    <div class="team-member-photo">AO</div>
+                    <h4>Dr. Adebayo Okonkwo</h4>
+                    <div class="role">Chief Executive Officer</div>
+                    <p>With over __ years in healthcare administration and technology, Dr. Okonkwo leads our vision for transforming healthcare delivery in InstaDoc.</p>
+                </div>
+                
+                <div class="team-member">
+                    <div class="team-member-photo">CN</div>
+                    <h4>Chiamaka Nwankwo</h4>
+                    <div class="role">Chief Technology Officer</div>
+                    <p>A renowned software architect with expertise in healthcare systems, she drives our technological innovation and product development.</p>
+                </div>
+                
+                <div class="team-member">
+                    <div class="team-member-photo">IA</div>
+                    <h4>Dr. Ibrahim Abdullahi</h4>
+                    <div class="role">Chief Medical Officer</div>
+                    <p>Board-certified physician with deep expertise in clinical informatics, ensuring our solutions meet the highest medical standards.</p>
+                </div>
+                
+                <div class="team-member">
+                    <div class="team-member-photo">FE</div>
+                    <h4>Folake Eze</h4>
+                    <div class="role">Chief Data Officer</div>
+                    <p>Data science leader with a passion for healthcare analytics, Folake oversees our analytics capabilities and research initiatives.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="stats-section">
+        <div class="container">
+            <div class="section-header" style="color: var(--white); margin-bottom: 2rem;">
+                <h2 style="color: var(--white);">Join Us in Transforming Healthcare</h2>
+                <p style="color: rgba(255, 255, 255, 0.9);">Partner with InstaDoc to bring world-class analytics to your healthcare facility.</p>
+            </div>
+            <div class="cta-box">
+                <a href="contact.html" class="btn btn-primary btn-large">Get in Touch</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <img src="INN.png" alt="InstaDoc Logo" class="footer-logo">
+                
+                <div class="footer-socials">
+                    <a href="#" aria-label="LinkedIn" class="social-link">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M4.98 3.5C4.98 4.88 3.87 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1 4.98 2.12 4.98 3.5zM.5 8h4V24h-4V8zm7.5 0h3.8v2.2h.1c.53-1 1.83-2.2 3.77-2.2C19.9 8 24 10.1 24 15.3V24h-4v-7.7c0-1.84-.03-4.2-2.56-4.2-2.56 0-2.95 2-2.95 4.06V24h-4V8z"/>
+                        </svg>
+                    </a>
+                    
+                    <a href="#" aria-label="Twitter" class="social-link">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                    </a>
+                    
+                    <a href="#" aria-label="Facebook" class="social-link">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/>
+                        </svg>
+                    </a>
+                    
+                    <a href="#" aria-label="Instagram" class="social-link">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073z"/>
+                            <circle cx="12" cy="12" r="3.5"/>
+                            <circle cx="18.5" cy="5.5" r="1.5"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+            
+            <div class="footer-links">
+                <div class="footer-column">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="about.html">About Us</a></li>
+                        <li><a href="services.html">Services</a></li>
+                        <li><a href="contact.html">Contact</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-column">
+                    <h4>Legal</h4>
+                    <ul>
+                        <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="#">Terms of Service</a></li>
+                        <li><a href="#">Cookie Policy</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-column">
+                    <h4>Support</h4>
+                    <ul>
+                        <li><a href="#">Help Center</a></li>
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">System Status</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <div class="footer-container">
+                <p>&copy; 2026 InstaDoc Metric Tracker, Inc. All rights reserved.</p>
+                <p>415 Adetokunbo Ademola Street, Abuja, FCT, Nigeria</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Mobile menu toggle
+        const menuToggle = document.querySelector('.mobile-menu-toggle');
+        const navMenu = document.querySelector('.nav-menu');
+        
+        menuToggle.addEventListener('click', () => {
+            navMenu.classList.toggle('active');
+            menuToggle.classList.toggle('active');
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.nav-container')) {
+                navMenu.classList.remove('active');
+                menuToggle.classList.remove('active');
+            }
+        });
+
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Intersection Observer for fade-in animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        // Observe all animated elements
+        document.querySelectorAll('.service-card, .feature-item, .stat-item').forEach(el => {
+            observer.observe(el);
+        });
+
+        document.querySelectorAll('.dropdown').forEach(dropdown => {
+    const link = dropdown.querySelector('.nav-link');
+    
+    // Toggle on click for mobile/reliability
+    link.addEventListener('click', (e) => {
+        if (window.innerWidth < 1024) { // Only force click logic on smaller screens
+            e.preventDefault();
+            dropdown.classList.toggle('active');
+        }
+    });
+});
+
+// Close dropdown if user clicks anywhere else on the screen
+window.addEventListener('click', (e) => {
+    if (!e.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('active'));
+    }
+});
+    </script>
+</body>
+</html>

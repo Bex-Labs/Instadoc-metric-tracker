@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us - InstaDoc Metric Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* ── Hero ── */
+        .contact-hero {
+            background: linear-gradient(135deg, var(--primary-navy) 0%, var(--jade-green) 100%);
+            padding: 6rem 0 4rem;
+            text-align: center;
+            color: var(--white);
+        }
+        .contact-hero h1 {
+            font-size: clamp(2.5rem, 5vw, 3.5rem);
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+        }
+        .contact-hero p {
+            font-size: 1.25rem;
+            max-width: 700px;
+            margin: 0 auto;
+            opacity: 0.95;
+        }
+
+        /* ── Layout ── */
+        .contact-section {
+            padding: 5rem 0;
+            background: var(--off-white);
+        }
+        .contact-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 4rem;
+        }
+        @media (max-width: 968px) {
+            .contact-container { grid-template-columns: 1fr; gap: 2rem; }
+        }
+
+        /* ── Info box ── */
+        .contact-info-box {
+            background: var(--white);
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow-md);
+            height: fit-content;
+        }
+        .contact-info-box h2 {
+            font-size: 2rem;
+            color: var(--jade-green);
+            margin-bottom: 2rem;
+            font-weight: 700;
+        }
+        .info-item { margin-bottom: 2rem; }
+        .info-item h3 {
+            font-size: 1.125rem;
+            color: var(--jade-green);
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .info-item p { color: var(--dark-gray); line-height: 1.7; margin: 0; }
+        .info-item a { color: var(--dark-gray); text-decoration: none; transition: var(--transition); }
+        .info-item a:hover { text-decoration: underline; }
+        .business-hours {
+            background: var(--light-blue);
+            
+            border-radius: 8px;
+            margin-top: 2rem;
+        }
+        .business-hours h3 { font-size: 1.125rem; color: var(--jade-green); margin-bottom: 1rem; font-weight: 700; }
+        .business-hours p { color: var(--dark-gray); line-height: 1.7; margin: 0.5rem 0; }
+
+        /* ── Form box ── */
+        .contact-form-box {
+            background: var(--white);
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow-md);
+        }
+        .contact-form-box h2 {
+            font-size: 2rem;
+            color: var(--jade-green);
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+        .contact-form-box .form-subtitle {
+            color: var(--dark-gray);
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+
+        /* ── Form fields — labels always visible at top ── */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 0.45rem;
+            font-size: 0.9rem;
+        }
+        .form-group label .required-star {
+            color: #dc2626;
+            margin-left: 2px;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.85rem 1rem;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            background: #fff;
+            color: var(--text-dark);
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: #9ca3af;
+            font-weight: 400;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--jade-green);
+            box-shadow: 0 0 0 3px rgba(47, 143, 70, 0.12);
+        }
+        /* Valid state */
+        .form-group input.valid,
+        .form-group select.valid,
+        .form-group textarea.valid {
+            border-color: #16a34a;
+            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.08);
+        }
+        /* Invalid state */
+        .form-group input.invalid,
+        .form-group select.invalid,
+        .form-group textarea.invalid {
+            border-color: #dc2626;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08);
+        }
+        /* Error message under field */
+        .field-error {
+            display: block;
+            margin-top: 5px;
+            font-size: 0.82rem;
+            color: #dc2626;
+            min-height: 16px;
+            font-weight: 500;
+        }
+
+        /* Textarea */
+        .form-group textarea {
+            min-height: 140px;
+            resize: vertical;
+        }
+
+        /* Select arrow */
+        .form-group select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1.1rem;
+            padding-right: 2.8rem;
+            cursor: pointer;
+        }
+
+        /* Two-column row for Name + Email */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+        }
+        @media (max-width: 600px) {
+            .form-row { grid-template-columns: 1fr; }
+        }
+
+        /* Submit button */
+        .send-btn {
+            width: 100%;
+            padding: 1rem;
+            background: var(--jade-green);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+            margin-top: 0.5rem;
+            letter-spacing: 0.02em;
+        }
+        .send-btn:hover:not(:disabled) {
+            background: var(--primary-navy);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(47,143,70,0.2);
+        }
+        .send-btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        /* ── Success banner (inline, below button) ── */
+        .form-success-banner {
+            display: none;
+            margin-top: 1.5rem;
+            padding: 1.25rem 1.5rem;
+            background: #f0fdf4;
+            border: 2px solid #16a34a;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .form-success-banner.show { display: block; }
+        .form-success-banner .success-icon {
+            font-size: 2.5rem;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+        .form-success-banner strong {
+            display: block;
+            font-size: 1.1rem;
+            color: #15803d;
+            margin-bottom: 0.35rem;
+        }
+        .form-success-banner p {
+            color: #166534;
+            font-size: 0.92rem;
+            margin: 0;
+        }
+
+        /* ── Error status line ── */
+        .form-status-error {
+            display: none;
+            margin-top: 1rem;
+            padding: 0.85rem 1rem;
+            background: #fef2f2;
+            border: 1px solid #fca5a5;
+            border-radius: 8px;
+            color: #991b1b;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-align: center;
+        }
+        .form-status-error.show { display: block; }
+
+        /* Routing badge next to department */
+        .routing-hint {
+            display: block;
+            font-size: 0.78rem;
+            color: #6b7280;
+            margin-top: 4px;
+            font-weight: 400;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav class="main-nav">
+        <div class="nav-container">
+            <a href="index.html" class="logo">
+                <img src="INN.png" alt="InstaDoc Logo" class="logo-img">
+            </a>
+            <button class="mobile-menu-toggle" aria-label="Toggle menu">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-menu">
+                <li><a href="index.html" class="nav-link">Home</a></li>
+                <li class="dropdown">
+                    <a href="services.html" class="nav-link">Services <span class="arrow">▼</span></a>
+                    <ul class="dropdown-content">
+                        <li><a href="Real_time_analytics_services.html">Real-Time Analytics</a></li>
+                        <li><a href="Performance_Metrics.html">Performance Metrics</a></li>
+                        <li><a href="resource_optimization.html">Resource Optimization</a></li>
+                        <li><a href="predictive_analytics.html">Predictive Analytics</a></li>
+                    </ul>
+                </li>
+                <li><a href="about.html" class="nav-link">About Us</a></li>
+                
+                <li><a href="contact.html" class="nav-link-primary">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <br><br>
+    <!-- Decorative Background Elements -->
+    <div class="page-decorations">
+        <div class="bg-circle circle-1"></div>
+        <div class="bg-circle circle-2"></div>
+        <div class="bg-circle circle-3"></div>
+        <div class="bg-circle circle-4"></div>
+        <div class="plus-sign plus-1">+</div>
+        <div class="plus-sign plus-2">+</div>
+        <div class="plus-sign plus-3">+</div>
+        <div class="small-circle sc-1"></div>
+        <div class="small-circle sc-2"></div>
+    </div>
+
+    <!-- Hero -->
+    <section class="contact-hero">
+        <div class="container">
+            <h1>Get in Touch</h1>
+            <p>Your Health Data, Deciphered.<br>
+               Contact us to see how InstaDoc is humanising healthcare analytics.</p>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="contact-section">
+        <div class="container">
+            <div class="contact-container">
+
+                <!-- ── Left: Contact Info ── -->
+                <div class="contact-info-box">
+                    <h2>Contact Information</h2>
+
+                    <div class="info-item">
+                        <h3>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                            Office Address
+                        </h3>
+                        <p>415 Adetokunbo Ademola Street<br>Abuja, FCT<br>Nigeria</p>
+                    </div>
+
+                    <div class="info-item">
+                        <h3>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                            </svg>
+                            Phone
+                        </h3>
+                        <p>
+                            <a href="tel:+2349001235678">+234 900 123 5678</a><br>
+                            <a href="tel:+2348004568901">+234 800 456 8901</a>
+                        </p>
+                    </div>
+
+                    <div class="info-item">
+                        <h3>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                <polyline points="22,6 12,13 2,6"/>
+                            </svg>
+                            Email
+                        </h3>
+                        <p>
+                            <a href="mailto:info@instadoc.com">info@instadoc.com</a><br>
+                            <a href="mailto:support@instadoc.com">support@instadoc.com</a>
+                        </p>
+                    </div>
+
+                    <div class="business-hours">
+                        <h3>Business Hours</h3>
+                        <p><strong>Monday – Friday:</strong> 8:00 AM – 6:00 PM</p>
+                        <p><strong>Saturday:</strong> 9:00 AM – 2:00 PM</p>
+                        <p><strong>Sunday:</strong> Closed</p>
+                        <p style="margin-top:1rem;font-size:0.875rem;font-style:italic;">24/7 Emergency Support for Enterprise Clients</p>
+                    </div>
+                </div>
+
+                <!-- ── Right: Contact Form ── -->
+                <div class="contact-form-box">
+                    <h2>Send Us a Message</h2>
+                    <p class="form-subtitle">Fill in the form and the right team will get back to you within 24 hours.</p>
+
+                    <!--
+                        FormSubmit.co handles delivery.
+                        The hidden _to field is swapped by JS based on the chosen department,
+                        so the message lands in the correct team inbox.
+                    -->
+                    <form id="contactForm" novalidate>
+                        <!-- Hidden FormSubmit fields -->
+                        <input type="hidden" name="_captcha"  value="false">
+                        <input type="hidden" name="_template" value="table">
+                        <!-- _to is set dynamically by JS below -->
+                        <input type="hidden" id="routingEmail" name="_to" value="abbassani94@gmail.com">
+
+                        <!-- Row 1: Name + Email side-by-side -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="name">Full Name <span class="required-star">*</span></label>
+                                <input type="text" id="name" name="name"
+                                       placeholder="e.g. Amaka Obi" required autocomplete="name">
+                                <small class="field-error" id="nameError" aria-live="polite"></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email Address <span class="required-star">*</span></label>
+                                <input type="email" id="email" name="email"
+                                       placeholder="you@example.com" required autocomplete="email">
+                                <small class="field-error" id="emailError" aria-live="polite"></small>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Department -->
+                        <div class="form-group">
+                            <label for="department">Department <span class="required-star">*</span></label>
+                            <select id="department" name="department" required>
+                                <option value="">— Select a department —</option>
+                                <option value="general">General Enquiry</option>
+                                <option value="preventative">Preventative Care</option>
+                                <option value="pharmacy">Pharmacy &amp; Medications</option>
+                                <option value="telehealth">TeleHealth Support</option>
+                                <option value="careCoordination">Care Coordination</option>
+                            </select>
+                            <small class="field-error" id="departmentError" aria-live="polite"></small>
+                            <span class="routing-hint" id="routingHint"></span>
+                        </div>
+
+                        <!-- Row 3: Subject -->
+                        <div class="form-group">
+                            <label for="subject">Subject <span class="required-star">*</span></label>
+                            <input type="text" id="subject" name="subject"
+                                   placeholder="Brief description of your enquiry" required>
+                            <small class="field-error" id="subjectError" aria-live="polite"></small>
+                        </div>
+
+                        <!-- Row 4: Message -->
+                        <div class="form-group">
+                            <label for="message">Message <span class="required-star">*</span></label>
+                            <textarea id="message" name="message" rows="6"
+                                      placeholder="Tell us how we can help you…" required></textarea>
+                            <small class="field-error" id="messageError" aria-live="polite"></small>
+                        </div>
+
+                        <!-- Submit -->
+                        <button type="submit" id="sendBtn" class="send-btn">Send Message</button>
+
+                        <!-- Error status (network / server failure) -->
+                        <div id="formStatusError" class="form-status-error" role="alert"></div>
+
+                        <!-- Success banner (shown after successful send) -->
+                        <div id="formSuccessBanner" class="form-success-banner" role="status" aria-live="polite">
+                            <div class="success-icon">✅</div>
+                            <strong>Message sent successfully!</strong>
+                            <p id="successDetail">We'll get back to you within 24 hours.</p>
+                        </div>
+                    </form>
+                </div>
+                <!-- end form box -->
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <img src="INN.png" alt="InstaDoc Logo" class="footer-logo">
+                <div class="footer-socials">
+                    <a href="#" aria-label="LinkedIn" class="social-link">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M4.98 3.5C4.98 4.88 3.87 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1 4.98 2.12 4.98 3.5zM.5 8h4V24h-4V8zm7.5 0h3.8v2.2h.1c.53-1 1.83-2.2 3.77-2.2C19.9 8 24 10.1 24 15.3V24h-4v-7.7c0-1.84-.03-4.2-2.56-4.2-2.56 0-2.95 2-2.95 4.06V24h-4V8z"/>
+                        </svg>
+                    </a>
+                    <a href="#" aria-label="Twitter" class="social-link">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                    </a>
+                    <a href="#" aria-label="Facebook" class="social-link">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/>
+                        </svg>
+                    </a>
+                    <a href="#" aria-label="Instagram" class="social-link">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073z"/>
+                            <circle cx="12" cy="12" r="3.5"/>
+                            <circle cx="18.5" cy="5.5" r="1.5"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+            <div class="footer-links">
+                <div class="footer-column">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="about.html">About Us</a></li>
+                        <li><a href="services.html">Services</a></li>
+                        <li><a href="contact.html">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Legal</h4>
+                    <ul>
+                        <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="#">Terms of Service</a></li>
+                        <li><a href="#">Cookie Policy</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Support</h4>
+                    <ul>
+                        <li><a href="#">Help Center</a></li>
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">System Status</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <div class="footer-container">
+                <p>&copy; <span id="year"></span> InstaDoc Metric Tracker, Inc. All rights reserved.</p>
+                <p>415 Adetokunbo Ademola Street, Abuja, FCT, Nigeria</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ══════════════════════════════════════════
+         SINGLE, CLEAN JAVASCRIPT BLOCK
+         ══════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ─── Supabase ─── */
+  const SUPABASE_URL      = 'https://ioaqlcltvakuqqehkyor.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvYXFsY2x0dmFrdXFxZWhreW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNTk1MzksImV4cCI6MjA4MTczNTUzOX0._7ISJbfJzryBJWmtRuN72F-JZpYdvJxsltwwhombPtE';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  /* ─── Footer year ─── */
+  const yearEl = document.getElementById('year');
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  /* ─── Nav: mobile toggle ─── */
+  const menuToggle = document.querySelector('.mobile-menu-toggle');
+  const navMenu    = document.querySelector('.nav-menu');
+  if (menuToggle) {
+    menuToggle.addEventListener('click', () => {
+      navMenu.classList.toggle('active');
+      menuToggle.classList.toggle('active');
+    });
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.nav-container')) {
+        navMenu.classList.remove('active');
+        menuToggle.classList.remove('active');
+      }
+    });
+  }
+
+  /* ─── Nav: dropdown on mobile ─── */
+  document.querySelectorAll('.dropdown').forEach(dd => {
+    dd.querySelector('.nav-link').addEventListener('click', e => {
+      if (window.innerWidth < 1024) {
+        e.preventDefault();
+        dd.classList.toggle('active');
+      }
+    });
+  });
+  window.addEventListener('click', e => {
+    if (!e.target.closest('.dropdown'))
+      document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('active'));
+  });
+
+  /* ─── Department routing hint (UI only) ─── */
+  const deptConfig = {
+    general:          { label: '→ General Enquiries team' },
+    preventative:     { label: '→ Preventative Care team' },
+    pharmacy:         { label: '→ Pharmacy & Medications team' },
+    telehealth:       { label: '→ TeleHealth Support team' },
+    careCoordination: { label: '→ Care Coordination team' }
+  };
+
+  const routingHint = document.getElementById('routingHint');
+  const deptSelect  = document.getElementById('department');
+
+  deptSelect.addEventListener('change', function () {
+    const cfg = deptConfig[this.value];
+    if (routingHint) routingHint.textContent = cfg ? cfg.label : '';
+  });
+
+  /* ─── Validation ─── */
+  function isValidEmail(v) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  }
+
+  const rules = {
+    name:       v => v.length < 2  ? 'Name must be at least 2 characters.' : '',
+    email:      v => !isValidEmail(v) ? 'Please enter a valid email address.' : '',
+    department: v => !v             ? 'Please select a department.' : '',
+    subject:    v => v.length < 2  ? 'Subject must be at least 2 characters.' : '',
+    message:    v => v.length < 3  ? 'Message must be at least 3 characters.' : ''
+  };
+
+  function validateField(id) {
+    const el  = document.getElementById(id);
+    const err = document.getElementById(id + 'Error');
+    if (!el) return true;
+    const msg = rules[id](el.value.trim());
+    el.classList.toggle('valid',   !msg);
+    el.classList.toggle('invalid', !!msg);
+    if (err) err.textContent = msg;
+    return !msg;
+  }
+
+  function validateAll() {
+    return Object.keys(rules).map(id => validateField(id)).every(Boolean);
+  }
+
+  Object.keys(rules).forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('blur',   () => validateField(id));
+    el.addEventListener('input',  () => validateField(id));
+    el.addEventListener('change', () => validateField(id));
+  });
+
+  /* ─── Form submission → tickets table ─── */
+  const form          = document.getElementById('contactForm');
+  const sendBtn       = document.getElementById('sendBtn');
+  const successBanner = document.getElementById('formSuccessBanner');
+  const successDetail = document.getElementById('successDetail');
+  const errorBox      = document.getElementById('formStatusError');
+
+  function showError(msg) {
+    if (!errorBox) return;
+    errorBox.textContent = msg;
+    errorBox.classList.add('show');
+  }
+  function hideError() {
+    if (!errorBox) return;
+    errorBox.classList.remove('show');
+    errorBox.textContent = '';
+  }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    hideError();
+
+    if (!validateAll()) {
+      const firstBad = form.querySelector('.invalid');
+      if (firstBad) firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    const name       = document.getElementById('name').value.trim();
+    const email      = document.getElementById('email').value.trim();
+    const department = document.getElementById('department').value.trim();
+    const subject    = document.getElementById('subject').value.trim();
+    const message    = document.getElementById('message').value.trim();
+    const deptLabel  = deptSelect.options[deptSelect.selectedIndex].text;
+
+    sendBtn.disabled    = true;
+    sendBtn.textContent = 'Sending…';
+
+    try {
+      // Insert directly into the tickets table used by the admin dashboard
+      const { error } = await db
+        .from('tickets')
+        .insert([{
+          user_name:   name,
+          user_email:  email,
+          department:  department,
+          subject:     subject,
+          description: message,
+          priority:    'medium',    // default; admin can change in dashboard
+          status:      'open',      // always starts as open
+          source:      'contact_form'
+        }]);
+
+      if (error) throw error;
+
+      /* ── SUCCESS ── */
+      form.reset();
+      form.querySelectorAll('.valid, .invalid')
+          .forEach(el => el.classList.remove('valid', 'invalid'));
+      form.querySelectorAll('.field-error')
+          .forEach(el => el.textContent = '');
+      if (routingHint) routingHint.textContent = '';
+
+      if (successDetail) {
+        successDetail.textContent =
+          `Your message has been sent to the ${deptLabel} team. We'll reply within 24 hours.`;
+      }
+      if (successBanner) {
+        successBanner.classList.add('show');
+        successBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        setTimeout(() => successBanner.classList.remove('show'), 8000);
+      }
+
+    } catch (err) {
+      console.error('Ticket insert error:', err);
+      showError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      sendBtn.disabled    = false;
+      sendBtn.textContent = 'Send Message';
+    }
+  });
+
+  /* ─── Smooth scroll for anchor links ─── */
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+  });
+
+})();
+</script>
+
+</body>
+</html>

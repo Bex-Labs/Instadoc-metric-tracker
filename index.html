@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InstaDoc - We Value Your Health</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase loaded once here for the auth bridge -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <style>
+
+         .hero {
+            background:
+                linear-gradient(135deg, rgba(245,245,245,0.82) 0%, rgba(245,245,245,0.70) 100%),
+                url('top-view-tensiometer-checking-blood-pressure_bw.jpg') center center / cover no-repeat !important;
+            position: relative;
+            overflow: hidden;
+            
+        }
+
+        /* =============================================
+           AUTH MODAL STYLES (scoped to landing page)
+           ============================================= */
+        .lp-modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55); z-index: 9000;
+            align-items: center; justify-content: center;
+        }
+        .lp-modal-overlay.active { display: flex; }
+        .lp-auth-modal {
+            background: #fff; border-radius: 16px; padding: 2.5rem;
+            width: 100%; max-width: 420px; margin: 1rem;
+            position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            animation: lp-modal-in 0.22s ease;
+        }
+        @keyframes lp-modal-in {
+            from { opacity:0; transform:scale(0.95) translateY(-10px); }
+            to   { opacity:1; transform:scale(1) translateY(0); }
+        }
+        .lp-modal-close {
+            position:absolute; top:1rem; right:1.2rem;
+            background:none; border:none; font-size:1.6rem;
+            cursor:pointer; color:#6b7280; line-height:1;
+        }
+        .lp-modal-close:hover { color:#111; }
+        .lp-modal-title { font-size:1.5rem; font-weight:700; color:#1a1a2e; margin-bottom:.25rem; text-align:center; }
+        .lp-modal-subtitle { text-align:center; font-size:.9rem; color:#6b7280; margin-bottom:1.5rem; }
+        .lp-form-group { margin-bottom:1rem; }
+        .lp-form-control {
+            width:100%; padding:.75rem 1rem; border:1.5px solid #d1d5db;
+            border-radius:8px; font-size:.95rem; font-family:'Poppins',sans-serif;
+            transition:border-color .2s,box-shadow .2s; box-sizing:border-box;
+        }
+        .lp-form-control:focus { outline:none; border-color:#2f8f46; box-shadow:0 0 0 3px rgba(47,143,70,.12); }
+        .lp-btn-submit {
+            width:100%; padding:.85rem; background:linear-gradient(135deg,#2f8f46,#27ae60);
+            color:#fff; border:none; border-radius:8px; font-size:1rem; font-weight:600;
+            cursor:pointer; font-family:'Poppins',sans-serif; transition:opacity .2s,transform .15s; margin-top:.5rem;
+        }
+        .lp-btn-submit:hover { opacity:.9; transform:translateY(-1px); }
+        .lp-btn-submit:disabled { opacity:.6; cursor:not-allowed; transform:none; }
+        .lp-divider { display:flex; align-items:center; gap:.75rem; margin:1.25rem 0; color:#9ca3af; font-size:.85rem; }
+        .lp-divider::before,.lp-divider::after { content:''; flex:1; height:1px; background:#e5e7eb; }
+        .lp-social-row { display:flex; gap:.75rem; }
+        .lp-social-btn {
+            flex:1; display:flex; align-items:center; justify-content:center; gap:.5rem;
+            padding:.65rem; border:1.5px solid #d1d5db; border-radius:8px; background:#fff;
+            cursor:pointer; font-size:.9rem; font-family:'Poppins',sans-serif; font-weight:500;
+            transition:background .15s,border-color .15s;
+        }
+        .lp-social-btn:hover { background:#f9fafb; border-color:#9ca3af; }
+        .lp-auth-footer { text-align:center; margin-top:1.25rem; font-size:.9rem; color:#6b7280; }
+        .lp-auth-footer a { color:#2f8f46; font-weight:600; cursor:pointer; text-decoration:none; }
+        .lp-auth-footer a:hover { text-decoration:underline; }
+        .lp-msg { font-size:.85rem; text-align:center; min-height:1.2em; margin-bottom:.5rem; }
+        .lp-error { color:#dc2626; }
+        .lp-success { color:#16a34a; }
+        .lp-forgot { text-align:right; margin-bottom:.75rem; }
+        .lp-forgot a { font-size:.83rem; color:#2f8f46; cursor:pointer; text-decoration:none; }
+        .lp-forgot a:hover { text-decoration:underline; }
+        .lp-doctor-checkbox { display:flex; align-items:center; gap:.5rem; margin:.75rem 0; font-size:.9rem; color:#374151; }
+        .lp-doctor-checkbox input { width:16px; height:16px; accent-color:#2f8f46; }
+        .lp-spinner {
+            display:inline-block; width:14px; height:14px;
+            border:2px solid rgba(255,255,255,.4); border-top-color:#fff;
+            border-radius:50%; animation:lp-spin .7s linear infinite;
+            vertical-align:middle; margin-right:6px;
+        }
+        @keyframes lp-spin { to { transform:rotate(360deg); } }
+
+        /* Admin footer link */
+        .admin-portal-link {
+            display:inline-block; margin-top:.35rem; font-size:.72rem;
+            color:#9ca3af; text-decoration:none; transition:color .2s; letter-spacing:.02em;
+        }
+        .admin-portal-link:hover { color:#6b7280; }
+        .footer-bottom-inner { display:flex; flex-direction:column; align-items:center; gap:.1rem; }
+
+        /* Hero auth section */
+        .hero .auth-section { margin-top:1.5rem; }
+        .hero .auth-buttons { display:flex; align-items:flex-end; gap:1.5rem; }
+        .hero .auth-btn-group { display:flex; flex-direction:column; align-items:center; gap:.35rem; }
+        .hero .auth-btn-group .auth-question { margin:0; font-size:.85rem; white-space:nowrap; color:#4b5563; }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav class="main-nav">
+        <div class="nav-container">
+            <a href="index.html" class="logo">
+                <img src="INN.png" alt="InstaDoc Logo" class="logo-img">
+            </a>
+            <button class="mobile-menu-toggle" aria-label="Toggle menu">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-menu">
+                <li><a href="index.html" class="nav-link">Home</a></li>
+                <li class="dropdown">
+                    <a href="services.html" class="nav-link">Services <span class="arrow">&#9660;</span></a>
+                    <ul class="dropdown-content">
+                        <li><a href="Real_time_analytics_services.html">Real-Time Analytics</a></li>
+                        <li><a href="Performance_Metrics.html">Performance Metrics</a></li>
+                        <li><a href="resource_optimization.html">Resource Optimization</a></li>
+                        <li><a href="predictive_analytics.html">Predictive Analytics</a></li>
+                    </ul>
+                </li>
+                <li><a href="about.html" class="nav-link">About Us</a></li>
+                <li><a href="contact.html" class="nav-link-primary">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="bg-circle circle-1"></div>
+        <div class="bg-circle circle-2"></div>
+        <div class="bg-circle circle-3"></div>
+        <div class="bg-circle circle-4"></div>
+        <div class="plus-sign plus-1">+</div>
+        <div class="plus-sign plus-2">+</div>
+        <div class="plus-sign plus-3">+</div>
+        <div class="small-circle sc-1"></div>
+        <div class="small-circle sc-2"></div>
+
+        <div class="hero-container" style="padding-top:150px;">
+            <div class="hero-left">
+                <h1 class="hero-title">We Value<br>Your <span class="text-green">Health</span></h1>
+                <p class="hero-description">
+                    Track your vitals, visualize trends, and connect with your doctor securely.
+                    Your comprehensive health companion &mdash; anytime, anywhere.
+                </p>
+                <button class="btn-read-more">Read More</button>
+                <div class="auth-section">
+                    <div class="auth-buttons">
+                        <div class="auth-btn-group">
+                            <p class="auth-question">Already have an account?</p>
+                            <button class="btn-login" onclick="lpOpenModal('login')">Login</button>
+                        </div>
+                        <div class="auth-btn-group">
+                            <p class="auth-question">No account?</p>
+                            <button class="btn-signup" onclick="lpOpenModal('signup')">Signup</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hero-center">
+                <img src="INN 2.png" alt="Healthcare Professional" class="hero-image">
+            </div>
+
+            <div class="hero-right">
+                <div class="appointment-card">
+                    <button class="btn-appointment">Make an appointment</button>
+                    <p class="appointment-description">
+                        Enter your contacts below to schedule an appointment or discuss it with us in details.
+                    </p>
+                    <form class="appointment-form" id="quickAppointmentForm">
+                        <input type="text" placeholder="Your name*" required>
+                        <input type="email" placeholder="Your email address*" required>
+                        <input type="tel" placeholder="Phone number*" required>
+                        <button type="submit" class="btn-book-now">Book now</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why Choose Section -->
+    <section class="why-choose-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Why Should You Choose InstaDoc?</h2>
+                <p>Our platform is trusted by leading healthcare providers across Nigeria for delivering exceptional insights and measurable improvements in patient care.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <div class="feature-icon"><i class="fa-solid fa-network-wired"></i></div>
+                    <h3>Industry-Leading Technology</h3>
+                    <p>Cutting-edge analytics platform built on the latest healthcare informatics standards and best practices.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                    <h3>HIPAA Compliant &amp; Secure</h3>
+                    <p>Bank-level encryption and security protocols to protect sensitive patient data and ensure regulatory compliance.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                    <h3>Actionable Insights</h3>
+                    <p>Transform raw data into meaningful insights with intuitive dashboards and AI-powered recommendations.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon"><i class="fa-solid fa-headset"></i></div>
+                    <h3>Dedicated Support</h3>
+                    <p>24/7 expert support team ready to assist with implementation, training, and ongoing optimization.</p>
+                </div>
+            </div>
+            <div class="cta-box">
+                <a href="consultation.html" class="btn-cta">Book a Consultation</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats-section">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-item"><div class="stat-number">1,200+</div><div class="stat-label">Clinic Hours Saved Monthly</div></div>
+                <div class="stat-item"><div class="stat-number">50+</div><div class="stat-label">Healthcare Partners</div></div>
+                <div class="stat-item"><div class="stat-number">99.9%</div><div class="stat-label">System Uptime</div></div>
+                <div class="stat-item"><div class="stat-number">100%</div><div class="stat-label">HIPAA Compliant</div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <img src="INN.png" alt="InstaDoc Logo" class="footer-logo">
+                <div class="footer-socials">
+                    <a href="#" aria-label="LinkedIn" class="social-link"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M4.98 3.5C4.98 4.88 3.87 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1 4.98 2.12 4.98 3.5zM.5 8h4V24h-4V8zm7.5 0h3.8v2.2h.1c.53-1 1.83-2.2 3.77-2.2C19.9 8 24 10.1 24 15.3V24h-4v-7.7c0-1.84-.03-4.2-2.56-4.2-2.56 0-2.95 2-2.95 4.06V24h-4V8z"/></svg></a>
+                    <a href="#" aria-label="Twitter" class="social-link"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+                    <a href="#" aria-label="Facebook" class="social-link"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/></svg></a>
+                    <a href="#" aria-label="Instagram" class="social-link"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073z"/><circle cx="12" cy="12" r="3.5"/><circle cx="18.5" cy="5.5" r="1.5"/></svg></a>
+                </div>
+            </div>
+            <div class="footer-links">
+                <div class="footer-column">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="about.html">About Us</a></li>
+                        <li><a href="services.html">Services</a></li>
+                        <li><a href="contact.html">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Legal</h4>
+                    <ul>
+                        <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="#">Terms of Service</a></li>
+                        <li><a href="#">Cookie Policy</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Support</h4>
+                    <ul>
+                        <li><a href="#">Help Center</a></li>
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">System Status</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <div class="footer-container footer-bottom-inner">
+                <p>&copy; 2026 InstaDoc, Inc. All rights reserved.</p>
+                <p>415 Adetokunbo Ademola Street, Abuja, FCT, Nigeria</p>
+                <!-- Subtle admin portal link — minimal, professional, not attention-grabbing -->
+                <a href="admin/index.html" class="admin-portal-link">Admin Portal</a>
+            </div>
+        </div>
+    </footer>
+
+
+    <!-- =============================================
+         AUTH MODALS
+         (INSTADOC modals, integrated into landing page)
+         ============================================= -->
+
+    <!-- Login Modal -->
+    <div class="lp-modal-overlay" id="lp-login-modal">
+        <div class="lp-auth-modal">
+            <button class="lp-modal-close" onclick="lpCloseModals()">&times;</button>
+            <h2 class="lp-modal-title">Welcome Back</h2>
+            <p class="lp-modal-subtitle">Sign in to your InstaDoc account</p>
+            <p class="lp-msg lp-error" id="lp-login-error"></p>
+            <form id="lp-login-form" onsubmit="lpHandleLogin(event)">
+                <div class="lp-form-group">
+                    <input type="email" id="lp-login-email" class="lp-form-control" placeholder="Email Address" required autocomplete="email">
+                </div>
+                <div class="lp-form-group">
+                    <input type="password" id="lp-login-password" class="lp-form-control" placeholder="Password" required autocomplete="current-password">
+                </div>
+                <div class="lp-forgot"><a onclick="lpOpenModal('reset')">Forgot Password?</a></div>
+                <button type="submit" id="lp-btn-login" class="lp-btn-submit">Login</button>
+            </form>
+            <div class="lp-divider">Or login with</div>
+            <div class="lp-social-row">
+                <button type="button" class="lp-social-btn" onclick="lpSignInGoogle()"><i class="fa-brands fa-google" style="color:#db4437;"></i> Google</button>
+                <button type="button" class="lp-social-btn" onclick="lpSignInPhone()"><i class="fa-solid fa-phone" style="color:#2f8f46;"></i> Phone</button>
+            </div>
+            <div class="lp-auth-footer">Don't have an account? <a onclick="lpOpenModal('signup')">Sign Up</a></div>
+        </div>
+    </div>
+
+    <!-- Signup Modal -->
+    <div class="lp-modal-overlay" id="lp-signup-modal">
+        <div class="lp-auth-modal">
+            <button class="lp-modal-close" onclick="lpCloseModals()">&times;</button>
+            <h2 class="lp-modal-title">Create Account</h2>
+            <p class="lp-modal-subtitle">Join InstaDoc &mdash; it's free</p>
+            <p class="lp-msg lp-error" id="lp-signup-error"></p>
+            <form id="lp-signup-form" onsubmit="lpHandleSignup(event)">
+                <div class="lp-form-group">
+                    <input type="email" id="lp-signup-email" class="lp-form-control" placeholder="Email Address" required autocomplete="email">
+                </div>
+                <div class="lp-form-group">
+                    <input type="password" id="lp-signup-password" class="lp-form-control" placeholder="Password" required autocomplete="new-password">
+                </div>
+                <div class="lp-form-group">
+                    <input type="password" id="lp-signup-confirm" class="lp-form-control" placeholder="Confirm Password" required autocomplete="new-password">
+                </div>
+                <div class="lp-doctor-checkbox">
+                    <input type="checkbox" id="lp-signup-as-doctor" onchange="lpToggleDoctorFields()">
+                    <label for="lp-signup-as-doctor">Register as Doctor</label>
+                </div>
+                <div id="lp-doctor-fields" style="display:none;">
+                    <div class="lp-form-group"><input type="text" id="lp-signup-fullname" class="lp-form-control" placeholder="Full Name (e.g. Dr. Jane Doe)"></div>
+                    <div class="lp-form-group"><input type="text" id="lp-signup-license" class="lp-form-control" placeholder="Medical License Number"></div>
+                    <div class="lp-form-group"><input type="text" id="lp-signup-specialty" class="lp-form-control" placeholder="Specialization (e.g. Cardiologist)"></div>
+                </div>
+                <button type="submit" id="lp-btn-signup" class="lp-btn-submit">Sign Up</button>
+            </form>
+            <div class="lp-divider">Or sign up with</div>
+            <div class="lp-social-row">
+                <button type="button" class="lp-social-btn" onclick="lpSignInGoogle()"><i class="fa-brands fa-google" style="color:#db4437;"></i> Google</button>
+                <button type="button" class="lp-social-btn" onclick="lpSignInPhone()"><i class="fa-solid fa-phone" style="color:#2f8f46;"></i> Phone</button>
+            </div>
+            <div class="lp-auth-footer">Already have an account? <a onclick="lpOpenModal('login')">Login</a></div>
+        </div>
+    </div>
+
+    <!-- Password Reset Modal -->
+    <div class="lp-modal-overlay" id="lp-reset-modal">
+        <div class="lp-auth-modal">
+            <button class="lp-modal-close" onclick="lpCloseModals()">&times;</button>
+            <h2 class="lp-modal-title">Reset Password</h2>
+            <p class="lp-modal-subtitle">Enter your email and we'll send a reset link.</p>
+            <p class="lp-msg lp-error" id="lp-reset-error"></p>
+            <p class="lp-msg lp-success" id="lp-reset-success"></p>
+            <form id="lp-reset-form" onsubmit="lpHandleReset(event)">
+                <div class="lp-form-group">
+                    <input type="email" id="lp-reset-email" class="lp-form-control" placeholder="Email Address" required autocomplete="email">
+                </div>
+                <button type="submit" id="lp-btn-reset" class="lp-btn-submit">Send Reset Link</button>
+            </form>
+            <div class="lp-auth-footer">Remember your password? <a onclick="lpOpenModal('login')">Login</a></div>
+        </div>
+    </div>
+
+
+    <script>
+    /* ================================================================
+       LANDING PAGE AUTH BRIDGE  (namespaced lp* — no collisions)
+       Initialises Supabase once, handles all auth flows, then
+       redirects to app/index.html where INSTADOC's onAuthStateChange
+       handles role-based routing (patient vs doctor).
+       ================================================================ */
+    (function () {
+        'use strict';
+
+        var LP_URL = 'https://ioaqlcltvakuqqehkyor.supabase.co';
+        var LP_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvYXFsY2x0dmFrdXFxZWhreW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNTk1MzksImV4cCI6MjA4MTczNTUzOX0._7ISJbfJzryBJWmtRuN72F-JZpYdvJxsltwwhombPtE';
+        var lpSb = window.supabase.createClient(LP_URL, LP_KEY);
+
+        // If a session already exists, go straight to the app
+        lpSb.auth.getSession().then(function(res) {
+            if (res.data && res.data.session && res.data.session.user) {
+                window.location.href = 'app/index.html';
+            }
+        });
+
+        // ── Modal helpers ──────────────────────────────────────────────
+        window.lpOpenModal = function (type) {
+            lpCloseModals();
+            var el = document.getElementById('lp-' + type + '-modal');
+            if (el) el.classList.add('active');
+        };
+        window.lpCloseModals = function () {
+            document.querySelectorAll('.lp-modal-overlay').forEach(function(m) {
+                m.classList.remove('active');
+            });
+        };
+        // Close on backdrop click
+        document.querySelectorAll('.lp-modal-overlay').forEach(function(overlay) {
+            overlay.addEventListener('click', function (e) {
+                if (e.target === this) lpCloseModals();
+            });
+        });
+        // Close on Escape
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') lpCloseModals();
+        });
+
+        // ── Doctor signup fields toggle ────────────────────────────────
+        window.lpToggleDoctorFields = function () {
+            var checked = document.getElementById('lp-signup-as-doctor').checked;
+            document.getElementById('lp-doctor-fields').style.display = checked ? 'block' : 'none';
+        };
+
+        // ── Loading state helper ───────────────────────────────────────
+        var btnLabels = { 'lp-btn-login': 'Login', 'lp-btn-signup': 'Sign Up', 'lp-btn-reset': 'Send Reset Link' };
+        function lpSetLoading(btnId, on) {
+            var btn = document.getElementById(btnId);
+            if (!btn) return;
+            btn.disabled = on;
+            btn.innerHTML = on ? '<span class="lp-spinner"></span>Please wait...' : (btnLabels[btnId] || 'Submit');
+        }
+        function lpMsg(id, text, isError) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = text || '';
+            el.style.color = isError ? '#dc2626' : '#16a34a';
+        }
+
+        // ── LOGIN ──────────────────────────────────────────────────────
+        window.lpHandleLogin = async function (e) {
+            e.preventDefault();
+            lpMsg('lp-login-error', '');
+            lpSetLoading('lp-btn-login', true);
+
+            var email    = document.getElementById('lp-login-email').value.trim();
+            var password = document.getElementById('lp-login-password').value;
+
+            var res = await lpSb.auth.signInWithPassword({ email: email, password: password });
+
+            if (res.error) {
+                lpMsg('lp-login-error', res.error.message, true);
+                lpSetLoading('lp-btn-login', false);
+                return;
+            }
+            // Success → go to app. INSTADOC's onAuthStateChange will route patient/doctor.
+            window.location.href = 'app/index.html';
+        };
+
+        // ── SIGNUP ────────────────────────────────────────────────────
+        window.lpHandleSignup = async function (e) {
+            e.preventDefault();
+            lpMsg('lp-signup-error', '');
+
+            var email    = document.getElementById('lp-signup-email').value.trim();
+            var password = document.getElementById('lp-signup-password').value;
+            var confirm  = document.getElementById('lp-signup-confirm').value;
+            var isDoctor = document.getElementById('lp-signup-as-doctor').checked;
+
+            if (password !== confirm) { lpMsg('lp-signup-error', 'Passwords do not match.', true); return; }
+            if (password.length < 6) { lpMsg('lp-signup-error', 'Password must be at least 6 characters.', true); return; }
+
+            var meta = { role: isDoctor ? 'doctor' : 'patient' };
+            if (isDoctor) {
+                meta.full_name = document.getElementById('lp-signup-fullname').value.trim();
+                meta.license   = document.getElementById('lp-signup-license').value.trim();
+                meta.specialty = document.getElementById('lp-signup-specialty').value.trim();
+            }
+
+            lpSetLoading('lp-btn-signup', true);
+
+            var res = await lpSb.auth.signUp({ email: email, password: password, options: { data: meta } });
+
+            if (res.error) {
+                lpMsg('lp-signup-error', res.error.message, true);
+                lpSetLoading('lp-btn-signup', false);
+                return;
+            }
+
+            if (res.data && res.data.session) {
+                window.location.href = 'app/index.html';
+            } else {
+                // Email confirmation required
+                lpCloseModals();
+                lpOpenModal('login');
+                setTimeout(function() {
+                    lpMsg('lp-login-error', '✓ Account created! Check your email to confirm, then log in.', false);
+                }, 100);
+                lpSetLoading('lp-btn-signup', false);
+            }
+        };
+
+        // ── PASSWORD RESET ─────────────────────────────────────────────
+        window.lpHandleReset = async function (e) {
+            e.preventDefault();
+            lpMsg('lp-reset-error', '');
+            lpMsg('lp-reset-success', '');
+            lpSetLoading('lp-btn-reset', true);
+
+            var email = document.getElementById('lp-reset-email').value.trim();
+            // redirectTo points to app/index.html so INSTADOC handles PASSWORD_RECOVERY
+            var base = window.location.href.replace(/\/[^\/]*$/, '/');
+            var res = await lpSb.auth.resetPasswordForEmail(email, { redirectTo: base + 'app/index.html' });
+
+            if (res.error) {
+                lpMsg('lp-reset-error', res.error.message, true);
+            } else {
+                lpMsg('lp-reset-success', 'Reset link sent! Check your inbox.', false);
+            }
+            lpSetLoading('lp-btn-reset', false);
+        };
+
+        // ── SOCIAL AUTH ────────────────────────────────────────────────
+        window.lpSignInGoogle = async function () {
+            var base = window.location.href.replace(/\/[^\/]*$/, '/');
+            await lpSb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: base + 'app/index.html' } });
+        };
+        window.lpSignInPhone = function () {
+            lpCloseModals();
+            alert('Phone authentication is available inside the full app. Please use email/password to sign in here.');
+        };
+
+    })();
+
+    /* ================================================================
+       ORIGINAL IDMetric NAVIGATION LOGIC  (unchanged)
+       ================================================================ */
+    (function () {
+        var menuToggle = document.querySelector('.mobile-menu-toggle');
+        var navMenu    = document.querySelector('.nav-menu');
+
+        if (menuToggle) {
+            menuToggle.addEventListener('click', function () {
+                navMenu.classList.toggle('active');
+                menuToggle.classList.toggle('active');
+            });
+            document.addEventListener('click', function (e) {
+                if (!e.target.closest('.nav-container')) {
+                    navMenu.classList.remove('active');
+                    menuToggle.classList.remove('active');
+                }
+            });
+        }
+
+        document.querySelectorAll('.dropdown').forEach(function (dropdown) {
+            var link = dropdown.querySelector('.nav-link');
+            link.addEventListener('click', function (e) {
+                if (window.innerWidth < 1024) {
+                    e.preventDefault();
+                    dropdown.classList.toggle('active');
+                }
+            });
+        });
+
+        window.addEventListener('click', function (e) {
+            if (!e.target.closest('.dropdown')) {
+                document.querySelectorAll('.dropdown').forEach(function (d) { d.classList.remove('active'); });
+            }
+        });
+
+        document.getElementById('quickAppointmentForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            window.location.href = 'consultation.html';
+        });
+    })();
+    </script>
+</body>
+</html>
