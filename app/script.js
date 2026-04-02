@@ -1690,22 +1690,17 @@ async function downloadMyData() {
 function deleteMyAccount() {
     if (!currentUser) return;
     
-    showConfirm("Are you sure you want to permanently delete your data? This action cannot be undone.", async (confirmed) => {
+    showConfirm("Are you sure you want to permanently delete your account and all data? This action cannot be undone.", async (confirmed) => {
         if (!confirmed) return;
 
-        showToast("Wiping account data...", "success");
+        showToast("Wiping account data securely...", "success");
         
         try {
-            // Delete all user records from the database
-            await Promise.all([
-                supabaseClient.from('weight_logs').delete().eq('user_id', currentUser.id),
-                supabaseClient.from('bp_logs').delete().eq('user_id', currentUser.id),
-                supabaseClient.from('glucose_logs').delete().eq('user_id', currentUser.id),
-                supabaseClient.from('temp_logs').delete().eq('user_id', currentUser.id),
-                supabaseClient.from('appointments').delete().eq('user_id', currentUser.id)
-            ]);
+            // ONE CALL: Let the Supabase server handle the entire cascading wipe securely!
+            const { error: authError } = await supabaseClient.rpc('delete_user');
+            if (authError) throw authError;
             
-            showToast("All personal data has been permanently deleted.", "success");
+            showToast("Your account and all personal data have been permanently deleted.", "success");
             
             // Log them out and redirect to home
             setTimeout(() => {
