@@ -180,9 +180,9 @@
                         Enter your contacts below to schedule an appointment or discuss it with us in details.
                     </p>
                     <form class="appointment-form" id="quickAppointmentForm">
-                        <input type="text" placeholder="Your name*" required>
-                        <input type="email" placeholder="Your email address*" required>
-                        <input type="tel" placeholder="Phone number*" required>
+                        <input type="text" id="quick-name" placeholder="Your name*" required>
+                        <input type="email" id="quick-email" placeholder="Your email address*" required>
+                        <input type="tel" id="quick-phone" placeholder="Phone number*" required>
                         <button type="submit" class="btn-book-now">Book now</button>
                     </form>
                 </div>
@@ -220,7 +220,7 @@
                 </div>
             </div>
             <div class="cta-box">
-                <a href="consultation.html" class="btn-cta">Book a Consultation</a>
+                <a href="#" onclick="lpOpenModal('signup'); return false;" class="btn-cta">Book a Consultation</a>
             </div>
         </div>
     </section>
@@ -569,9 +569,30 @@
             }
         });
 
-        document.getElementById('quickAppointmentForm').addEventListener('submit', function (e) {
+       document.getElementById('quickAppointmentForm').addEventListener('submit', function (e) {
             e.preventDefault();
-            window.location.href = 'consultation.html';
+            
+            // 1. Grab what they typed
+            var name = document.getElementById('quick-name').value;
+            var email = document.getElementById('quick-email').value;
+            var phone = document.getElementById('quick-phone').value;
+
+            // 2. Save it to browser memory so the app can use it after they sign in
+            sessionStorage.setItem('pendingBookingName', name);
+            sessionStorage.setItem('pendingBookingEmail', email);
+            sessionStorage.setItem('pendingBookingPhone', phone);
+
+            // 3. Auto-fill the Sign-Up modal so they don't have to type it twice
+            document.getElementById('lp-signup-email').value = email;
+            if(document.getElementById('lp-signup-fullname')) {
+                document.getElementById('lp-signup-fullname').value = name;
+            }
+
+            // 4. Update the modal subtitle to explain WHY they are signing up
+            document.querySelector('#lp-signup-modal .lp-modal-subtitle').textContent = "Create a free account to finalize your booking.";
+
+            // 5. Open the Sign-Up Modal
+            lpOpenModal('signup');
         });
     })();
     </script>

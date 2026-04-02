@@ -75,10 +75,12 @@
         <div class="dash-right-pane">
             
             <header class="dash-header-area">
-                <div class="header-actions">
+                <div class="header-actions" style="display: flex; align-items: center; gap: 1rem;">
                     <div class="profile-pic">
-                        <!-- Dynamic content here -->
-                    </div>
+                        </div>
+                    <button class="btn-sm cursor-pointer" onclick="logout()" style="background-color: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2);">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+                    </button>
                 </div>
             </header>
 
@@ -157,7 +159,6 @@
                                 <button class="btn-action btn-gray-light" onclick="openModal('booking')"><i class="fa-regular fa-calendar-plus"></i> Book Appointment</button>
                                 <button class="btn-action btn-gray-light" onclick="openModal('reminders')"><i class="fa-regular fa-bell"></i> Set Daily Reminder</button>
                                 <button class="btn-action btn-gray-light" onclick="openModal('reports')"><i class="fa-regular fa-file-lines"></i> View Records</button>
-                                <button class="btn-action btn-gray-light text-red" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket icon-red"></i> Logout</button>
                             </div>
                             </div>
                         </div>
@@ -312,10 +313,8 @@
                                     <h3 class="text-xl font-bold" id="header-name">User</h3>
                                     <p class="text-sm text-gray-500" id="header-email">user@email.com</p>
                                     <p class="text-xs text-gray-400 mt-1" id="header-details"></p>
-                                    <div class="verified-badge"><i class="fa-solid fa-shield-halved"></i> Verified Account</div>
                                 </div>
                             </div>
-                            <button class="btn-action btn-green-solid btn-padded">Edit Profile</button>
                         </div>
                         <div class="grid-2-col mb-6">
                             <div class="card p-6">
@@ -385,7 +384,10 @@
                                     </div>
                                     <button class="btn-action btn-green-solid" onclick="updateInlinePassword(this)">Update Password</button>
                                     
-                                    <div class="toggle-item border-none pt-2"><div><h4 class="font-bold text-sm">Two-Factor Authentication</h4><p class="text-xs text-gray-500">Add extra security to your account</p></div><div class="toggle-switch"><div class="toggle-thumb"></div></div></div>
+                                    <div class="toggle-item border-none pt-2">
+                                        <div><h4 class="font-bold text-sm">Two-Factor Authentication</h4><p class="text-xs text-gray-500">Add extra security to your account</p></div>
+                                        <div class="toggle-switch" id="toggle-2fa" onclick="handle2FAToggle(this)"><div class="toggle-thumb"></div></div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="card p-6">
@@ -393,7 +395,19 @@
                                 <div>
                                     <div class="toggle-item"><div><h4 class="font-bold text-sm">Share Health Data</h4><p class="text-xs text-gray-500">Allow data sharing with healthcare providers</p></div><div class="toggle-switch checked" id="toggle-share-data" onclick="this.classList.toggle('checked')"><div class="toggle-thumb"></div></div></div>
                                     <div class="toggle-item"><div><h4 class="font-bold text-sm">Research Participation</h4><p class="text-xs text-gray-500">Contribute anonymized data for research</p></div><div class="toggle-switch" id="toggle-research" onclick="this.classList.toggle('checked')"><div class="toggle-thumb"></div></div></div>
-                                    <div class="mt-4 flex flex-col gap-2"><button class="btn-outline-gray">Download My Data</button><button class="btn-outline-red">Delete Account</button></div>
+                                    <div class="mt-4 flex flex-col gap-2">
+                                        <button class="btn-outline-gray" style="border-color: #2ecc71; color: #16a34a;" onclick="openModal('reports')">
+                                            <i class="fa-regular fa-file-pdf mr-2"></i> Download Health Report
+                                        </button>
+                                        
+                                        <button class="btn-outline-gray" onclick="downloadMyData()">
+                                            <i class="fa-solid fa-code mr-2"></i> Export Raw Account Data
+                                        </button>
+                                        
+                                        <button class="btn-outline-red" onclick="deleteMyAccount()">
+                                            <i class="fa-solid fa-trash-can mr-2"></i> Delete Account
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="card p-6">
@@ -501,10 +515,6 @@
                                     <button class="btn-action btn-gray-light" onclick="showToast('Opening secure messages...', 'success')">
                                         <i class="fa-regular fa-comment-dots"></i> Messages
                                     </button>
-                                    
-                                    <button class="btn-action btn-gray-light text-red" onclick="logout()">
-                                        <i class="fa-solid fa-arrow-right-from-bracket icon-red"></i> Logout
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -569,7 +579,6 @@
                                 </div>
                             </div>
                         </div>
-                        <button class="btn-action btn-green-solid btn-padded">Edit Profile</button>
                     </div>
 
                     <div class="grid-2-col mb-6">
@@ -770,15 +779,39 @@
     </div>
 
     <div class="modal-overlay" id="confirm-modal" style="z-index: 10000;">
-    <div class="auth-modal" style="text-align: center;">
-        <h2 class="modal-title" id="confirm-title">Are you sure?</h2>
-        <p class="text-sm text-gray-500 mb-6" id="confirm-message">This action cannot be undone.</p>
-        <div class="flex gap-4 justify-center">
-            <button class="btn-action bg-gray-200 text-gray-700 border-none px-6 py-2 rounded cursor-pointer" id="confirm-cancel-btn">Cancel</button>
-            <button class="btn-action bg-red-500 text-white border-none px-6 py-2 rounded cursor-pointer" id="confirm-ok-btn">Confirm</button>
+        <div class="auth-modal" style="text-align: center;">
+            <h2 class="modal-title" id="confirm-title">Are you sure?</h2>
+            <p class="text-sm text-gray-500 mb-6" id="confirm-message">This action cannot be undone.</p>
+            <div class="flex gap-4 justify-center">
+                <button class="btn-action bg-gray-200 text-gray-700 border-none px-6 py-2 rounded cursor-pointer" id="confirm-cancel-btn">Cancel</button>
+                <button class="btn-action bg-red-500 text-white border-none px-6 py-2 rounded cursor-pointer" id="confirm-ok-btn">Confirm</button>
+            </div>
         </div>
     </div>
-</div>
+
+    <div class="modal-overlay" id="mfa-setup-modal">
+        <div class="auth-modal" style="text-align: center;">
+            <button class="close-modal" onclick="closeModals()">&times;</button>
+            <h2 class="modal-title">Secure Your Account</h2>
+            <p class="text-sm text-gray-500 mb-4">1. Scan this QR code with Google Authenticator or Authy.</p>
+            
+            <div id="qr-code-container" style="margin: 0 auto 20px auto; width: 200px; height: 200px; background: #f8fafc; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #e2e8f0;">
+                <div class="loading-cell text-sm text-gray-400">Generating secure code...</div>
+            </div>
+
+            <p class="text-sm text-gray-500 mb-2">2. Enter the 6-digit code from your app.</p>
+            <p class="error-msg" id="mfa-error"></p>
+            <p class="success-msg" id="mfa-success"></p>
+            
+            <form id="mfa-verify-form">
+                <input type="hidden" id="mfa-factor-id">
+                <div class="form-group" style="display: flex; justify-content: center;">
+                    <input type="text" id="mfa-code-input" class="form-control" placeholder="000000" style="text-align: center; letter-spacing: 0.5rem; font-size: 1.2rem; font-weight: bold; max-width: 200px;" maxlength="6" required>
+                </div>
+                <button type="submit" class="book-btn btn-full" id="mfa-verify-btn">Verify & Enable 2FA</button>
+            </form>
+        </div>
+    </div>
 
     <!-- Video Call Modal -->
     <div class="modal-overlay" id="video-modal">

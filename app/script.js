@@ -110,8 +110,29 @@ if (supabaseClient) {
                 }
             }
             
-            updateWelcomeMessage();
+           updateWelcomeMessage();
             updateAvatarUI(session.user.user_metadata?.avatar_url);
+
+            // --- SEAMLESS BOOKING HANDOFF ---
+            if (sessionStorage.getItem('pendingBookingEmail') && userRole === 'patient') {
+                // Give the dashboard exactly 1 second to finish its loading animations
+                setTimeout(() => {
+                    openModal('booking');
+
+                    // If they provided a phone number on the landing page, quietly save it to their profile!
+                    const savedPhone = sessionStorage.getItem('pendingBookingPhone');
+                    const currentMeta = session.user.user_metadata || {};
+                    if (savedPhone && !currentMeta.phone) {
+                        supabaseClient.auth.updateUser({ data: { phone: savedPhone } });
+                    }
+
+                    // Erase the browser memory so the calendar doesn't keep popping up every time they refresh
+                    sessionStorage.removeItem('pendingBookingName');
+                    sessionStorage.removeItem('pendingBookingEmail');
+                    sessionStorage.removeItem('pendingBookingPhone');
+                }, 1000); 
+            }
+            // --------------------------------
 
         } else {
             // LOGGED OUT — redirect to landing page
@@ -307,11 +328,13 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 });
 
 // SIGNUP FORM HANDLER
+// SIGNUP FORM HANDLER
 document.getElementById('signup-form').addEventListener('submit', async (e) => { 
     e.preventDefault(); 
     const email = document.getElementById('signup-email').value;
     const password = document.getElementById('signup-password').value;
     const confirmPass = document.getElementById('signup-confirm-password').value;
+    const btn = e.target.querySelector('button[type="submit"]');
 
     if (password !== confirmPass) {
         document.getElementById('signup-error').textContent = "Passwords do not match."; 
@@ -319,12 +342,11 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
         return;
     }
     
-    // Logic to prevent Database Trigger Errors (NOT NULL constraints)
+    // Logic to prevent Database Trigger Errors
     const isDoc = document.getElementById('signup-as-doctor').checked;
     let metadata = {};
 
     if (isDoc) {
-        // Validate Doctor Fields
         const fullName = document.getElementById('signup-fullname').value;
         const license = document.getElementById('signup-license').value;
         
@@ -348,7 +370,11 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
         };
     }
 
-    const { error } = await supabaseClient.auth.signUp({ 
+    btn.textContent = "Creating Account...";
+    btn.disabled = true;
+
+    // Notice we capture 'data' here now as well
+    const { data, error } = await supabaseClient.auth.signUp({ 
         email: email, 
         password: password,
         options: {
@@ -359,9 +385,26 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
     if (error) { 
         document.getElementById('signup-error').textContent = error.message; 
         document.getElementById('signup-error').style.display = 'block'; 
+        btn.textContent = "Sign Up";
+        btn.disabled = false;
     } else { 
-        showToast("Signup successful! Please check your email for verification.", "success"); 
-        closeModals(); 
+        // --- BULLETPROOF EMAIL VERIFICATION CHECK ---
+        if (data.session === null) {
+            // Supabase successfully withheld the session because email confirm is ON
+            showToast("Account created! Please check your email for the verification link.", "success"); 
+            closeModals(); 
+        } else if (data.user && !data.user.email_confirmed_at) {
+            // Failsafe: If Supabase granted a session anyway, forcefully log them out
+            await supabaseClient.auth.signOut();
+            document.getElementById('signup-error').textContent = "Please verify your email address before accessing the portal.";
+            document.getElementById('signup-error').style.display = 'block';
+            btn.textContent = "Sign Up";
+            btn.disabled = false;
+        } else {
+            // Fallback if Admin turns verification off in the future
+            showToast("Signup successful!", "success"); 
+            closeModals(); 
+        }
     } 
 });
 
@@ -686,6 +729,24 @@ function updateAvatarUI(avatarUrl) {
     if (topProfilePic) topProfilePic.innerHTML = content;
 }
 
+// --- DARK MODE TOGGLE ---
+function toggleDarkMode(element) {
+    // 1. Visually flip the switch
+    element.classList.toggle('checked');
+    
+    // 2. Add/remove the dark mode class from the entire page
+    document.body.classList.toggle('dark-mode');
+    
+    // 3. Save to localStorage instantly so the screen doesn't flash white on page refresh
+    const isDark = document.body.classList.contains('dark-mode');
+    localStorage.setItem('instadoc_dark_mode', isDark);
+}
+
+// Auto-apply dark mode from local storage immediately on load (prevents white flashing)
+if (localStorage.getItem('instadoc_dark_mode') === 'true') {
+    document.body.classList.add('dark-mode');
+}
+
 // --- 5. DATA FETCH LOGIC (PATIENT) ---
 async function loadDashboardData() {
     updateStatCard('weight_logs', 'weight', 'val-weight', 'kg');
@@ -741,7 +802,7 @@ const pastAppts = data.filter(a => a.status.toLowerCase() === 'completed')
         document.getElementById('appt-stat-past').textContent = pastAppts.length;
 
         const dashList = document.getElementById('dashboard-appointment-list');
-        if(dashList) renderAppointmentList(dashList, futureAppts.slice(0,3));
+        if(dashList) renderAppointmentList(dashList, futureAppts.slice(0,2));
 
         const mainList = document.getElementById('detailed-appointment-list');
         if(mainList) renderDetailedList(mainList, futureAppts);
@@ -1282,12 +1343,16 @@ function loadProfileSettings() {
     if(meta.em_phone) document.getElementById('settings-em-phone').value = meta.em_phone;
     if(meta.em_email) document.getElementById('settings-em-email').value = meta.em_email;
     
-    if(meta.dark_mode) {
-        const toggle = document.getElementById('dark-mode-toggle');
-        if(toggle && !toggle.classList.contains('checked')) {
-            toggle.classList.add('checked');
-            document.body.classList.add('dark-mode');
-        }
+    // --- LOAD DARK MODE STATE ---
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+    if (meta.dark_mode) {
+        if (darkModeToggle) darkModeToggle.classList.add('checked');
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('instadoc_dark_mode', 'true');
+    } else {
+        if (darkModeToggle) darkModeToggle.classList.remove('checked');
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('instadoc_dark_mode', 'false');
     }
 
     // --- NEW: Load Toggle States ---
@@ -1297,7 +1362,8 @@ function loadProfileSettings() {
         'toggle-lab-results': meta.setting_lab_results ?? true,
         'toggle-health-tips': meta.setting_health_tips ?? false,
         'toggle-share-data': meta.setting_share_data ?? true,
-        'toggle-research': meta.setting_research ?? false
+        'toggle-research': meta.setting_research ?? false,
+        'toggle-2fa': meta.setting_2fa ?? false
     };
 
     for (const [id, isEnabled] of Object.entries(toggles)) {
@@ -1541,12 +1607,14 @@ async function saveSettings() {
         em_email: document.getElementById('settings-em-email').value,
         
         // --- NEW: Scrape Toggle States ---
+        dark_mode: document.getElementById('dark-mode-toggle')?.classList.contains('checked'),
         setting_appt_reminders: document.getElementById('toggle-appt-reminders')?.classList.contains('checked'),
         setting_med_reminders: document.getElementById('toggle-med-reminders')?.classList.contains('checked'),
         setting_lab_results: document.getElementById('toggle-lab-results')?.classList.contains('checked'),
         setting_health_tips: document.getElementById('toggle-health-tips')?.classList.contains('checked'),
         setting_share_data: document.getElementById('toggle-share-data')?.classList.contains('checked'),
-        setting_research: document.getElementById('toggle-research')?.classList.contains('checked')
+        setting_research: document.getElementById('toggle-research')?.classList.contains('checked'),
+        setting_2fa: document.getElementById('toggle-2fa')?.classList.contains('checked')
         // ---------------------------------
     };
 
@@ -1561,6 +1629,93 @@ async function saveSettings() {
         currentUser = data.user;
         loadProfileSettings(); 
     }
+}
+
+// --- PRIVACY & DATA FUNCTIONS ---
+
+async function downloadMyData() {
+    if (!currentUser) return;
+    
+    // Change button text temporarily
+    const btn = document.querySelector('button[onclick="downloadMyData()"]');
+    const originalText = btn.textContent;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Compiling...';
+    btn.disabled = true;
+
+    try {
+        // Fetch all the user's data concurrently
+        const [profile, weight, bp, glucose, temp, appts] = await Promise.all([
+            supabaseClient.auth.getUser(),
+            supabaseClient.from('weight_logs').select('*').eq('user_id', currentUser.id),
+            supabaseClient.from('bp_logs').select('*').eq('user_id', currentUser.id),
+            supabaseClient.from('glucose_logs').select('*').eq('user_id', currentUser.id),
+            supabaseClient.from('temp_logs').select('*').eq('user_id', currentUser.id),
+            supabaseClient.from('appointments').select('*').eq('user_id', currentUser.id)
+        ]);
+
+        // Bundle it into a clean object
+        const exportData = {
+            user_profile: profile.data?.user?.user_metadata || {},
+            email: currentUser.email,
+            exported_at: new Date().toISOString(),
+            metrics: {
+                weight_logs: weight.data || [],
+                blood_pressure_logs: bp.data || [],
+                glucose_logs: glucose.data || [],
+                temperature_logs: temp.data || []
+            },
+            appointments: appts.data || []
+        };
+
+        // Create a downloadable JSON file
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+        const dlAnchorElem = document.createElement('a');
+        dlAnchorElem.setAttribute("href", dataStr);
+        dlAnchorElem.setAttribute("download", "Instadoc_My_Data.json");
+        document.body.appendChild(dlAnchorElem);
+        dlAnchorElem.click();
+        dlAnchorElem.remove();
+        
+        showToast("Data downloaded successfully!", "success");
+    } catch (error) {
+        showToast("Failed to compile data: " + error.message, "error");
+        console.error(error);
+    } finally {
+        // Restore button UI
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+function deleteMyAccount() {
+    if (!currentUser) return;
+    
+    showConfirm("Are you sure you want to permanently delete your data? This action cannot be undone.", async (confirmed) => {
+        if (!confirmed) return;
+
+        showToast("Wiping account data...", "success");
+        
+        try {
+            // Delete all user records from the database
+            await Promise.all([
+                supabaseClient.from('weight_logs').delete().eq('user_id', currentUser.id),
+                supabaseClient.from('bp_logs').delete().eq('user_id', currentUser.id),
+                supabaseClient.from('glucose_logs').delete().eq('user_id', currentUser.id),
+                supabaseClient.from('temp_logs').delete().eq('user_id', currentUser.id),
+                supabaseClient.from('appointments').delete().eq('user_id', currentUser.id)
+            ]);
+            
+            showToast("All personal data has been permanently deleted.", "success");
+            
+            // Log them out and redirect to home
+            setTimeout(() => {
+                logout();
+            }, 2000);
+            
+        } catch (error) {
+            showToast("Error wiping data: " + error.message, "error");
+        }
+    });
 }
 
 // --- DOCTOR LOGIC ---
@@ -2486,3 +2641,148 @@ async function updateInlinePassword(btn) {
     btn.textContent = originalText;
     btn.disabled = false;
 }
+
+// =========================================
+// TWO-FACTOR AUTHENTICATION (MFA / TOTP)
+// =========================================
+
+async function handle2FAToggle(toggleElement) {
+    if (!currentUser) return;
+    
+    const isCurrentlyEnabled = toggleElement.classList.contains('checked');
+
+    if (isCurrentlyEnabled) {
+        // TURN OFF 2FA
+        showConfirm("Are you sure you want to disable Two-Factor Authentication? This makes your account less secure.", async (confirmed) => {
+            if (!confirmed) return;
+            
+            try {
+                // Fetch the user's enrolled factors
+                const { data, error } = await supabaseClient.auth.mfa.listFactors();
+                if (error) throw error;
+
+                const totpFactor = data.totp[0];
+                if (totpFactor) {
+                    // Unenroll them from the database
+                    const { error: unenrollError } = await supabaseClient.auth.mfa.unenroll({ factorId: totpFactor.id });
+                    if (unenrollError) throw unenrollError;
+                }
+
+                // Update UI and Metadata
+                toggleElement.classList.remove('checked');
+                await supabaseClient.auth.updateUser({ data: { setting_2fa: false } });
+                showToast("Two-Factor Authentication disabled.", "success");
+
+            } catch (err) {
+                showToast("Error disabling 2FA: " + err.message, "error");
+            }
+        });
+    } else {
+        // TURN ON 2FA: Start the setup process
+        openModal('mfa-setup');
+        document.getElementById('mfa-error').style.display = 'none';
+        document.getElementById('mfa-success').style.display = 'none';
+        document.getElementById('mfa-code-input').value = '';
+        
+        try {
+            document.getElementById('qr-code-container').innerHTML = '<div class="loading-cell text-sm text-gray-400">Generating secure code...</div>';
+
+            // STEP A: Forcefully clean up any "ghost" factors and WAIT for it to finish
+            const { data: listData, error: listError } = await supabaseClient.auth.mfa.listFactors();
+            if (listError) throw listError;
+            
+            if (listData && listData.totp) {
+                const unenrollPromises = listData.totp
+                    .filter(factor => factor.status === 'unverified')
+                    .map(factor => supabaseClient.auth.mfa.unenroll({ factorId: factor.id }));
+                
+                // Pause execution until all ghost factors are confirmed deleted from the database
+                await Promise.all(unenrollPromises);
+            }
+
+            // STEP B: Generate the new code with a unique friendly name to guarantee zero collisions
+            const uniqueSuffix = Math.floor(Math.random() * 10000);
+            const { data, error } = await supabaseClient.auth.mfa.enroll({ 
+                factorType: 'totp',
+                issuer: 'Instadoc', 
+                friendlyName: `Instadoc Secure Login ${uniqueSuffix}` // Guarantees uniqueness!
+            });
+            
+            if (error) throw error;
+
+            // Save the Factor ID secretly in the form so we can verify it in the next step
+            document.getElementById('mfa-factor-id').value = data.id;
+
+           // Inject the Supabase-generated SVG QR Code securely using DOM elements to prevent quote-breaking
+            const qrContainer = document.getElementById('qr-code-container');
+            qrContainer.innerHTML = ''; // Clear the loading text
+            
+            const qrImg = document.createElement('img');
+            qrImg.src = data.totp.qr_code; // Programmatic assignment prevents HTML syntax errors!
+            qrImg.alt = "2FA QR Code";
+            qrImg.style.width = "100%";
+            qrImg.style.height = "100%";
+            qrImg.style.objectFit = "contain";
+            qrImg.style.padding = "10px";
+            
+            qrContainer.appendChild(qrImg);
+            
+        } catch (err) {
+            document.getElementById('qr-code-container').innerHTML = `<p class="text-xs text-red-500 px-4" style="text-align:center;">${err.message}</p>`;
+        }
+    }
+}
+
+// 2. Verify the 6-digit code to finalize enrollment
+document.getElementById('mfa-verify-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = document.getElementById('mfa-code-input').value.trim();
+    const factorId = document.getElementById('mfa-factor-id').value;
+    const btn = document.getElementById('mfa-verify-btn');
+    const errEl = document.getElementById('mfa-error');
+    
+    if (code.length !== 6) {
+        errEl.textContent = "Code must be 6 digits.";
+        errEl.style.display = 'block';
+        return;
+    }
+
+    btn.textContent = "Verifying...";
+    btn.disabled = true;
+
+    try {
+        // Step A: Create a "Challenge" for the factor
+        const { data: challenge, error: challengeError } = await supabaseClient.auth.mfa.challenge({ factorId });
+        if (challengeError) throw challengeError;
+
+        // Step B: Verify the 6-digit code against the challenge
+        const { error: verifyError } = await supabaseClient.auth.mfa.verify({ 
+            factorId, 
+            challengeId: challenge.id, 
+            code 
+        });
+        
+        if (verifyError) throw verifyError;
+
+        // SUCCESS! 
+        document.getElementById('mfa-success').textContent = "2FA successfully enabled!";
+        document.getElementById('mfa-success').style.display = 'block';
+        errEl.style.display = 'none';
+        
+        // Update the UI toggle and save metadata
+        document.getElementById('toggle-2fa').classList.add('checked');
+        await supabaseClient.auth.updateUser({ data: { setting_2fa: true } });
+
+        setTimeout(() => {
+            closeModals();
+            showToast("Account security upgraded.", "success");
+        }, 1500);
+
+    } catch (err) {
+        errEl.textContent = "Invalid code. Try again.";
+        errEl.style.display = 'block';
+    } finally {
+        btn.textContent = "Verify & Enable 2FA";
+        btn.disabled = false;
+    }
+});
