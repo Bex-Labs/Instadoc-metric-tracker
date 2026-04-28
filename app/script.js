@@ -27,7 +27,19 @@ try {
 
 // --- 2. AUTH & VIEW STATE ---
 if (supabaseClient) {
+    // 1. Manually pull the session first to prevent the "Verifying" screen from hanging
+    supabaseClient.auth.getSession().then(({ data: { session } }) => {
+        handleSession(session, 'INITIAL_LOAD');
+    });
+
+    // 2. Listen for future auth changes (like logouts or password recoveries)
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'INITIAL_SESSION') return; // Handled by getSession above
+        handleSession(session, event);
+    });
+
+    // 3. Your existing routing logic safely wrapped in a reusable function
+    async function handleSession(session, event) {
         const landing = document.getElementById('landing-view');
         const dashboard = document.getElementById('dashboard-view');
         const deco = document.getElementById('decorations');
@@ -46,7 +58,7 @@ if (supabaseClient) {
             // LOGGED IN
             currentUser = session.user;
 
-            // Track login event (only on actual sign in, not session refresh)
+            // Track login event
             if (event === 'SIGNED_IN') {
                 const meta = session.user.user_metadata || {};
                 supabaseClient.from('login_logs').insert({
@@ -61,10 +73,7 @@ if (supabaseClient) {
             }
 
             // US-1 & US-2: Role-Based Routing
-            // Source of Truth: user_metadata.role
             const metaRole = (session.user.user_metadata && session.user.user_metadata.role) ? session.user.user_metadata.role : 'patient';
-            
-            // Set Global Role (This was also missing!)
             userRole = metaRole; 
 
             // --- RESTORED VISUAL SWITCH LOGIC ---
@@ -81,7 +90,6 @@ if (supabaseClient) {
 
             // Setup Interface based on Role
             setupSidebar();
-
             startNotificationEngine();
             
             // Retrieve last active view or default
@@ -92,7 +100,6 @@ if (supabaseClient) {
                 renderScheduleGrid(); 
                 loadDoctorDashboardData(); 
                 
-                // Load saved doctor tab, or default to dashboard
                 if (savedView && savedView.startsWith('doctor-')) {
                     switchView(savedView);
                 } else {
@@ -102,7 +109,6 @@ if (supabaseClient) {
                 loadDashboardData();
                 loadProfileSettings(); 
                 
-                // Load saved patient tab, or default to dashboard
                 if (savedView && !savedView.startsWith('doctor-')) {
                     switchView(savedView);
                 } else {
@@ -110,41 +116,32 @@ if (supabaseClient) {
                 }
             }
             
-           updateWelcomeMessage();
+            updateWelcomeMessage();
             updateAvatarUI(session.user.user_metadata?.avatar_url);
 
             // --- SEAMLESS BOOKING HANDOFF ---
             if (sessionStorage.getItem('pendingBookingEmail') && userRole === 'patient') {
-                // Give the dashboard exactly 1 second to finish its loading animations
                 setTimeout(() => {
                     openModal('booking');
-
-                    // If they provided a phone number on the landing page, quietly save it to their profile!
                     const savedPhone = sessionStorage.getItem('pendingBookingPhone');
                     const currentMeta = session.user.user_metadata || {};
                     if (savedPhone && !currentMeta.phone) {
                         supabaseClient.auth.updateUser({ data: { phone: savedPhone } });
                     }
-
-                    // Erase the browser memory so the calendar doesn't keep popping up every time they refresh
                     sessionStorage.removeItem('pendingBookingName');
                     sessionStorage.removeItem('pendingBookingEmail');
                     sessionStorage.removeItem('pendingBookingPhone');
                 }, 1000); 
             }
-            // --------------------------------
-
         } else {
             // LOGGED OUT — redirect to landing page
             currentUser = null;
             userRole = 'patient';
             window.location.href = '../index.html';
         }
-    });
+    }
 
     // Force-logout listener: Admin can suspend/archive users mid-session
-    // This channel is broadcast from the admin panel's changeUserStatus/archiveUser functions
-    // We subscribe after the client is initialised; user ID is filled in once signed in
     supabaseClient.auth.onAuthStateChange(function(event, session) {
         if (event === 'SIGNED_IN' && session && session.user) {
             supabaseClient
@@ -691,7 +688,7 @@ function initDoctorCharts() {
     });
 }
 
-// --- SHARED UI LOGIC ---
+// --- BULLETPROOF UI HELPERS ---
 function updateWelcomeMessage() {
     if (!currentUser) return;
     const now = new Date();
@@ -703,7 +700,7 @@ function updateWelcomeMessage() {
     let name = "User";
     if (currentUser.user_metadata && currentUser.user_metadata.full_name) {
         name = currentUser.user_metadata.full_name;
-    } else if (currentUser.email) {
+    } else if (currentUser.email && typeof currentUser.email === 'string') {
         name = currentUser.email.split('@')[0];
     }
     
@@ -717,15 +714,21 @@ function updateWelcomeMessage() {
 
 function updateAvatarUI(avatarUrl) {
     const headerAvatar = document.getElementById('header-avatar');
-    const docHeaderAvatar = document.getElementById('doc-header-avatar'); // <--- ADD THIS LINE
+    const docHeaderAvatar = document.getElementById('doc-header-avatar'); 
     const topProfilePic = document.querySelector('.dash-header-area .profile-pic');
-    const name = (currentUser.user_metadata && currentUser.user_metadata.full_name) || (currentUser.email ? currentUser.email.split('@')[0] : "User");
-    const initials = getInitials(name);
+    
+    let name = "User";
+    if (currentUser && currentUser.user_metadata && currentUser.user_metadata.full_name) {
+        name = currentUser.user_metadata.full_name;
+    } else if (currentUser && currentUser.email && typeof currentUser.email === 'string') {
+        name = currentUser.email.split('@')[0];
+    }
 
+    const initials = getInitials(name);
     const content = avatarUrl ? `<img src="${avatarUrl}" alt="Profile">` : initials;
 
     if (headerAvatar) headerAvatar.innerHTML = content;
-    if (docHeaderAvatar) docHeaderAvatar.innerHTML = content; // <--- ADD THIS LINE
+    if (docHeaderAvatar) docHeaderAvatar.innerHTML = content; 
     if (topProfilePic) topProfilePic.innerHTML = content;
 }
 
@@ -2780,4 +2783,64 @@ document.getElementById('mfa-verify-form').addEventListener('submit', async (e) 
         btn.textContent = "Verify & Enable 2FA";
         btn.disabled = false;
     }
+});
+
+// --- BETA FEEDBACK FORM LOGIC (UNIVERSAL) ---
+document.addEventListener('DOMContentLoaded', () => {
+  const fab = document.getElementById('feedback-fab');
+  const modal = document.getElementById('feedback-modal');
+  const closeBtn = document.querySelector('.close-feedback');
+  const form = document.getElementById('beta-feedback-form');
+  const statusDiv = document.getElementById('feedback-status');
+  const submitBtn = document.getElementById('submit-feedback-btn');
+
+  if (!fab || !modal) return;
+
+  fab.addEventListener('click', () => modal.classList.remove('hidden'));
+  closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    submitBtn.textContent = 'Sending...';
+    submitBtn.disabled = true;
+
+    const type = document.getElementById('feedback-type').value;
+    const message = document.getElementById('feedback-text').value;
+    
+    try {
+      // Intelligently find the correct Supabase client for this specific page
+      const dbClient = window.supabaseClient || window._supabase || window.supabase;
+      
+      if (!dbClient) throw new Error("Supabase client not found on this page.");
+
+      const { data: { user } } = await dbClient.auth.getUser();
+      const userEmail = user ? user.email : 'Anonymous Tester';
+
+      const { error } = await dbClient
+        .from('beta_feedback')
+        .insert([
+          { type: type, message: message, user_email: userEmail }
+        ]);
+
+      if (error) throw error;
+
+      statusDiv.textContent = "Thank you! Your feedback has been logged.";
+      statusDiv.style.color = "green";
+      form.reset();
+      
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        statusDiv.textContent = "";
+        submitBtn.textContent = 'Submit Report';
+        submitBtn.disabled = false;
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      statusDiv.textContent = "Failed to send feedback. Please try again.";
+      statusDiv.style.color = "red";
+      submitBtn.textContent = 'Submit Report';
+      submitBtn.disabled = false;
+    }
+  });
 });

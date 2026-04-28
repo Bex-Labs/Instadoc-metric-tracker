@@ -2290,3 +2290,70 @@ async function updateTicketPriority(ticketId, newPriority) {
     console.error("Priority update failed:", err);
   }
 }
+
+// --- BETA FEEDBACK FORM LOGIC ---
+document.addEventListener('DOMContentLoaded', () => {
+  const fab = document.getElementById('feedback-fab');
+  const modal = document.getElementById('feedback-modal');
+  const closeBtn = document.querySelector('.close-feedback');
+  const form = document.getElementById('beta-feedback-form');
+  const statusDiv = document.getElementById('feedback-status');
+  const submitBtn = document.getElementById('submit-feedback-btn');
+
+  // Prevent errors if this script runs on a page without the feedback form
+  if (!fab || !modal) return;
+
+  // Toggle Modal Visibility
+  fab.addEventListener('click', () => {
+    modal.classList.remove('hidden');
+  });
+  
+  closeBtn.addEventListener('click', () => {
+    modal.classList.add('hidden');
+  });
+
+  // Handle Form Submission
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    submitBtn.textContent = 'Sending...';
+    submitBtn.disabled = true;
+
+    const type = document.getElementById('feedback-type').value;
+    const message = document.getElementById('feedback-text').value;
+    
+    try {
+      // Get the current user email using your exact client variable: _supabase
+      const { data: { user } } = await _supabase.auth.getUser();
+      const userEmail = user ? user.email : 'Anonymous Tester';
+
+      // Insert into Supabase using _supabase
+      const { error } = await _supabase
+        .from('beta_feedback')
+        .insert([
+          { type: type, message: message, user_email: userEmail }
+        ]);
+
+      if (error) throw error;
+
+      // Success State
+      statusDiv.textContent = "Thank you! Your feedback has been logged.";
+      statusDiv.style.color = "green";
+      form.reset();
+      
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        statusDiv.textContent = "";
+        submitBtn.textContent = 'Submit Report';
+        submitBtn.disabled = false;
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      statusDiv.textContent = "Failed to send feedback. Please try again.";
+      statusDiv.style.color = "red";
+      submitBtn.textContent = 'Submit Report';
+      submitBtn.disabled = false;
+    }
+  });
+});

@@ -2599,4 +2599,62 @@ async function updateTicketPriority(ticketId, newPriority) {
   }
 }
 
+// --- BETA FEEDBACK FORM LOGIC (UNIVERSAL) ---
+document.addEventListener('DOMContentLoaded', () => {
+  const fab = document.getElementById('feedback-fab');
+  const modal = document.getElementById('feedback-modal');
+  const closeBtn = document.querySelector('.close-feedback');
+  const form = document.getElementById('beta-feedback-form');
+  const statusDiv = document.getElementById('feedback-status');
+  const submitBtn = document.getElementById('submit-feedback-btn');
 
+  if (!fab || !modal) return;
+
+  fab.addEventListener('click', () => modal.classList.remove('hidden'));
+  closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    submitBtn.textContent = 'Sending...';
+    submitBtn.disabled = true;
+
+    const type = document.getElementById('feedback-type').value;
+    const message = document.getElementById('feedback-text').value;
+    
+    try {
+      // Intelligently find the correct Supabase client for this specific page
+      const dbClient = window.supabaseClient || window._supabase || window.supabase;
+      
+      if (!dbClient) throw new Error("Supabase client not found on this page.");
+
+      const { data: { user } } = await dbClient.auth.getUser();
+      const userEmail = user ? user.email : 'Anonymous Tester';
+
+      const { error } = await dbClient
+        .from('beta_feedback')
+        .insert([
+          { type: type, message: message, user_email: userEmail }
+        ]);
+
+      if (error) throw error;
+
+      statusDiv.textContent = "Thank you! Your feedback has been logged.";
+      statusDiv.style.color = "green";
+      form.reset();
+      
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        statusDiv.textContent = "";
+        submitBtn.textContent = 'Submit Report';
+        submitBtn.disabled = false;
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      statusDiv.textContent = "Failed to send feedback. Please try again.";
+      statusDiv.style.color = "red";
+      submitBtn.textContent = 'Submit Report';
+      submitBtn.disabled = false;
+    }
+  });
+});

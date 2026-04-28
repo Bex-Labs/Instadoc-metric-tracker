@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Instadoc Admin Dashboard</title>
 
+    <script src="https://js.sentry-cdn.com/c7d6d262f60f48f7d44048eca6627c0b.min.js" crossorigin="anonymous"></script>
+
+    <script>
+      Sentry.init({
+        dsn: "https://c7d6d262f60f48f7d44048eca6627c0b@o4511234098921472.ingest.us.sentry.io/4511234135752705", // Replace with your actual DSN string
+        
+        // Automatically capture performance metrics
+        tracesSampleRate: 1.0, 
+        
+        // Optional: Tag the environment to separate local tests from live Vercel errors
+        environment: window.location.hostname === "localhost" ? "development" : "production",
+      });
+    </script>
+
     <!-- Supabase Client (v2) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -653,6 +667,29 @@
           <code>doctor_patient_assignments</code> (soft governance, auditable)
           and mirrored in the Live Activity feed.
         </p>
+      </div>
+    </div>
+
+    <button id="feedback-fab" class="feedback-fab">🐞 Feedback</button>
+
+    <div id="feedback-modal" class="feedback-modal hidden">
+      <div class="feedback-content">
+        <span class="close-feedback">&times;</span>
+        <h3>Beta Feedback</h3>
+        <form id="beta-feedback-form">
+          <label for="feedback-type">What kind of feedback?</label>
+          <select id="feedback-type" required>
+            <option value="bug">Report a Bug</option>
+            <option value="feature">Suggest a Feature</option>
+            <option value="ui">UI/Layout Issue</option>
+          </select>
+
+          <label for="feedback-text">Details:</label>
+          <textarea id="feedback-text" rows="4" required placeholder="What did you notice?"></textarea>
+
+          <button type="submit" id="submit-feedback-btn">Submit Report</button>
+        </form>
+        <div id="feedback-status"></div>
       </div>
     </div>
   </body>

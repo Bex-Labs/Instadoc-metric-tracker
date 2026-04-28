@@ -1,0 +1,23 @@
+{
+  "name": "unified_instadoc",
+  "version": "1.0.0",
+  "description": "``` unified_instadoc/ │ ├── index.html                  ← Landing page (main entry point) ├── style.css                   ← ID Metric landing page styles ├── script.js                   ← ID Metric misc scripts (consultation helper etc.) ├── consultation.html ├── consultation.js ├── consultation_firebase.js ├── about.html ├── contact.html ├── services.html ├── Performance_Metrics.html ├── Real_time_analytics_services.html ├── predictive_analytics.html ├── resource_optimization.html │ ├── app/                        ← INSTADOC dashboard (patient + doctor) │   ├── index.html │   ├── script.js │   └── style.css │ └── admin/                      ← Admin panel (admin-only access)     ├── index.html     ├── script.js     └── style.css ```",
+  "main": "consultation.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ghadaffijr/Instadoc-metric-tracker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Ghadaffijr/Instadoc-metric-tracker/issues"
+  },
+  "homepage": "https://github.com/Ghadaffijr/Instadoc-metric-tracker#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.6.0"
+  }
+}
