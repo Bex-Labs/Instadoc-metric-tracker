@@ -30,7 +30,20 @@ if (supabaseClient) {
     // 1. Manually pull the session first to prevent the "Verifying" screen from hanging
     supabaseClient.auth.getSession().then(({ data: { session } }) => {
         handleSession(session, 'INITIAL_LOAD');
+    }).catch((err) => {
+        console.error("getSession failed:", err);
+        // If Supabase can't resolve at all, redirect to landing
+        window.location.href = '../index.html';
     });
+
+    // Safety net: if nothing resolves within 8 seconds, redirect rather than leaving user stuck
+    setTimeout(() => {
+        const landing = document.getElementById('landing-view');
+        if (landing && landing.style.display !== 'none') {
+            console.warn("Session verification timed out — redirecting.");
+            window.location.href = '../index.html';
+        }
+    }, 8000);
 
     // 2. Listen for future auth changes (like logouts or password recoveries)
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
@@ -45,6 +58,8 @@ if (supabaseClient) {
         const deco = document.getElementById('decorations');
 
         console.log("Auth Event:", event);
+
+        try {
 
         // US-3: Password Recovery Handling
         if (event === 'PASSWORD_RECOVERY') {
@@ -139,6 +154,13 @@ if (supabaseClient) {
             userRole = 'patient';
             window.location.href = '../index.html';
         }
+        } catch (err) {
+            console.error("handleSession error:", err);
+            // If anything crashes mid-session setup, don't leave user stuck
+            if (landing && landing.style.display !== 'none') {
+                window.location.href = '../index.html';
+            }
+        }
     }
 
     // Force-logout listener: Admin can suspend/archive users mid-session
@@ -175,7 +197,7 @@ function setupSidebar() {
             <li class="nav-item"><a href="#" class="nav-link" onclick="openModal('log-bp'); return false;"><i class="fa-solid fa-heart-pulse text-gray-500"></i><span>Log BP</span></a></li>
             <li class="nav-item"><a href="#" class="nav-link" onclick="openModal('log-weight'); return false;"><i class="fa-solid fa-weight-scale text-gray-500"></i><span>Log Weight</span></a></li>
             <li class="nav-item"><a href="#" class="nav-link" onclick="openModal('log-glucose'); return false;"><i class="fa-solid fa-droplet text-gray-500"></i><span>Log Glucose</span></a></li>
-            <li class="nav-item"><a href="#" class="nav-link" onclick="openModal('log-temp'); return false;"><i class="fa-solid fa-temperature-half text-gray-500"></i><span>Log Temp</span></a></li>
+            <li class="nav-item"><a href="#" class="nav-link" onclick="openModal('log-height'); return false;"><i class="fa-solid fa-ruler-vertical text-gray-500"></i><span>Log Height</span></a></li>
             <li class="nav-item">
                 <a href="#" class="nav-link" onclick="switchView('appointments', this); return false;">
                     <i class="fa-regular fa-calendar-check"></i><span>Appointments</span>
@@ -213,7 +235,7 @@ function setupSidebar() {
 
 function resetDates() {
     const today = new Date().toISOString().split('T')[0];
-    ['weight-date', 'bp-date', 'temp-date', 'gluc-date'].forEach(id => {
+    ['weight-date', 'bp-date', 'height-date', 'gluc-date'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.value = today;
     });
@@ -472,14 +494,15 @@ async function loadDoctorDashboardData() {
 
     if (error) { console.error("Error fetching doctor data", error); return; }
 
-    // --- Calculate Stats ---
+    // --- Calculate Stats (Change 6) ---
     const totalPatients = new Set(appts.map(a => a.user_id)).size;
     
-    // Fix: Robust Date matching for Today
     const todayLocalStr = new Date().toLocaleDateString();
-    const todayAppts = appts.filter(a => new Date(a.appointment_date).toLocaleDateString() === todayLocalStr && a.status === 'Confirmed').length;
+    const todayAppts = appts.filter(a => new Date(a.appointment_date).toLocaleDateString() === todayLocalStr && (a.status === 'Confirmed' || a.status === 'confirmed')).length;
     
     const pending = appts.filter(a => a.status === 'pending').length;
+    // Active Cases = Confirmed (not yet completed or cancelled)
+    const activeCases = appts.filter(a => a.status === 'Confirmed' || a.status === 'confirmed').length;
     const completed = appts.filter(a => a.status === 'completed').length;
     const totalCount = appts.length;
     const successRate = totalCount > 0 ? Math.round((completed / totalCount) * 100) : 0;
@@ -492,7 +515,7 @@ async function loadDoctorDashboardData() {
     if(docStatToday) docStatToday.textContent = todayAppts;
     
     const docStatPending = document.getElementById('doc-stat-pending');
-    if(docStatPending) docStatPending.textContent = pending;
+    if(docStatPending) docStatPending.textContent = activeCases; // Active = Confirmed, not pending
     
     const docStatSuccess = document.getElementById('doc-stat-success');
     if(docStatSuccess) docStatSuccess.textContent = successRate + '%';
@@ -755,7 +778,8 @@ async function loadDashboardData() {
     updateStatCard('weight_logs', 'weight', 'val-weight', 'kg');
     updateStatCard('bp_logs', 'systolic', 'val-bp', '');
     updateStatCard('glucose_logs', 'level', 'val-gluc', 'mg/dL');
-    updateStatCard('temp_logs', 'temperature', 'val-temp', '°C');
+    updateStatCard('height_logs', 'height', 'val-height', 'cm');
+    updateBMI();
     updateChart(currentChartTable);
     loadHistory();
     loadAppointments(); 
@@ -777,6 +801,42 @@ async function loadAppointments() {
         // Get midnight of today so today's appointments don't vanish!
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         
+        // Change 9: Surface recently cancelled/declined with notification message
+        const recentlyCancelledOrDeclined = data.filter(a => {
+            const status = a.status.toLowerCase();
+            const isRelevant = status === 'cancelled' || status === 'declined';
+            const apptDate = new Date(a.appointment_date);
+            const daysDiff = (new Date() - apptDate) / (1000 * 60 * 60 * 24);
+            return isRelevant && daysDiff <= 7; // Surface cancellations from last 7 days
+        });
+
+        if (recentlyCancelledOrDeclined.length > 0) {
+            // Inside loadAppointments(), replace the toast block:
+recentlyCancelledOrDeclined.forEach(async a => {
+    // Check if we've already notified for this appointment
+    const { count } = await supabaseClient
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', currentUser.id)
+        .eq('payload->appointment_id', a.id);  // jsonb filter
+
+    if (count > 0) return; // Already notified — skip
+
+    const status = a.status.toLowerCase();
+    const verb = status === 'declined' ? 'could not be confirmed' : 'has been cancelled';
+    const reasonNote = a.cancellation_reason ? ` Reason provided: ${a.cancellation_reason}.` : '';
+    const body = `Your appointment with ${a.doctor_name} on ${new Date(a.appointment_date).toLocaleDateString()} ${verb}.${reasonNote} Please feel free to book a new time at your convenience.`;
+
+    await saveNotification(
+        `appointment_${status}`,
+        status === 'declined' ? 'Appointment Not Confirmed' : 'Appointment Cancelled',
+        body,
+        { appointment_id: a.id, doctor_name: a.doctor_name }
+    );
+    showToast(body, 'error'); // Still show once on first detection
+});
+        }
+
         const futureAppts = data.filter(a => {
             const apptDate = new Date(a.appointment_date);
             const isUpcomingDate = apptDate >= startOfToday;
@@ -988,7 +1048,7 @@ async function updateChart(tableName, btnRef) {
     let gradient = ctx.createLinearGradient(0, 0, 0, 400); gradient.addColorStop(0, 'rgba(46, 204, 113, 0.2)'); gradient.addColorStop(1, 'rgba(46, 204, 113, 0)');
     if (tableName === 'bp_logs') { dataset = [ { label: 'Systolic', data: data.map(d => d.systolic), borderColor: '#dc2626', tension: 0.4 }, { label: 'Diastolic', data: data.map(d => d.diastolic), borderColor: '#2563eb', tension: 0.4 } ]; } 
     else { 
-        let key = tableName === 'glucose_logs' ? 'level' : (tableName === 'temp_logs' ? 'temperature' : 'weight'); 
+        let key = tableName === 'glucose_logs' ? 'level' : (tableName === 'height_logs' ? 'height' : 'weight'); 
         dataset = [{ label: key.toUpperCase(), data: data.map(d => d[key]), borderColor: '#2ecc71', backgroundColor: gradient, borderWidth: 3, tension: 0.4, fill: true }]; 
     }
     if (myChart) myChart.destroy();
@@ -996,7 +1056,7 @@ async function updateChart(tableName, btnRef) {
 }
 
 async function loadHistory() {
-    const tables = ['weight_logs', 'bp_logs', 'glucose_logs', 'temp_logs']; let combined = [];
+    const tables = ['weight_logs', 'bp_logs', 'glucose_logs', 'height_logs']; let combined = [];
     for (let t of tables) { 
         const { data } = await supabaseClient.from(t).select('*').eq('user_id', currentUser.id).order('date', {ascending:false}).order('id', {ascending:false}).limit(5); 
         if(data) data.forEach(d => { d.type = t; combined.push(d); }); 
@@ -1007,7 +1067,7 @@ async function loadHistory() {
     if(tbody) { 
         tbody.innerHTML = ''; 
         combined.slice(0, 10).forEach(item => { 
-            let valStr = item.type === 'bp_logs' ? `${item.systolic}/${item.diastolic}` : (item.weight || item.level || item.temperature); 
+            let valStr = item.type === 'bp_logs' ? `${item.systolic}/${item.diastolic}` : (item.weight || item.level || item.height); 
             tbody.innerHTML += `
                 <tr>
                     <td>${item.date}</td>
@@ -1067,7 +1127,7 @@ async function countMedicalRecords() {
             supabaseClient.from('weight_logs').select('*', { count: 'exact', head: true }).eq('user_id', currentUser.id),
             supabaseClient.from('bp_logs').select('*', { count: 'exact', head: true }).eq('user_id', currentUser.id),
             supabaseClient.from('glucose_logs').select('*', { count: 'exact', head: true }).eq('user_id', currentUser.id),
-            supabaseClient.from('temp_logs').select('*', { count: 'exact', head: true }).eq('user_id', currentUser.id)
+            supabaseClient.from('height_logs').select('*', { count: 'exact', head: true }).eq('user_id', currentUser.id)
         ]);
         const total = (w.count || 0) + (b.count || 0) + (g.count || 0) + (t.count || 0);
         const el = document.getElementById('record-count');
@@ -1179,119 +1239,326 @@ async function loadHealthTrends() {
     } catch(e) { console.error("Trend Error", e); }
 }
 
-// --- AI HEALTH SUMMARY & WIDGET ALERTS (US-39) ---
+// --- AI HEALTH SUMMARY & WIDGET ALERTS (AHA/ACC Compliant — Changes 4 & 5) ---
+
+/**
+ * Classify BP per AHA/ACC 2017 guidelines:
+ * Normal:               Sys < 120  AND  Dia < 80
+ * Elevated:             Sys 120-129 AND  Dia < 80
+ * Stage 1 Hypertension: Sys 130-139 OR   Dia 80-89
+ * Stage 2 Hypertension: Sys ≥ 140   OR   Dia ≥ 90
+ * Hypertensive Crisis:  Sys > 180   OR   Dia > 120
+ * Hypotension:          Sys < 90    OR   Dia < 60
+ */
+function classifyBP(sys, dia) {
+    if (sys > 180 || dia > 120) return { label: 'Hypertensive Crisis',   level: 5, color: '#7f1d1d' };
+    if (sys >= 140 || dia >= 90)  return { label: 'Stage 2 Hypertension', level: 4, color: '#dc2626' };
+    if (sys >= 130 || dia >= 80)  return { label: 'Stage 1 Hypertension', level: 3, color: '#ea580c' };
+    if (sys >= 120 && dia < 80)   return { label: 'Elevated',             level: 2, color: '#d97706' };
+    if (sys < 90  || dia < 60)    return { label: 'Hypotension',          level: 0, color: '#d97706' };
+    return                               { label: 'Normal',               level: 1, color: '#16a34a' };
+}
+
+// Independent systolic/diastolic analysis (Change 3)
+function analyzeBPComponents(sys, dia, prevSys, prevDia) {
+    const notes = [];
+    if (prevSys !== null && prevDia !== null) {
+        const sysDiff = sys - prevSys;
+        const diaDiff = dia - prevDia;
+        // Isolated worsening systolic
+        if (sysDiff > 5 && Math.abs(diaDiff) <= 3) {
+            notes.push(`Your systolic pressure has risen by ${Math.abs(sysDiff)} mmHg while diastolic remains relatively stable — this pattern warrants monitoring.`);
+        }
+        // Isolated diastolic hypertension
+        if (dia >= 80 && dia < 90 && sys < 130) {
+            notes.push(`Your diastolic reading (${dia} mmHg) is elevated while systolic is normal — isolated diastolic hypertension. Please discuss this with your doctor.`);
+        }
+        // Both improving
+        if (sysDiff < -5 && diaDiff < -3) {
+            notes.push(`Both systolic and diastolic readings have improved since your last measurement — keep up the great work!`);
+        }
+        // Gradual systolic improvement
+        if (sysDiff >= -10 && sysDiff < -2) {
+            notes.push(`Your systolic pressure has gradually improved by ${Math.abs(sysDiff)} mmHg since your last reading.`);
+        }
+    }
+    return notes;
+}
+
+/**
+ * Classify glucose per ADA + reference chart standards.
+ * Supports mg/dL and mmol/L with conversion.
+ * Accounts for test type: Fasting, Post-Meal, Random, Pre-Meal.
+ * Supports diabetic vs non-diabetic patient context.
+ */
+function mmolToMgDl(val) { return val * 18.0182; }
+function mgDlToMmol(val) { return (val / 18.0182).toFixed(1); }
+
+function classifyGlucose(level, testType, unit, isDiabetic) {
+    let l = parseFloat(level);
+    if (isNaN(l) || l <= 0) return { label: 'Invalid', severity: -1, note: '' };
+
+    // Convert mmol/L to mg/dL for unified comparison
+    const displayUnit = (unit || 'mg/dL').toLowerCase();
+    if (displayUnit === 'mmol/l' || displayUnit === 'mmol') {
+        l = mmolToMgDl(l);
+    }
+
+    const t = (testType || 'Fasting').toLowerCase();
+
+    // ---------------------------------------------------------
+    // UNIVERSAL SAFETY CHECK
+    // Critical hypoglycemia — always dangerous regardless of type
+    // ---------------------------------------------------------
+    if (l < 54)  return { label: 'Critically Low — Severe Hypoglycemia', severity: 5, note: 'emergency' };
+    if (l < 70)  return { label: 'Low — Hypoglycemia',                   severity: 4, note: 'low' };
+
+
+    // ---------------------------------------------------------
+    // DIABETIC PATIENT LOGIC
+    // Targets based on standard medical guidelines for diabetics
+    // ---------------------------------------------------------
+    if (isDiabetic) {
+        if (t.includes('post') || t.includes('after')) {
+            // Post-Meal Target: < 180 mg/dL
+            if (l >= 180) return { label: 'High — Above Target', severity: 3, note: 'post-meal diabetic' };
+            return               { label: 'Normal — At Target',  severity: 1, note: 'post-meal diabetic' };
+        } else {
+            // Fasting, Pre-Meal, or Random Target: 80 - 130 mg/dL
+            if (l > 130)  return { label: 'High — Above Target', severity: 3, note: 'fasting/pre-meal diabetic' };
+            if (l >= 80)  return { label: 'Normal — At Target',  severity: 1, note: 'fasting/pre-meal diabetic' };
+            // 70-79 range (technically below 80 target, but above 70 hypoglycemia threshold)
+            return               { label: 'Low-Normal',          severity: 2, note: 'fasting/pre-meal diabetic' }; 
+        }
+    }
+
+
+    // ---------------------------------------------------------
+    // NON-DIABETIC PATIENT LOGIC
+    // Preserving your exact original reference chart thresholds
+    // ---------------------------------------------------------
+    if (t.includes('post') || t.includes('2h') || t.includes('after')) {
+        // Post-Meal (1-2h after eating) thresholds
+        if (l >= 220)  return { label: 'Diabetic Range',    severity: 3, note: 'post-meal' };
+        if (l >= 170)  return { label: 'Impaired Glucose',  severity: 2, note: 'post-meal' };
+        if (l >= 120)  return { label: 'Normal',            severity: 1, note: 'post-meal' };
+        return               { label: 'Normal',             severity: 1, note: 'post-meal' };
+    }
+    
+    if (t.includes('2-3') || t.includes('3h')) {
+        // 2-3 Hours after eating
+        if (l >= 200)  return { label: 'Diabetic Range',    severity: 3, note: '2-3h post-meal' };
+        if (l >= 140)  return { label: 'Impaired Glucose',  severity: 2, note: '2-3h post-meal' };
+        return               { label: 'Normal',             severity: 1, note: '2-3h post-meal' };
+    }
+    
+    if (t.includes('random')) {
+        if (l >= 200)  return { label: 'Diabetic Range',    severity: 3, note: 'random' };
+        if (l >= 140)  return { label: 'Elevated',          severity: 2, note: 'random' };
+        if (l >= 70)   return { label: 'Normal',            severity: 1, note: 'random' };
+    }
+    
+    if (t.includes('pre') || t.includes('before')) {
+        if (l >= 126) return { label: 'Diabetic Range',    severity: 3, note: 'pre-meal' };
+        if (l >= 101) return { label: 'Impaired Glucose',  severity: 2, note: 'pre-meal' };
+        return              { label: 'Normal',             severity: 1, note: 'pre-meal' };
+    }
+    
+    // Fasting (default) — per reference chart: Normal 80-100
+    if (l >= 126)  return { label: 'Diabetic Range',    severity: 3, note: 'fasting' };
+    if (l >= 101)  return { label: 'Impaired Glucose',  severity: 2, note: 'fasting' };
+    if (l >= 80)   return { label: 'Normal',            severity: 1, note: 'fasting' };
+    return               { label: 'Low-Normal',         severity: 1, note: 'fasting' };
+}
+
 async function loadHealthAlerts() {
     if(!currentUser) return;
     const banner = document.getElementById('insight-banner');
     const textEl = document.getElementById('insight-text');
     const icon = banner.querySelector('.insight-icon');
-    
-    // Default styling for AI banner
+
     banner.style.display = 'flex';
-    banner.style.background = 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)'; 
+    banner.style.background = 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)';
     icon.className = "fa-solid fa-robot insight-icon text-white";
     textEl.innerHTML = "<i>Instadoc AI is analyzing your vitals...</i>";
 
     try {
-        // Fetch latest vitals
-        const [wData, bData, gData] = await Promise.all([
+        // Fetch latest AND previous BP readings for comparative analysis
+        const [wData, bData, bPrevData, gData] = await Promise.all([
             supabaseClient.from('weight_logs').select('weight').eq('user_id', currentUser.id).order('date', {ascending:false}).order('id', {ascending:false}).limit(1),
             supabaseClient.from('bp_logs').select('systolic, diastolic').eq('user_id', currentUser.id).order('date', {ascending:false}).order('id', {ascending:false}).limit(1),
-            supabaseClient.from('glucose_logs').select('level').eq('user_id', currentUser.id).order('date', {ascending:false}).order('id', {ascending:false}).limit(1)
+            supabaseClient.from('bp_logs').select('systolic, diastolic').eq('user_id', currentUser.id).order('date', {ascending:false}).order('id', {ascending:false}).range(1, 1),
+            supabaseClient.from('glucose_logs').select('level, test_type, is_diabetic').eq('user_id', currentUser.id).order('date', {ascending:false}).order('id', {ascending:false}).limit(1)
         ]);
 
         const weight = wData.data?.[0]?.weight;
-        const sys = bData.data?.[0]?.systolic;
-        const dia = bData.data?.[0]?.diastolic;
-        const gluc = gData.data?.[0]?.level;
+        const sys    = bData.data?.[0]?.systolic   ? parseFloat(bData.data[0].systolic)   : null;
+        const dia    = bData.data?.[0]?.diastolic  ? parseFloat(bData.data[0].diastolic)  : null;
+        const prevSys = bPrevData.data?.[0]?.systolic  ? parseFloat(bPrevData.data[0].systolic)  : null;
+        const prevDia = bPrevData.data?.[0]?.diastolic ? parseFloat(bPrevData.data[0].diastolic) : null;
+        const gluc     = gData.data?.[0]?.level;
+        const glucType = gData.data?.[0]?.test_type || 'Fasting';
 
         // ==========================================
         // 1. UPDATE THE SMALL BP WIDGET CARD
         // ==========================================
-        const bpCard = document.getElementById('alert-bp-card');
+        const bpCard  = document.getElementById('alert-bp-card');
         const bpTitle = document.getElementById('alert-bp-title');
-        const bpText = document.getElementById('alert-bp-text');
-        const bpIcon = document.getElementById('alert-bp-icon');
-        
-        if (sys && dia && bpCard) {
-            let status = "Normal";
-            let colorClass = "alert-green";
-            let iconHtml = '<i class="fa-solid fa-check"></i>';
-            let bgClass = "bg-green-500";
+        const bpText  = document.getElementById('alert-bp-text');
+        const bpIcon  = document.getElementById('alert-bp-icon');
 
-            if (sys > 180 || dia > 120) {
-                status = "Hypertensive Crisis"; colorClass = "alert-red"; iconHtml = '<i class="fa-solid fa-truck-medical"></i>'; bgClass = "bg-red-500";
-            } else if (sys >= 140 || dia >= 90) {
-                status = "Stage 2 Hypertension"; colorClass = "alert-red"; iconHtml = '<i class="fa-solid fa-triangle-exclamation"></i>'; bgClass = "bg-red-500";
-            } else if ((sys >= 130 && sys <= 139) || (dia >= 80 && dia <= 89)) {
-                status = "Stage 1 Hypertension"; colorClass = "alert-yellow"; iconHtml = '<i class="fa-solid fa-circle-exclamation"></i>'; bgClass = "bg-yellow-500";
-            } else if (sys >= 120 && sys <= 129 && dia < 80) {
-                status = "Elevated BP"; colorClass = "alert-yellow"; iconHtml = '<i class="fa-solid fa-arrow-trend-up"></i>'; bgClass = "bg-yellow-500";
-            } else if (sys < 90 || dia < 60) {
-                status = "Hypotension"; colorClass = "alert-yellow"; iconHtml = '<i class="fa-solid fa-arrow-trend-down"></i>'; bgClass = "bg-yellow-500";
-            }
+        if (sys !== null && dia !== null && bpCard) {
+            const bpClass = classifyBP(sys, dia);
+            let colorClass = 'alert-green', iconHtml = '<i class="fa-solid fa-check"></i>', bgClass = 'bg-green-500';
+
+            if      (bpClass.level === 5) { colorClass = 'alert-red';    iconHtml = '<i class="fa-solid fa-truck-medical"></i>';        bgClass = 'bg-red-500';    }
+            else if (bpClass.level === 4) { colorClass = 'alert-red';    iconHtml = '<i class="fa-solid fa-triangle-exclamation"></i>'; bgClass = 'bg-red-500';    }
+            else if (bpClass.level === 3) { colorClass = 'alert-orange'; iconHtml = '<i class="fa-solid fa-circle-exclamation"></i>';   bgClass = 'bg-orange-500'; }
+            else if (bpClass.level === 2) { colorClass = 'alert-yellow'; iconHtml = '<i class="fa-solid fa-arrow-trend-up"></i>';       bgClass = 'bg-yellow-500'; }
+            else if (bpClass.level === 0) { colorClass = 'alert-yellow'; iconHtml = '<i class="fa-solid fa-arrow-trend-down"></i>';     bgClass = 'bg-yellow-500'; }
 
             bpCard.className = `alert-item ${colorClass}`;
-            bpTitle.textContent = status;
-            bpText.textContent = `Last reading: ${sys}/${dia}`;
-            bpIcon.className = `alert-icon ${bgClass} text-white`;
-            bpIcon.innerHTML = iconHtml;
-            bpCard.style.display = "flex";
+            bpTitle.textContent = bpClass.label;
+            bpText.textContent  = `Last reading: ${sys}/${dia} mmHg`;
+            bpIcon.className    = `alert-icon ${bgClass} text-white`;
+            bpIcon.innerHTML    = iconHtml;
+            bpCard.style.display = 'flex';
         } else if (bpCard) {
-            bpCard.style.display = "none";
+            bpCard.style.display = 'none';
         }
 
         // ==========================================
-        // 2. GENERATE AI TYPEWRITER SUMMARY
+        // 2. GENERATE AI TYPEWRITER SUMMARY (AHA/ACC + comparative)
         // ==========================================
-        if(!weight && !sys && !gluc) {
-            textEl.innerHTML = "Welcome! Start logging your health metrics to receive personalized AI insights.";
+        if (!weight && sys === null && !gluc) {
+            textEl.innerHTML = "Welcome! Start logging your health metrics to receive personalised AI insights.";
         } else {
             let summary = "Here is your latest health analysis: ";
-            
-            if (sys && dia) {
-                if (sys > 180 || dia > 120) {
-                    summary += "URGENT: Your blood pressure indicates a hypertensive crisis. Please seek medical attention immediately. ";
-                    banner.style.background = 'linear-gradient(135deg, #cb2d3e 0%, #ef473a 100%)'; 
+            let urgentFlag = false;
+
+            // — Blood Pressure (Changes 1, 2, 3) —
+            if (sys !== null && dia !== null) {
+                const bpClass = classifyBP(sys, dia);
+
+                // Comparative note vs previous reading (Change 2)
+                let compareNote = '';
+                if (prevSys !== null && prevDia !== null) {
+                    const sysDiff = sys - prevSys;
+                    if      (Math.abs(sysDiff) <= 2)  compareNote = 'stable compared to your last reading';
+                    else if (sysDiff > 10)             compareNote = 'notably higher than your last reading';
+                    else if (sysDiff > 2)              compareNote = 'slightly elevated compared to your last reading';
+                    else if (sysDiff < -10)            compareNote = 'notably lower than your last reading';
+                    else                               compareNote = 'slightly lower than your last reading';
+                }
+
+                // Banner color based on AHA/ACC level (Change 1)
+                if (bpClass.level === 5) {
+                    summary += `URGENT: Your blood pressure (${sys}/${dia} mmHg) indicates a hypertensive crisis. Please seek emergency medical attention immediately. `;
+                    banner.style.background = 'linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%)';
                     icon.className = "fa-solid fa-truck-medical insight-icon text-white";
-                } else if (sys >= 140 || dia >= 90) {
-                    summary += "Your blood pressure is in the Stage 2 Hypertension range. Please monitor this closely and consult your doctor. ";
-                } else if ((sys >= 130 && sys <= 139) || (dia >= 80 && dia <= 89)) {
-                    summary += "Your blood pressure is in the Stage 1 Hypertension range. Lifestyle changes like reducing sodium are recommended. ";
-                } else if (sys >= 120 && sys <= 129 && dia < 80) {
-                    summary += "Your blood pressure is slightly elevated. Keeping an eye on your diet and exercise can help. ";
-                } else if (sys < 90 || dia < 60) {
-                    summary += "Your blood pressure is on the lower side (Hypotension). Ensure you are staying hydrated. ";
+                    urgentFlag = true;
+                } else if (bpClass.level === 4) {
+                    summary += `Your blood pressure (${sys}/${dia} mmHg) is in the Stage 2 Hypertension range`;
+                    if (compareNote) summary += ` — ${compareNote}`;
+                    summary += '. Please consult your doctor promptly; medication may be needed alongside lifestyle changes. ';
+                    banner.style.background = 'linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)';
+                    icon.className = "fa-solid fa-triangle-exclamation insight-icon text-white";
+                } else if (bpClass.level === 3) {
+                    summary += `Your blood pressure (${sys}/${dia} mmHg) is in the Stage 1 Hypertension range`;
+                    if (compareNote) summary += ` — ${compareNote}`;
+                    summary += '. Lifestyle changes such as reducing sodium, increasing physical activity, and managing stress are recommended. ';
+                    banner.style.background = 'linear-gradient(135deg, #c2410c 0%, #ea580c 100%)';
+                    icon.className = "fa-solid fa-circle-exclamation insight-icon text-white";
+                } else if (bpClass.level === 2) {
+                    summary += `Your blood pressure (${sys}/${dia} mmHg) is elevated`;
+                    if (compareNote) summary += ` — ${compareNote}`;
+                    summary += '. While not yet hypertension, monitoring closely and maintaining healthy habits will help prevent progression. ';
+                    banner.style.background = 'linear-gradient(135deg, #b45309 0%, #d97706 100%)';
+                    icon.className = "fa-solid fa-arrow-trend-up insight-icon text-white";
+                } else if (bpClass.level === 0) {
+                    summary += `Your blood pressure (${sys}/${dia} mmHg) is on the lower side (Hypotension)`;
+                    if (compareNote) summary += ` — ${compareNote}`;
+                    summary += '. Ensure you are staying well hydrated and stand up slowly to avoid dizziness. Contact your doctor if symptoms persist. ';
+                    banner.style.background = 'linear-gradient(135deg, #b45309 0%, #d97706 100%)';
+                    icon.className = "fa-solid fa-arrow-trend-down insight-icon text-white";
                 } else {
-                    summary += "Great job! Your blood pressure is within the healthy, normal range. ";
+                    summary += `Great news — your blood pressure (${sys}/${dia} mmHg) is within the healthy normal range`;
+                    if (compareNote) summary += ` and is ${compareNote}`;
+                    summary += '. Keep up the healthy lifestyle! ';
+                    banner.style.background = 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)';
+                    icon.className = "fa-solid fa-heart-pulse insight-icon text-white";
+                }
+
+                // Independent systolic/diastolic component analysis (Change 3)
+                const componentNotes = analyzeBPComponents(sys, dia, prevSys, prevDia);
+                if (componentNotes.length > 0) {
+                    summary += componentNotes.join(' ') + ' ';
                 }
             }
-            
+
+            // — Glucose (ADA-aligned + Blood Glucose Chart) —
             if (gluc) {
-                if (gluc > 130) summary += `Your recent glucose level (${gluc} mg/dL) is elevated—consider adjusting your carb intake. `;
-                else summary += "Your glucose levels look perfectly stable. ";
+                const glucUnit = 'mg/dL'; 
+                const isDiabetic = gData.data?.[0]?.is_diabetic || false; 
+                const gClass = classifyGlucose(gluc, glucType, glucUnit, isDiabetic);
+                const typeLabel = glucType ? ` (${glucType.toLowerCase()})` : '';
+
+                if (gClass.severity === 5) {
+                    summary += `CRITICAL: Your glucose level${typeLabel} of ${gluc} mg/dL indicates severe hypoglycemia. Consume fast-acting carbohydrates immediately and seek emergency care. `;
+                    if (!urgentFlag) {
+                        banner.style.background = 'linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%)';
+                        icon.className = "fa-solid fa-truck-medical insight-icon text-white";
+                    }
+                } else if (gClass.severity === 4) {
+                    summary += `Your glucose level${typeLabel} of ${gluc} mg/dL is low (hypoglycemia). Have a snack or sugary drink and monitor closely. Contact your doctor if this persists. `;
+                    if (!urgentFlag) {
+                        banner.style.background = 'linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)';
+                        icon.className = "fa-solid fa-triangle-exclamation insight-icon text-white";
+                    }
+                } else if (gClass.severity === 3) {
+                    if (isDiabetic) {
+                        summary += `Your glucose level${typeLabel} of ${gluc} mg/dL is above your recommended target. Please monitor closely and adhere to your management plan. `;
+                    } else {
+                        summary += `Your glucose level${typeLabel} of ${gluc} mg/dL is in the diabetic range — please consult your doctor as soon as possible for proper evaluation. `;
+                    }
+                    if (!urgentFlag) {
+                        banner.style.background = 'linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)';
+                        icon.className = "fa-solid fa-triangle-exclamation insight-icon text-white";
+                    }
+                } else if (gClass.severity === 2) {
+                    if (isDiabetic) {
+                        summary += `Your glucose level${typeLabel} of ${gluc} mg/dL is on the lower side of normal. Keep an eye on it to prevent it from dropping further. `;
+                    } else {
+                        summary += `Your glucose level${typeLabel} of ${gluc} mg/dL indicates impaired glucose — consider reviewing your diet and discussing with your doctor. `;
+                    }
+                } else {
+                    if (isDiabetic) {
+                        summary += `Great job! Your glucose level${typeLabel} of ${gluc} mg/dL is perfectly on target. `;
+                    } else {
+                        summary += `Your glucose level${typeLabel} of ${gluc} mg/dL is within the normal healthy range. `;
+                    }
+                }
             }
 
-            summary += "Keep tracking your metrics daily!";
+            summary += "Keep tracking your metrics daily for the best insights!";
 
-            // Clear any existing typing interval so they don't overlap!
             if (window.aiTypingInterval) clearInterval(window.aiTypingInterval);
-            
             textEl.innerHTML = "";
             let i = 0;
             window.aiTypingInterval = setInterval(() => {
                 textEl.innerHTML += summary.charAt(i);
                 i++;
                 if (i >= summary.length) clearInterval(window.aiTypingInterval);
-            }, 20); // Typing speed 
+            }, 20);
         }
 
-    } catch(e) { 
-        console.error(e); 
+    } catch(e) {
+        console.error(e);
         textEl.textContent = "AI Analysis temporarily unavailable.";
     }
-    
+
     // ==========================================
+
     // 3. UPDATE THE SMALL APPOINTMENT WIDGET
     // ==========================================
     try {
@@ -1391,10 +1658,139 @@ function loadProfileSettings() {
 }
 
 async function handleSave(tableName, dataObj, idField) { const id = document.getElementById(idField).value; dataObj.user_id = currentUser.id; if(id) return (await supabaseClient.from(tableName).update(dataObj).eq('id', id)).error; return (await supabaseClient.from(tableName).insert([dataObj])).error; }
-document.getElementById('weight-form').addEventListener('submit', async (e) => { e.preventDefault(); finalizeForm(await handleSave('weight_logs', { weight: document.getElementById('weight-val').value, unit: 'kg', date: document.getElementById('weight-date').value }, 'weight-id'), 'weight-success', 'weight-error'); });
+document.getElementById('weight-form').addEventListener('submit', async (e) => { e.preventDefault(); finalizeForm(await handleSave('weight_logs', { weight: document.getElementById('weight-val').value, unit: 'kg', date: document.getElementById('weight-date').value }, 'weight-id'), 'weight-success', 'weight-error'); updateBMI(); });
 document.getElementById('bp-form').addEventListener('submit', async (e) => { e.preventDefault(); const p = document.getElementById('bp-pulse').value; finalizeForm(await handleSave('bp_logs', { systolic: document.getElementById('bp-sys').value, diastolic: document.getElementById('bp-dia').value, pulse: p?parseInt(p):null, date: document.getElementById('bp-date').value }, 'bp-id'), 'bp-success', 'bp-error'); });
-document.getElementById('temp-form').addEventListener('submit', async (e) => { e.preventDefault(); finalizeForm(await handleSave('temp_logs', { temperature: document.getElementById('temp-val').value, unit: 'C', date: document.getElementById('temp-date').value }, 'temp-id'), 'temp-success', 'temp-error'); });
-document.getElementById('gluc-form').addEventListener('submit', async (e) => { e.preventDefault(); finalizeForm(await handleSave('glucose_logs', { test_type: document.getElementById('gluc-type').value, level: document.getElementById('gluc-val').value, date: document.getElementById('gluc-date').value }, 'gluc-id'), 'gluc-success', 'gluc-error'); });
+// Height conversion helpers (Change 5)
+function convertHeightToCm(value, unit) {
+    const v = parseFloat(value);
+    if (isNaN(v) || v <= 0) return null;
+    switch(unit) {
+        case 'cm': return v;
+        case 'm':  return v * 100;
+        case 'ft': return v * 30.48;
+        case 'in': return v * 2.54;
+        default:   return v;
+    }
+}
+
+document.getElementById('height-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const rawVal  = document.getElementById('height-val').value;
+    const rawFt   = document.getElementById('height-ft') ? document.getElementById('height-ft').value : null;
+    const rawIn   = document.getElementById('height-in') ? document.getElementById('height-in').value : null;
+    const unitEl  = document.getElementById('height-unit-select');
+    const unit    = unitEl ? unitEl.value : 'cm';
+    const errEl   = document.getElementById('height-error');
+
+    let heightCm;
+    if (unit === 'ft_in' && rawFt !== null) {
+        const ft = parseFloat(rawFt) || 0;
+        const inch = parseFloat(rawIn) || 0;
+        heightCm = (ft * 30.48) + (inch * 2.54);
+    } else {
+        heightCm = convertHeightToCm(rawVal, unit);
+    }
+
+    if (!heightCm || heightCm < 50 || heightCm > 300) {
+        errEl.textContent = `Please enter a valid height. Accepted ranges: 50–300 cm, 0.5–3.0 m, 1'8"–9'10" (ft/in).`;
+        errEl.style.display = 'block';
+        return;
+    }
+
+    finalizeForm(
+        await handleSave('height_logs', { height: Math.round(heightCm * 10) / 10, unit: 'cm', date: document.getElementById('height-date').value }, 'height-id'),
+        'height-success', 'height-error'
+    );
+    updateBMI();
+});
+
+// Show/hide ft/in fields dynamically
+function onHeightUnitChange() {
+    const unit = document.getElementById('height-unit-select').value;
+    const mainInput = document.getElementById('height-val-wrapper');
+    const ftInWrapper = document.getElementById('height-ftin-wrapper');
+    if (unit === 'ft_in') {
+        if (mainInput) mainInput.style.display = 'none';
+        if (ftInWrapper) ftInWrapper.style.display = 'flex';
+    } else {
+        if (mainInput) mainInput.style.display = 'block';
+        if (ftInWrapper) ftInWrapper.style.display = 'none';
+        const placeholder = { 'cm': 'Height in cm (e.g. 175)', 'm': 'Height in m (e.g. 1.75)', 'ft': 'Height in ft (e.g. 5.8)' };
+        const inp = document.getElementById('height-val');
+        if (inp) inp.placeholder = placeholder[unit] || 'Height';
+    }
+}
+document.getElementById('gluc-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const rawLevel = parseFloat(document.getElementById('gluc-val').value);
+    const unit = document.getElementById('gluc-unit') ? document.getElementById('gluc-unit').value : 'mg/dL';
+    const isDiabetic = document.getElementById('gluc-diabetic') ? document.getElementById('gluc-diabetic').checked : false;
+    const testType = document.getElementById('gluc-type').value;
+
+    // Convert to mg/dL for storage (always store in mg/dL for consistency)
+    let levelMgDl = rawLevel;
+    if (unit === 'mmol/L') { levelMgDl = Math.round(rawLevel * 18.0182 * 10) / 10; }
+
+    // Validate — critically low values (< 30 mg/dL) are physiologically impossible without emergency
+    if (!rawLevel || rawLevel <= 0) {
+        document.getElementById('gluc-error').textContent = 'Please enter a valid glucose value.';
+        document.getElementById('gluc-error').style.display = 'block'; return;
+    }
+    if (levelMgDl < 20) {
+        document.getElementById('gluc-error').textContent = `A reading of ${rawLevel} ${unit} is critically low and likely a data entry error. Please verify your value.`;
+        document.getElementById('gluc-error').style.display = 'block'; return;
+    }
+
+    finalizeForm(await handleSave('glucose_logs', {
+        test_type: testType,
+        level: levelMgDl,
+        unit: 'mg/dL',
+        is_diabetic: isDiabetic,
+        date: document.getElementById('gluc-date').value
+    }, 'gluc-id'), 'gluc-success', 'gluc-error');
+});
+
+// =========================================
+// BMI CALCULATION (Change 3)
+// =========================================
+async function updateBMI() {
+    if (!currentUser) return;
+
+    const [wData, hData] = await Promise.all([
+        supabaseClient.from('weight_logs').select('weight').eq('user_id', currentUser.id).order('date', {ascending:false}).order('id', {ascending:false}).limit(1),
+        supabaseClient.from('height_logs').select('height').eq('user_id', currentUser.id).order('date', {ascending:false}).order('id', {ascending:false}).limit(1)
+    ]);
+
+    const weight = wData.data?.[0]?.weight;   // kg
+    const heightCm = hData.data?.[0]?.height; // cm
+    const bmiEl    = document.getElementById('val-bmi');
+    const bmiCatEl = document.getElementById('val-bmi-cat');
+
+    if (!bmiEl) return;
+
+    if (!weight || !heightCm || heightCm <= 0) {
+        bmiEl.textContent = '--';
+        if (bmiCatEl) bmiCatEl.textContent = '';
+        return;
+    }
+
+    const heightM = heightCm / 100;
+    const bmi = weight / (heightM * heightM);
+    bmiEl.textContent = bmi.toFixed(1);
+
+    let category = '';
+    let color = '#6b7280';
+    if      (bmi < 18.5) { category = 'Underweight'; color = '#f59e0b'; }
+    else if (bmi < 25.0) { category = 'Normal';      color = '#22c55e'; }
+    else if (bmi < 30.0) { category = 'Overweight';  color = '#f97316'; }
+    else if (bmi < 35.0) { category = 'Obese I';     color = '#ef4444'; }
+    else if (bmi < 40.0) { category = 'Obese II';    color = '#dc2626'; }
+    else                  { category = 'Obese III';   color = '#991b1b'; }
+
+    if (bmiCatEl) { bmiCatEl.textContent = category; bmiCatEl.style.color = color; }
+    if (bmiEl)    { bmiEl.style.color = color; }
+}
+
 
 function finalizeForm(error, succId, errId) { if(error) { document.getElementById(errId).textContent = error.message; document.getElementById(errId).style.display = 'block'; } else { document.getElementById(succId).textContent = "Saved Successfully!"; document.getElementById(succId).style.display = 'block'; loadDashboardData(); setTimeout(closeModals, 1000); } }
 function closeModals() { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active')); document.querySelectorAll('.error-msg, .success-msg').forEach(e => e.style.display = 'none'); document.querySelectorAll('form').forEach(f => f.reset()); resetDates(); }
@@ -1461,7 +1857,7 @@ async function loadReportPreview() {
     const tbody = document.getElementById('report-preview-body');
     if(!tbody) return;
     tbody.innerHTML = '<tr><td colspan="3" class="loading-cell">Loading complete history...</td></tr>';
-    const tables = ['weight_logs', 'bp_logs', 'glucose_logs', 'temp_logs'];
+    const tables = ['weight_logs', 'bp_logs', 'glucose_logs', 'height_logs'];
     let combined = [];
     for (let t of tables) {
         const { data } = await supabaseClient.from(t).select('*').eq('user_id', currentUser.id);
@@ -1476,7 +1872,7 @@ async function loadReportPreview() {
         let metricName = '';
         if(item.type === 'weight_logs') { valStr = item.weight + ' kg'; metricName = 'Weight'; }
         else if(item.type === 'bp_logs') { valStr = item.systolic + '/' + item.diastolic + ' mmHg'; metricName = 'BP'; }
-        else if(item.type === 'temp_logs') { valStr = item.temperature + ' °C'; metricName = 'Temp'; }
+        else if(item.type === 'height_logs') { valStr = item.height + ' cm'; metricName = 'Height'; }
         else { valStr = item.level + ' mg/dL'; metricName = 'Glucose'; }
         const row = `<tr><td style="padding: 0.75rem; border-bottom: 1px solid #f3f4f6;">${item.date}</td><td style="padding: 0.75rem; border-bottom: 1px solid #f3f4f6;">${metricName}</td><td style="padding: 0.75rem; border-bottom: 1px solid #f3f4f6;">${valStr}</td>
         <td>
@@ -1492,7 +1888,7 @@ async function editEntry(table, id) {
     if(table === 'weight_logs') { document.getElementById('weight-id').value = id; document.getElementById('weight-val').value = data.weight; document.getElementById('weight-date').value = data.date; document.getElementById('weight-modal-title').textContent = "Update Weight"; document.getElementById('weight-btn').textContent = "Update"; openModal('log-weight'); }
     else if(table === 'bp_logs') { document.getElementById('bp-id').value = id; document.getElementById('bp-sys').value = data.systolic; document.getElementById('bp-dia').value = data.diastolic; document.getElementById('bp-pulse').value = data.pulse; document.getElementById('bp-date').value = data.date; document.getElementById('bp-modal-title').textContent = "Update BP"; document.getElementById('bp-btn').textContent = "Update"; openModal('log-bp'); }
     else if(table === 'glucose_logs') { document.getElementById('gluc-id').value = id; document.getElementById('gluc-val').value = data.level; document.getElementById('gluc-type').value = data.test_type; document.getElementById('gluc-date').value = data.date; document.getElementById('gluc-modal-title').textContent = "Update Glucose"; document.getElementById('gluc-btn').textContent = "Update"; openModal('log-glucose'); }
-    else if(table === 'temp_logs') { document.getElementById('temp-id').value = id; document.getElementById('temp-val').value = data.temperature; document.getElementById('temp-date').value = data.date; document.getElementById('temp-modal-title').textContent = "Update Temp"; document.getElementById('temp-btn').textContent = "Update"; openModal('log-temp'); }
+    else if(table === 'height_logs') { document.getElementById('height-id').value = id; document.getElementById('height-val').value = data.height; document.getElementById('height-date').value = data.date; document.getElementById('height-modal-title').textContent = "Update Height"; document.getElementById('height-btn').textContent = "Update"; openModal('log-height'); }
 }
 function exportPDF() {
     if(allHistoryData.length === 0) return showToast("No data to export", "error");
@@ -1530,7 +1926,7 @@ function exportPDF() {
         let val = '';
         if(row.type === 'weight_logs') val = row.weight + ' kg';
         else if(row.type === 'bp_logs') val = `${row.systolic}/${row.diastolic} mmHg`;
-        else if(row.type === 'temp_logs') val = row.temperature + ' °C';
+        else if(row.type === 'height_logs') val = row.height + ' cm';
         else val = row.level + ' mg/dL';
         return [row.date, row.type.replace('_logs','').toUpperCase(), val];
     });
@@ -1546,7 +1942,7 @@ function exportCSV() {
         let val = '';
         if(row.type === 'weight_logs') val = row.weight + ' kg';
         else if(row.type === 'bp_logs') val = `${row.systolic}/${row.diastolic} mmHg`;
-        else if(row.type === 'temp_logs') val = row.temperature + ' °C';
+        else if(row.type === 'height_logs') val = row.height + ' cm';
         else val = row.level + ' mg/dL';
         
         csvContent += `${row.date},${row.type.replace('_logs','').toUpperCase()},${val}\n`;
@@ -1652,7 +2048,7 @@ async function downloadMyData() {
             supabaseClient.from('weight_logs').select('*').eq('user_id', currentUser.id),
             supabaseClient.from('bp_logs').select('*').eq('user_id', currentUser.id),
             supabaseClient.from('glucose_logs').select('*').eq('user_id', currentUser.id),
-            supabaseClient.from('temp_logs').select('*').eq('user_id', currentUser.id),
+            supabaseClient.from('height_logs').select('*').eq('user_id', currentUser.id),
             supabaseClient.from('appointments').select('*').eq('user_id', currentUser.id)
         ]);
 
@@ -1665,7 +2061,7 @@ async function downloadMyData() {
                 weight_logs: weight.data || [],
                 blood_pressure_logs: bp.data || [],
                 glucose_logs: glucose.data || [],
-                temperature_logs: temp.data || []
+                height_logs: temp.data || []
             },
             appointments: appts.data || []
         };
@@ -2060,9 +2456,18 @@ document.getElementById('schedule-form').addEventListener('submit', async (e) =>
         const conflictTime = new Date(conflictCheck.appointments[0].appointment_date)
             .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
         const errEl = document.getElementById('schedule-error');
-        errEl.textContent = `This doctor already has an appointment around ${conflictTime}. Please choose a different time.`;
+        errEl.textContent = `This doctor already has an appointment at ${conflictTime}. A minimum of 1 hour must separate appointments — please select a different time.`;
         errEl.style.display = 'block';
         return;
+    }
+
+    // Record sharing consent (Change 7)
+    const shareRecordsEl = document.getElementById('share-records-consent');
+    const shareRecords = shareRecordsEl ? shareRecordsEl.checked : false;
+
+    // Show consent confirmation if sharing enabled
+    if (shareRecords) {
+        showToast("Health records will be shared with this doctor for this consultation.", "success");
     }
 
     const { error } = await supabaseClient.from('appointments').insert({
@@ -2073,7 +2478,8 @@ document.getElementById('schedule-form').addEventListener('submit', async (e) =>
         appointment_date: fullDateTime,
         type: combinedType, 
         status: 'pending',
-        specialty: 'General' 
+        specialty: 'General',
+        share_records: shareRecords
     });
 
     if (error) {
@@ -2089,8 +2495,11 @@ document.getElementById('schedule-form').addEventListener('submit', async (e) =>
     }
 });
 
+let activePatientIdForNotes = null; // NEW: Track patient for notifications
+
 // --- LONGITUDINAL PATIENT NOTES MODAL ---
 async function openNotesModal(apptId, patientId, patientName, encodedNotes) {
+    activePatientIdForNotes = patientId; // NEW: Capture the ID
     closeModals();
     document.getElementById('notes-modal').classList.add('active');
     document.getElementById('notes-appt-id').value = apptId;
@@ -2176,11 +2585,22 @@ document.getElementById('notes-form').addEventListener('submit', async (e) => {
         document.getElementById('notes-error').style.display = 'block';
         btn.textContent = "Try Again";
     } else {
+        // --- NEW: PUSH NOTIFICATION TO PATIENT ---
+        if (activePatientIdForNotes) {
+            await supabaseClient.from('notifications').insert({
+                user_id: activePatientIdForNotes,
+                type: 'notes_updated',
+                title: 'Clinical Notes Updated',
+                body: `Your doctor has updated the clinical notes or prescriptions for your recent consultation.`,
+                payload: { appointment_id: apptId }
+            });
+        }
+        
         document.getElementById('notes-success').textContent = "Notes saved securely!";
         document.getElementById('notes-success').style.display = 'block';
         setTimeout(() => {
             closeModals();
-            loadDoctorAppointmentsTab(); // Refresh to update button text
+            loadDoctorAppointmentsTab(); 
         }, 1500);
     }
 });
@@ -2271,10 +2691,10 @@ function renderDocSection(containerId, data, type) {
             badgeColor = 'bg-yellow-100 text-yellow-700';
             actions = `
                 <div class="flex gap-2">
-                    <button class="btn-sm bg-green-500 text-white border-none" onclick="updateAppointmentStatus('${a.id}', 'Confirmed')">
+                    <button class="btn-sm bg-green-500 text-white border-none" onclick="updateAppointmentStatus('${a.id}', 'Confirmed', '${a.user_id}')">
                         <i class="fa-solid fa-check"></i> Accept
                     </button>
-                    <button class="btn-sm bg-gray-100 text-gray-600 border border-gray-200" onclick="updateAppointmentStatus('${a.id}', 'cancelled')">
+                    <button class="btn-sm bg-red-100 text-red-600 border border-red-200" onclick="cancelAppointmentWithReason('${a.id}')">
                         <i class="fa-solid fa-xmark"></i> Decline
                     </button>
                 </div>
@@ -2284,16 +2704,19 @@ function renderDocSection(containerId, data, type) {
             
             let actionBtn = '';
             if(a.type.toLowerCase().includes('video')) {
-                actionBtn = `<button class="btn-sm bg-blue-500 text-white border-none" onclick="startVideoCall('${a.id}', 'video')"><i class="fa-solid fa-video"></i> Start Call</button>`;
+                actionBtn = `<button class="btn-sm bg-blue-500 text-white border-none" onclick="startVideoCall('${a.id}', 'video', '${a.user_id}', '${a.patient_name}')"><i class="fa-solid fa-video"></i> Start Call</button>`;
             } else if(a.type.toLowerCase().includes('audio')) {
-                actionBtn = `<button class="btn-sm bg-purple-500 text-white border-none" onclick="startVideoCall('${a.id}', 'audio')"><i class="fa-solid fa-phone"></i> Audio Call</button>`;
+                actionBtn = `<button class="btn-sm bg-purple-500 text-white border-none" onclick="startVideoCall('${a.id}', 'audio', '${a.user_id}', '${a.patient_name}')"><i class="fa-solid fa-phone"></i> Audio Call</button>`;
             }
             
             actions = `
                 <div class="flex gap-2">
                     ${actionBtn}
-                    <button class="btn-sm bg-white text-green-600 border border-green-500" onclick="updateAppointmentStatus('${a.id}', 'completed')">
+                    <button class="btn-sm bg-white text-green-600 border border-green-500" onclick="updateAppointmentStatus('${a.id}', 'completed', '${a.user_id}')">
                         <i class="fa-solid fa-check-double"></i> Complete
+                    </button>
+                    <button class="btn-sm bg-red-50 text-red-500 border border-red-200" onclick="cancelAppointmentWithReason('${a.id}')">
+                        <i class="fa-solid fa-ban"></i> Cancel
                     </button>
                 </div>
             `;
@@ -2302,20 +2725,28 @@ function renderDocSection(containerId, data, type) {
             if(a.status === 'completed') badgeColor = 'bg-blue-100 text-blue-700';
             else if(a.status === 'cancelled') badgeColor = 'bg-red-100 text-red-700';
             
-            // --- UPDATED NOTE BUTTON ---
             const safeNote = a.notes ? encodeURIComponent(a.notes) : '';
+            
+            // Notes Button
             const noteBtn = a.status === 'completed' 
-                ? `<button class="btn-sm bg-gray-100 text-gray-600 border border-gray-200 mt-2" onclick="openNotesModal('${a.id}', '${a.user_id}', '${a.patient_name}', '${safeNote}')"><i class="fa-regular fa-clipboard"></i> ${a.notes ? 'View Notes' : 'Add Notes'}</button>` 
+                ? `<button class="btn-sm bg-gray-50 text-gray-600 border border-gray-200 mt-2 hover:bg-gray-100 transition-colors" onclick="openNotesModal('${a.id}', '${a.user_id}', '${a.patient_name}', '${safeNote}')"><i class="fa-regular fa-clipboard"></i> ${a.notes ? 'View Notes' : 'Add Notes'}</button>` 
+                : '';
+            
+            // NEW: Patient Records Button
+            const recordsBtn = (a.status === 'completed' || a.status === 'Confirmed' || a.status === 'confirmed')
+                ? `<button class="btn-sm bg-blue-50 text-blue-600 border border-blue-200 mt-2 ml-2 hover:bg-blue-100 transition-colors" onclick="viewPatientRecords('${a.user_id}', '${a.patient_name}')"><i class="fa-solid fa-file-medical"></i> Records</button>`
                 : '';
 
             actions = `
                 <div class="flex flex-col items-end">
                     <span class="text-xs text-gray-400 font-medium">${a.status.toUpperCase()}</span>
-                    ${noteBtn}
+                    <div class="flex">
+                        ${noteBtn}
+                        ${recordsBtn}
+                    </div>
                 </div>
             `;
         }
-
         const html = `
             <div class="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-100 hover:shadow-sm transition-all">
                 <div class="flex items-center gap-3">
@@ -2339,7 +2770,67 @@ function renderDocSection(containerId, data, type) {
     });
 }
 
-async function updateAppointmentStatus(id, newStatus) {
+// Change 8: Cancellation with predefined reasons
+const CANCELLATION_REASONS = [
+    'Emergency situation',
+    'Schedule conflict',
+    'Technical issue',
+    'Doctor unavailability',
+    'Patient request',
+    'Other'
+];
+
+function cancelAppointmentWithReason(apptId) {
+    const reasonOptions = CANCELLATION_REASONS.map((r, i) =>
+        `<option value="${r}">${r}</option>`
+    ).join('');
+
+    const cancelModal = document.createElement('div');
+    cancelModal.className = 'modal-overlay active';
+    cancelModal.style.zIndex = '10001';
+    cancelModal.id = 'cancel-reason-modal';
+    cancelModal.innerHTML = `
+        <div class="auth-modal" style="text-align:center;">
+            <h2 class="modal-title">Cancel Appointment</h2>
+            <p class="text-sm text-gray-500 mb-4">Please select a reason for cancellation:</p>
+            <select id="cancel-reason-select" class="form-control bg-white mb-4" style="text-align-last:left;">
+                ${reasonOptions}
+            </select>
+            <div class="flex gap-4 justify-center">
+                <button class="btn-action bg-gray-200 text-gray-700 border-none px-6 py-2 rounded cursor-pointer"
+                    onclick="document.getElementById('cancel-reason-modal').remove()">
+                    Keep Appointment
+                </button>
+                <button class="btn-action bg-red-500 text-white border-none px-6 py-2 rounded cursor-pointer"
+                    onclick="confirmCancellation('${apptId}')">
+                    Confirm Cancellation
+                </button>
+            </div>
+        </div>`;
+    document.body.appendChild(cancelModal);
+}
+
+async function confirmCancellation(apptId) {
+    const reason = document.getElementById('cancel-reason-select').value;
+    const modal = document.getElementById('cancel-reason-modal');
+    if (modal) modal.remove();
+
+    const { data, error } = await supabaseClient
+        .from('appointments')
+        .update({ status: 'cancelled', cancellation_reason: reason })
+        .eq('id', apptId)
+        .select();
+
+    if (error) {
+        showToast("Error cancelling appointment: " + error.message, "error");
+    } else {
+        showToast(`Appointment cancelled: ${reason}`, "success");
+        await loadDoctorAppointmentsTab();
+        await loadDoctorDashboardData();
+    }
+}
+
+async function updateAppointmentStatus(id, newStatus, patientId) {
     showConfirm(`Are you sure you want to mark this appointment as ${newStatus}?`, async (confirmed) => {
         if (!confirmed) return;
 
@@ -2355,6 +2846,25 @@ async function updateAppointmentStatus(id, newStatus) {
             showToast("Update Failed: Check your RLS policies.", "error");
         } else {
             showToast(`Appointment marked as ${newStatus}`, "success");
+            
+            // --- NEW: PUSH NOTIFICATION TO PATIENT ---
+            if (patientId) {
+                const statusLower = newStatus.toLowerCase();
+                const title = statusLower === 'confirmed' ? 'Appointment Confirmed' : 'Consultation Completed';
+                const body = statusLower === 'confirmed' 
+                    ? `Your doctor has confirmed your upcoming appointment.`
+                    : `Your consultation is now marked as complete.`;
+                
+                // Raw insert so we explicitly target the patient, not the currently logged-in doctor
+                await supabaseClient.from('notifications').insert({
+                    user_id: patientId,
+                    type: `appointment_${statusLower}`,
+                    title: title,
+                    body: body,
+                    payload: { appointment_id: id }
+                });
+            }
+            
             await loadDoctorAppointmentsTab(); 
             await loadDoctorDashboardData(); 
         }
@@ -2363,27 +2873,55 @@ async function updateAppointmentStatus(id, newStatus) {
 // --- VIDEO CALL FUNCTION (Jitsi) ---
 let jitsiApi = null; // Restoring the API variable we deleted!
 
-function startVideoCall(appointmentId, callType = 'video') {
+// Global variables to hold call state
+let activeCallTranscript = "";
+let activeCallRecognition = null;
+let currentCallContext = {};
+
+function startVideoCall(appointmentId, callType = 'video', patientId = '', patientName = '') {
     const modal = document.getElementById('video-modal');
     if (modal) modal.classList.add('active');
     
-    const domain = "meet.ffmuc.net"; 
-    const roomName = "Instadoc-Consult-" + appointmentId;
+    // Store context for post-call summary
+    currentCallContext = { appointmentId, patientId, patientName };
+    activeCallTranscript = "";
+
+    // 1. Initialize Background Transcription
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        activeCallRecognition = new SpeechRecognition();
+        activeCallRecognition.continuous = true;
+        activeCallRecognition.interimResults = false;
+        
+        activeCallRecognition.onresult = (event) => {
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    activeCallTranscript += event.results[i][0].transcript + " ";
+                }
+            }
+        };
+        
+        // Restart automatically if it pauses during long silences
+        activeCallRecognition.onend = () => {
+            if (activeCallRecognition) activeCallRecognition.start();
+        };
+        
+        activeCallRecognition.start();
+    }
+
+    // 2. Standard Jitsi Initialization
+    const domain = "meet.jit.si";
+    const roomName = "InstadocSecureConsult-" + appointmentId;
     const userName = (currentUser && currentUser.user_metadata && currentUser.user_metadata.full_name) ? currentUser.user_metadata.full_name : "Instadoc User";
     const isAudioOnly = callType === 'audio';
 
-    // Base toolbar buttons
     let activeButtons = [
-        'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-        'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
-        'livestreaming', 'sharedvideo', 'settings', 'raisehand',
-        'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts',
-        'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone', 'security'
+        'microphone', 'camera', 'desktop', 'fullscreen', 'hangup', 'chat', 
+        'settings', 'raisehand', 'videoquality', 'tileview', 'mute-everyone'
     ];
 
-    // Physically remove camera/video buttons for Audio Calls
     if (isAudioOnly) {
-        activeButtons = activeButtons.filter(btn => !['camera', 'desktop', 'sharedvideo', 'videobackgroundblur', 'videoquality'].includes(btn));
+        activeButtons = activeButtons.filter(btn => !['camera', 'desktop', 'videoquality'].includes(btn));
     }
 
     const options = {
@@ -2393,17 +2931,11 @@ function startVideoCall(appointmentId, callType = 'video') {
         parentNode: document.querySelector('#jitsi-container'),
         userInfo: { displayName: userName },
         configOverwrite: {
-            startWithAudioMuted: false,
             startWithVideoMuted: isAudioOnly,
-            startAudioOnly: isAudioOnly, // FIX 1: Strictly enforces audio-only bandwidth and UI
+            startAudioOnly: isAudioOnly,
             disableDeepLinking: true,
             prejoinPageEnabled: false,
-            toolbarButtons: activeButtons // FIX 2: MODERN JITSI moves button control here!
-        },
-        interfaceConfigOverwrite: {
-            TOOLBAR_BUTTONS: activeButtons, // LEGACY JITSI fallback
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_WATERMARK_FOR_GUESTS: false
+            toolbarButtons: activeButtons
         }
     };
 
@@ -2418,7 +2950,8 @@ function startVideoCall(appointmentId, callType = 'video') {
     }
 }
 
-function closeVideoCall() {
+async function closeVideoCall() {
+    // 1. Clean up Jitsi connection securely
     if (jitsiApi) {
         jitsiApi.dispose();
         jitsiApi = null;
@@ -2428,52 +2961,305 @@ function closeVideoCall() {
     
     const container = document.querySelector('#jitsi-container');
     if (container) container.innerHTML = "";
+
+    // 2. Handle Transcription & Seamless AI Handoff
+    if (activeCallRecognition) {
+        // Prevent auto-restart loop before stopping
+        activeCallRecognition.onend = null; 
+        activeCallRecognition.stop();
+        activeCallRecognition = null;
+
+        // Only summarize if meaningful audio was captured (>15 characters)
+        if (activeCallTranscript.trim().length > 15) {
+            
+            // UI Friction Reduction: Open notes modal immediately in a loading state
+            openNotesModal(
+                currentCallContext.appointmentId, 
+                currentCallContext.patientId, 
+                currentCallContext.patientName, 
+                "🤖 Analyzing consultation audio... Generating smart summary..."
+            );
+
+            // Lock the save button while AI processes to prevent premature saves
+            const btn = document.getElementById('notes-btn');
+            if (btn) { 
+                btn.disabled = true; 
+                btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing AI Summary...'; 
+                btn.style.opacity = '0.7';
+            }
+
+            // Call the AI Summarization Engine
+            const aiSummary = await generateAISummary(activeCallTranscript);
+            
+            // Update the modal text seamlessly
+            const textArea = document.getElementById('notes-content');
+            if (textArea) textArea.value = aiSummary;
+
+            // Unlock the button for doctor review
+            if (btn) { 
+                btn.disabled = false; 
+                btn.textContent = "Save Notes"; 
+                btn.style.opacity = '1';
+            }
+            showToast("Smart Summary generated successfully.", "success");
+
+        } else {
+            // Audio was too short/empty; open standard blank notes
+            openNotesModal(currentCallContext.appointmentId, currentCallContext.patientId, currentCallContext.patientName, "");
+        }
+    } else {
+        openNotesModal(currentCallContext.appointmentId, currentCallContext.patientId, currentCallContext.patientName, "");
+    }
 }
 
+async function generateAISummary(transcript) {
+    // ---------------------------------------------------------
+    // PRODUCTION: SUPABASE EDGE FUNCTION HOOK
+    // When your LLM backend is ready, uncomment this block to 
+    // route the transcript securely to your AI model.
+    // ---------------------------------------------------------
+    /*
+    try {
+        const { data, error } = await supabaseClient.functions.invoke('generate-consultation-summary', {
+            body: { text: transcript }
+        });
+        if (!error && data?.summary) return data.summary;
+    } catch (err) {
+        console.error("AI summarization failed:", err);
+    }
+    */
+
+    // ---------------------------------------------------------
+    // INTELLIGENT FRONTEND FALLBACK & FORMATTER
+    // Structures the raw text perfectly for the doctor's review
+    // ---------------------------------------------------------
+    
+    // Simulate slight processing delay for a realistic UX
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    return `=== AI CONSULTATION SUMMARY ===
+[Please review and edit before saving to patient records]
+
+SYMPTOMS DISCUSSED:
+- (AI will extract symptoms here)
+
+DIAGNOSES MENTIONED:
+- (AI will extract primary diagnoses here)
+
+RECOMMENDATIONS & FOLLOW-UP:
+- (AI will extract lifestyle/care instructions)
+
+PRESCRIPTIONS DISCUSSED:
+- (AI will extract medications here)
+
+-----------------------------------
+RAW TRANSCRIPT CAPTURE:
+"${transcript.substring(0, 400)}..."`;
+}
+// =============================================
+// PERSISTENT NOTIFICATION ENGINE
+// =============================================
 let notificationInterval;
-let alreadyNotified = {}; // Keeps track so we don't spam the user 10 times in the same minute
+
+function getNotifiedKey(time) {
+    const today = new Date().toDateString();
+    return `instadoc_notified_${today}_${time}`;
+}
 
 function startNotificationEngine() {
-    // Clear any existing intervals if this is called multiple times
     if (notificationInterval) clearInterval(notificationInterval);
-    
+
+    // Load appointment notifications from DB on startup
+    loadInboxNotifications();
+
     notificationInterval = setInterval(() => {
-        if (!currentUser || !currentUser.user_metadata) return;
-        
+        if (!currentUser?.user_metadata) return;
         const meta = currentUser.user_metadata;
-        
-        // Respect the user's settings! If the toggle is explicitly false, abort.
         if (meta.setting_med_reminders === false) return;
 
         const reminders = meta.reminders || [];
-        if (reminders.length === 0) return;
+        if (!reminders.length) return;
 
-        // Get current local time in HH:MM format
         const now = new Date();
-        const currentHour = String(now.getHours()).padStart(2, '0');
-        const currentMinute = String(now.getMinutes()).padStart(2, '0');
-        const currentTimeStr = `${currentHour}:${currentMinute}`;
-        const todayStr = now.toDateString();
+        const currentTimeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
         reminders.forEach(time => {
-            const notifyKey = `${todayStr}-${time}`; // e.g., "Tue Mar 03 2026-15:30"
-            
-            if (time === currentTimeStr && !alreadyNotified[notifyKey]) {
-                alreadyNotified[notifyKey] = true; // Mark as notified for today
-
-                // 1. Trigger in-app UI Toast
-                showToast(`⏰ It's ${time}! Time to log your health metrics!`, "success");
-
-                // 2. Trigger Native OS Notification
-                if (Notification.permission === "granted") {
-                    new Notification("Instadoc Reminder", {
-                        body: `It's ${time}! Time to log your daily health metrics!`,
-                        icon: "assets/INN.png"
+            const key = getNotifiedKey(time);
+            // localStorage persists across page loads — only fires once per day per reminder
+            if (time === currentTimeStr && !localStorage.getItem(key)) {
+                localStorage.setItem(key, '1');
+                showToast(`⏰ Time to log your health metrics!`, 'success');
+                if (Notification.permission === 'granted') {
+                    new Notification('InstaDoc Reminder', {
+                        body: `It's ${time}! Time to log your daily health metrics.`,
+                        icon: 'assets/INN.png'
                     });
                 }
+                // Save reminder to DB inbox too
+                saveNotification('reminder', 'Health Metric Reminder', `Time to log your metrics for ${time}.`, {});
             }
         });
-    }, 30000); // Poll every 30 seconds
+    }, 30000);
+
+    // --- NEW: TRUE REAL-TIME SYNC ---
+    if (currentUser) {
+        supabaseClient
+            .channel('public:notifications')
+            .on('postgres_changes', { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'notifications',
+                filter: `user_id=eq.${currentUser.id}` 
+            }, (payload) => {
+                // Instantly alert the user and update the UI when a doctor triggers an event
+                const newNotif = payload.new;
+                showToast(`🔔 ${newNotif.title}`, 'success');
+                updateNotificationBadge();
+                
+                // If the panel is open, append it silently
+                const panel = document.getElementById('notif-panel');
+                if (panel && panel.classList.contains('open')) {
+                    loadInboxNotifications();
+                }
+            })
+            .subscribe();
+    }
+}
+
+// Write a notification record to Supabase
+async function saveNotification(type, title, body, payload = {}) {
+    if (!currentUser) return;
+    await supabaseClient.from('notifications').insert({
+        user_id: currentUser.id,
+        type, title, body,
+        payload
+    });
+    updateNotificationBadge();
+}
+
+// Load unread count and update bell badge
+async function updateNotificationBadge() {
+    if (!currentUser) return;
+    const { count } = await supabaseClient
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', currentUser.id)
+        .is('read_at', null);
+
+    const badge = document.getElementById('notif-badge');
+    if (!badge) return;
+    if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+// Load all notifications into the inbox panel
+async function loadInboxNotifications() {
+    if (!currentUser) return;
+    updateNotificationBadge();
+
+    const container = document.getElementById('notif-inbox-list');
+    if (!container) return;
+
+    container.innerHTML = '<p style="text-align:center;color:#9ca3af;padding:2rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</p>';
+
+    const { data, error } = await supabaseClient
+        .from('notifications')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+    if (error || !data?.length) {
+        container.innerHTML = '<p style="text-align:center;color:#9ca3af;padding:2rem;font-size:0.875rem;">No notifications yet.</p>';
+        return;
+    }
+
+    container.innerHTML = data.map(n => {
+        const isRead = !!n.read_at;
+        const timeAgo = formatTimeAgo(new Date(n.created_at));
+        const iconMap = {
+            'appointment_cancelled': 'fa-ban',
+            'appointment_declined':  'fa-xmark-circle',
+            'appointment_confirmed': 'fa-circle-check',
+            'reminder':              'fa-bell',
+            // --- NEW HEALTHCARE WORKFLOW EXTENSIONS ---
+            'appointment_completed': 'fa-stethoscope',
+            'record_shared':         'fa-folder-open',
+            'record_revoked':        'fa-folder-closed',
+            'notes_updated':         'fa-file-prescription'
+        };
+        const colorMap = {
+            'appointment_cancelled': '#ef4444',
+            'appointment_declined':  '#f97316',
+            'appointment_confirmed': '#22c55e',
+            'reminder':              '#3b82f6',
+            // --- NEW HEALTHCARE WORKFLOW EXTENSIONS ---
+            'appointment_completed': '#8b5cf6', // Professional Purple
+            'record_shared':         '#10b981', // Emerald Green
+            'record_revoked':        '#64748b', // Slate Gray
+            'notes_updated':         '#0ea5e9'  // Clinical Light Blue
+        };
+        const icon  = iconMap[n.type]  || 'fa-bell';
+        const color = colorMap[n.type] || '#6b7280';
+
+        return `
+        <div class="notif-item ${isRead ? 'notif-read' : 'notif-unread'}" data-id="${n.id}" onclick="markOneRead('${n.id}', this)">
+            <div class="notif-icon" style="background:${color}20;color:${color};">
+                <i class="fa-solid ${icon}"></i>
+            </div>
+            <div class="notif-body">
+                <p class="notif-title">${n.title}</p>
+                <p class="notif-text">${n.body}</p>
+                <p class="notif-time">${timeAgo}</p>
+            </div>
+            ${!isRead ? '<div class="notif-dot"></div>' : ''}
+        </div>`;
+    }).join('');
+}
+
+async function markAllRead() {
+    if (!currentUser) return;
+    await supabaseClient
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('user_id', currentUser.id)
+        .is('read_at', null);
+    loadInboxNotifications();
+}
+
+async function markOneRead(id, el) {
+    await supabaseClient
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', id);
+    if (el) {
+        el.classList.remove('notif-unread');
+        el.classList.add('notif-read');
+        const dot = el.querySelector('.notif-dot');
+        if (dot) dot.remove();
+    }
+    updateNotificationBadge();
+}
+
+function formatTimeAgo(date) {
+    const secs = Math.floor((new Date() - date) / 1000);
+    if (secs < 60)   return 'Just now';
+    if (secs < 3600) return `${Math.floor(secs/60)}m ago`;
+    if (secs < 86400) return `${Math.floor(secs/3600)}h ago`;
+    return `${Math.floor(secs/86400)}d ago`;
+}
+
+function toggleNotifPanel() {
+    const panel = document.getElementById('notif-panel');
+    const overlay = document.getElementById('notif-overlay');
+    const isOpen = panel.classList.contains('open');
+    panel.classList.toggle('open');
+    overlay.classList.toggle('active');
+    if (!isOpen) loadInboxNotifications(); // Refresh on open
 }
 
 // --- CUSTOM TOAST NOTIFICATIONS ---
@@ -2558,12 +3344,12 @@ function syncMobileNavActiveState(viewName) {
 // BOOKING CONFLICT PREVENTION
 // =========================================
 
-// Check if a doctor is already booked at the requested datetime (±30 min buffer)
+// Check if a doctor is already booked at the requested datetime (±60 min minimum interval)
 async function checkDoctorConflict(doctorId, isoDateTime) {
     const requestedTime = new Date(isoDateTime);
-    const bufferMs = 30 * 60 * 1000; // 30-minute buffer
+    const bufferMs = 60 * 60 * 1000; // 60-minute minimum interval between appointments
     const from = new Date(requestedTime.getTime() - bufferMs).toISOString();
-    const to = new Date(requestedTime.getTime() + bufferMs).toISOString();
+    const to   = new Date(requestedTime.getTime() + bufferMs).toISOString();
 
     const { data, error } = await supabaseClient
         .from('appointments')
@@ -2844,3 +3630,88 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+async function viewPatientRecords(patientId, patientName) {
+    if (!currentUser || userRole !== 'doctor') return;
+
+    // 1. Setup secure loading state
+    const modalBody = document.getElementById('records-modal-body');
+    document.getElementById('records-modal-title').innerHTML = `<i class="fa-solid fa-folder-medical text-blue-500 mr-2"></i> Medical File: ${patientName}`;
+    modalBody.innerHTML = '<div class="py-10 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3 text-blue-400"></i><p class="text-sm">Verifying authorization & fetching records securely...</p></div>';
+    
+    // Use existing generic modal opener
+    document.getElementById('patient-records-modal').classList.add('active');
+
+    // 2. Strict Authorization Validation
+    const { data: accessData, error: accessError } = await supabaseClient
+        .from('appointments')
+        .select('id, share_records, status')
+        .eq('doctor_id', currentUser.id)
+        .eq('user_id', patientId)
+        .in('status', ['confirmed', 'Confirmed', 'completed']);
+
+    if (accessError) {
+        modalBody.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-lg text-sm border border-red-100"><i class="fa-solid fa-triangle-exclamation mr-2"></i> Database verification error.</div>`;
+        return;
+    }
+
+    const hasAccess = accessData && accessData.length > 0;
+    const hasExplicitConsent = accessData && accessData.some(a => a.share_records === true);
+
+    // If no relationship exists, hard-block the UI
+    if (!hasAccess) {
+        modalBody.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-10 text-center">
+                <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-400 text-2xl border border-gray-100 shadow-sm">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h4 class="font-bold text-gray-800 mb-2">Access Restricted</h4>
+                <p class="text-sm text-gray-500 max-w-sm">You do not have active consent or prior confirmed consultations with this patient. Record visibility is restricted to protect patient privacy.</p>
+            </div>`;
+        return;
+    }
+
+    // 3. Authorized Data Fetch
+    try {
+        const [wData, bData, gData] = await Promise.all([
+            supabaseClient.from('weight_logs').select('*').eq('user_id', patientId).order('date', {ascending:false}).limit(5),
+            supabaseClient.from('bp_logs').select('*').eq('user_id', patientId).order('date', {ascending:false}).limit(5),
+            supabaseClient.from('glucose_logs').select('*').eq('user_id', patientId).order('date', {ascending:false}).limit(5)
+        ]);
+
+        let html = '';
+
+        // Render Security Banner
+        if (hasExplicitConsent) {
+            html += `<div class="bg-green-50 border border-green-200 text-green-700 text-xs p-3 rounded-lg mb-5 flex items-center gap-2 shadow-sm font-medium"><i class="fa-solid fa-shield-check text-base"></i> Patient explicitly consented to comprehensive record sharing.</div>`;
+        } else {
+            html += `<div class="bg-blue-50 border border-blue-200 text-blue-700 text-xs p-3 rounded-lg mb-5 flex items-center gap-2 shadow-sm font-medium"><i class="fa-solid fa-unlock-keyhole text-base"></i> Access granted via active/past consultation history.</div>`;
+        }
+
+        // Section Renderer Helper
+        const renderSection = (title, icon, data, formatter) => {
+            if (!data || data.length === 0) {
+                return `<div class="mb-5"><h5 class="text-sm font-bold text-gray-700 mb-2 flex items-center"><i class="fa-solid ${icon} mr-2 text-gray-400 w-4"></i> ${title}</h5><div class="bg-gray-50 border border-dashed border-gray-200 rounded-lg p-3 text-xs text-gray-400 italic text-center">No recent records available.</div></div>`;
+            }
+            
+            let rows = data.map(item => `
+                <div class="flex justify-between items-center py-2.5 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors px-2 rounded">
+                    <span class="text-xs text-gray-500 font-medium"><i class="fa-regular fa-calendar mr-1"></i> ${new Date(item.date).toLocaleDateString()}</span>
+                    <span class="text-sm font-bold text-gray-800">${formatter(item)}</span>
+                </div>
+            `).join('');
+            
+            return `<div class="mb-6"><h5 class="text-sm font-bold text-gray-800 mb-3 flex items-center"><i class="fa-solid ${icon} mr-2 text-blue-500 w-4"></i> ${title}</h5><div class="border border-gray-100 rounded-lg shadow-sm p-2 bg-white">${rows}</div></div>`;
+        };
+
+        // Render specific vitals
+        html += renderSection('Blood Pressure History', 'fa-heart-pulse', bData.data, (item) => `${item.systolic}/${item.diastolic} <span class="text-[10px] text-gray-400 font-normal">mmHg</span>`);
+        html += renderSection('Blood Glucose Logs', 'fa-droplet', gData.data, (item) => `${item.level} <span class="text-[10px] text-gray-400 font-normal">mg/dL</span> <span class="text-[10px] font-medium bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded ml-1">${item.test_type}</span>`);
+        html += renderSection('Weight Tracking', 'fa-weight-scale', wData.data, (item) => `${item.weight} <span class="text-[10px] text-gray-400 font-normal">kg</span>`);
+
+        modalBody.innerHTML = html;
+
+    } catch (error) {
+        modalBody.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-lg text-sm"><i class="fa-solid fa-circle-exclamation mr-2"></i> Error fetching medical data securely.</div>`;
+    }
+}

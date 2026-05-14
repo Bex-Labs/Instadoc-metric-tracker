@@ -29,9 +29,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <!-- Jitsi Meet API -->
     <script src="https://meet.jit.si/external_api.js"></script>
+    <!-- CSP-compatible Jitsi: meet.jit.si is fully public and requires no iframe restrictions -->
 
     <!-- Custom Styles -->
     <link rel="stylesheet" href="style.css">
+    <!-- Change 10: Allow Jitsi meet.jit.si frames only — scoped to frame-src so Supabase auth is never blocked -->
+    <meta http-equiv="Content-Security-Policy" 
+          content="frame-src 'self' https://meet.jit.si https://*.jitsi.net https://*.supabase.co;">
 </head>
 <body>
     
@@ -94,6 +98,23 @@
                     <button class="btn-sm cursor-pointer" onclick="logout()" style="background-color: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2);">
                         <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
                     </button>
+                    <!-- Bell icon (add to sidebar header area) -->
+                <div class="notif-bell" onclick="toggleNotifPanel()">
+                    <i class="fa-solid fa-bell"></i>
+                    <span id="notif-badge" style="display:none;"></span>
+                </div>
+
+                <!-- Notification slide-in panel -->
+                <div id="notif-panel" class="notif-panel">
+                    <div class="notif-panel-header">
+                        <h3>Notifications</h3>
+                        <button onclick="markAllRead()" class="mark-read-btn">
+                            <i class="fa-solid fa-check-double"></i> Mark all read
+                        </button>
+                    </div>
+                    <div id="notif-inbox-list"></div>
+                </div>
+                <div id="notif-overlay" onclick="toggleNotifPanel()" class="notif-overlay"></div>
                 </div>
             </header>
 
@@ -230,7 +251,7 @@
                                         <button id="btn-weight" class="chart-select active" onclick="updateChart('weight_logs', this)">Weight</button>
                                         <button id="btn-bp" class="chart-select" onclick="updateChart('bp_logs', this)">BP</button>
                                         <button id="btn-glucose" class="chart-select" onclick="updateChart('glucose_logs', this)">Glucose</button>
-                                        <button id="btn-temp" class="chart-select" onclick="updateChart('temp_logs', this)">temp</button>
+                                        <button id="btn-temp" class="chart-select" onclick="updateChart('height_logs', this)">height</button>
                                     </div>
                                 </div>
                             </div>
@@ -251,9 +272,12 @@
                                     <div class="metric-icon-box theme-glucose"><i class="fa-solid fa-droplet"></i></div>
                                     <div class="metric-info"><h4 class="metric-label">Blood Sugar</h4><div class="metric-value-large" id="val-gluc">--</div><div class="metric-unit">mg/dL</div></div>
                                 </div>
-                                <div class="card metric-card-content" onclick="openModal('log-temp')">
-                                    <div class="metric-icon-box theme-temp"><i class="fa-solid fa-temperature-half"></i></div>
-                                    <div class="metric-info"><h4 class="metric-label">Temperature</h4><div class="metric-value-large" id="val-temp">--</div><div class="metric-unit">°C</div></div>
+                                <div class="card metric-card-content" onclick="openModal('log-height')">
+                                    <div class="metric-icon-box theme-temp"><i class="fa-solid fa-ruler-vertical"></i></div>
+                                    <div class="metric-info"><h4 class="metric-label">Height</h4><div class="metric-value-large" id="val-height">--</div><div class="metric-unit">cm</div></div></div>
+                                <div class="card metric-card-content" onclick="openModal('log-weight')" style="cursor:pointer;">
+                                    <div class="metric-icon-box" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);"><i class="fa-solid fa-calculator"></i></div>
+                                    <div class="metric-info"><h4 class="metric-label">BMI</h4><div class="metric-value-large" id="val-bmi">--</div><div class="metric-unit" id="val-bmi-cat" style="font-size:0.7rem;color:#6b7280;"></div></div>
                                 </div>
                             </div>
                         </section>
@@ -723,8 +747,75 @@
     <div class="modal-overlay" id="reset-modal"><div class="auth-modal"><button class="close-modal" onclick="closeModals()">&times;</button><h2 class="modal-title">Reset Password</h2><p class="reset-desc">Enter your email address and we'll send you a link to reset your password.</p><p class="error-msg" id="reset-error"></p><p class="success-msg" id="reset-success"></p><form id="reset-form"><div class="form-group"><input type="email" id="reset-email" class="form-control" placeholder="Email Address" required></div><button type="submit" class="book-btn btn-full">Send Reset Link</button></form><div class="auth-footer">Remember your password? <a onclick="openModal('login')">Login</a></div></div></div>
     <div class="modal-overlay" id="log-weight-modal"><div class="auth-modal"><button class="close-modal" onclick="closeModals()">&times;</button><h2 class="modal-title" id="weight-modal-title">Log Weight</h2><p class="success-msg" id="weight-success"></p><p class="error-msg" id="weight-error"></p><form id="weight-form"><input type="hidden" id="weight-id"><div class="unit-toggle-container"><div class="unit-toggle" onclick="toggleUnit('weight')"><div class="toggle-slider" id="weight-slider"></div><div class="unit-option active" id="opt-kg">kg</div><div class="unit-option" id="opt-lbs">lbs</div></div></div><input type="hidden" id="weight-unit" value="kg"><div class="form-group"><input type="number" step="0.1" id="weight-val" class="form-control" placeholder="Weight Value" required></div><div class="form-group"><input type="date" id="weight-date" class="form-control" required></div><button type="submit" class="book-btn btn-full" id="weight-btn">Save Log</button></form></div></div>
     <div class="modal-overlay" id="log-bp-modal"><div class="auth-modal"><button class="close-modal" onclick="closeModals()">&times;</button><h2 class="modal-title" id="bp-modal-title">Log BP</h2><p class="success-msg" id="bp-success"></p><p class="error-msg" id="bp-error"></p><form id="bp-form"><input type="hidden" id="bp-id"><div class="flex-row"><div class="form-group flex-1"><input type="number" id="bp-sys" class="form-control" placeholder="Systolic (120)" required></div><div class="form-group flex-1"><input type="number" id="bp-dia" class="form-control" placeholder="Diastolic (80)" required></div></div><div class="form-group"><input type="number" id="bp-pulse" class="form-control" placeholder="Pulse (Optional)"></div><div class="form-group"><input type="date" id="bp-date" class="form-control" required></div><button type="submit" class="book-btn btn-full" id="bp-btn">Save Log</button></form></div></div>
-    <div class="modal-overlay" id="log-temp-modal"><div class="auth-modal"><button class="close-modal" onclick="closeModals()">&times;</button><h2 class="modal-title" id="temp-modal-title">Log Temp</h2><p class="success-msg" id="temp-success"></p><p class="error-msg" id="temp-error"></p><form id="temp-form"><input type="hidden" id="temp-id"><div class="unit-toggle-container"><div class="unit-toggle" onclick="toggleUnit('temp')"><div class="toggle-slider" id="temp-slider"></div><div class="unit-option active" id="opt-c">°C</div><div class="unit-option" id="opt-f">°F</div></div></div><input type="hidden" id="temp-unit" value="C"><div class="form-group"><input type="number" step="0.1" id="temp-val" class="form-control" placeholder="Temperature" required></div><div class="form-group"><input type="date" id="temp-date" class="form-control" required></div><button type="submit" class="book-btn btn-full" id="temp-btn">Save Log</button></form></div></div>
-    <div class="modal-overlay" id="log-glucose-modal"><div class="auth-modal"><button class="close-modal" onclick="closeModals()">&times;</button><h2 class="modal-title" id="gluc-modal-title">Log Glucose</h2><p class="success-msg" id="gluc-success"></p><p class="error-msg" id="gluc-error"></p><form id="gluc-form"><input type="hidden" id="gluc-id"><div class="form-group"><select id="gluc-type" class="form-control bg-white" required><option value="" disabled selected>Test Type</option><option value="Fasting">Fasting</option><option value="Random">Random</option><option value="Post-Meal">Post-Meal (2h)</option><option value="Pre-Meal">Before Meal</option></select></div><div class="form-group"><input type="number" id="gluc-val" class="form-control" placeholder="mg/dL" required></div><div class="form-group"><input type="date" id="gluc-date" class="form-control" required></div><button type="submit" class="book-btn btn-full" id="gluc-btn">Save Log</button></form></div></div>
+    <div class="modal-overlay" id="log-height-modal">
+      <div class="auth-modal">
+        <button class="close-modal" onclick="closeModals()">&times;</button>
+        <h2 class="modal-title" id="height-modal-title">Log Height</h2>
+        <p class="success-msg" id="height-success"></p>
+        <p class="error-msg" id="height-error"></p>
+        <form id="height-form">
+          <input type="hidden" id="height-id">
+          <div class="form-group">
+            <label class="input-label">Unit</label>
+            <select id="height-unit-select" class="form-control bg-white" onchange="onHeightUnitChange()">
+              <option value="cm">Centimeters (cm)</option>
+              <option value="m">Meters (m)</option>
+              <option value="ft_in">Feet &amp; Inches (ft / in)</option>
+              <option value="ft">Feet only (ft)</option>
+            </select>
+          </div>
+          <div class="form-group" id="height-val-wrapper">
+            <input type="number" step="0.01" id="height-val" class="form-control" placeholder="Height in cm (e.g. 175)" required>
+          </div>
+          <div class="form-group" id="height-ftin-wrapper" style="display:none; gap:0.5rem;">
+            <div style="display:flex;gap:0.5rem;">
+              <input type="number" min="0" max="9" id="height-ft" class="form-control" placeholder="ft" style="flex:1;">
+              <input type="number" min="0" max="11" id="height-in" class="form-control" placeholder="in" style="flex:1;">
+            </div>
+          </div>
+          <div class="form-group">
+            <input type="date" id="height-date" class="form-control" required>
+          </div>
+          <button type="submit" class="book-btn btn-full" id="height-btn">Save Log</button>
+        </form>
+      </div>
+    </div>
+    <div class="modal-overlay" id="log-glucose-modal">
+      <div class="auth-modal">
+        <button class="close-modal" onclick="closeModals()">&times;</button>
+        <h2 class="modal-title" id="gluc-modal-title">Log Blood Sugar</h2>
+        <p class="success-msg" id="gluc-success"></p>
+        <p class="error-msg" id="gluc-error"></p>
+        <form id="gluc-form">
+          <input type="hidden" id="gluc-id">
+          <div class="form-group">
+            <select id="gluc-type" class="form-control bg-white" required>
+              <option value="" disabled selected>Test Type</option>
+              <option value="Fasting">Fasting (before eating)</option>
+              <option value="Post-Meal">Post-Meal (1-2h after)</option>
+              <option value="2-3h Post-Meal">2-3h After Eating</option>
+              <option value="Pre-Meal">Before Meal</option>
+              <option value="Random">Random</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:0.5rem;" class="form-group">
+            <input type="number" step="0.1" min="1" id="gluc-val" class="form-control" placeholder="Glucose value" required style="flex:2;">
+            <select id="gluc-unit" class="form-control bg-white" style="flex:1;">
+              <option value="mg/dL">mg/dL</option>
+              <option value="mmol/L">mmol/L</option>
+            </select>
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;">
+            <input type="checkbox" id="gluc-diabetic" style="width:18px;height:18px;accent-color:#2ecc71;cursor:pointer;">
+            <label for="gluc-diabetic" style="font-size:0.875rem;color:#374151;cursor:pointer;margin:0;">I am a diabetic patient</label>
+          </div>
+          <div class="form-group">
+            <input type="date" id="gluc-date" class="form-control" required>
+          </div>
+          <button type="submit" class="book-btn btn-full" id="gluc-btn">Save Log</button>
+        </form>
+      </div>
+    </div>
     <div class="modal-overlay" id="reports-modal"><div class="auth-modal modal-wide overflow-hidden"><button class="close-modal" onclick="closeModals()">&times;</button><h2 class="modal-title">Health History Report</h2><div class="flex justify-between items-center mb-4"><p class="text-sm text-gray-500">Review your history before downloading.</p><select class="chart-select select-bordered"><option>All Time</option><option>Last 30 Days</option><option>Last 7 Days</option></select></div><div class="table-scroll-container"><table class="history-table w-full"><thead class="table-header-sticky"><tr><th class="p-3 text-left text-sm text-gray-500">Date</th><th class="p-3 text-left text-sm text-gray-500">Type</th><th class="p-3 text-left text-sm text-gray-500">Value</th><th class="p-3 text-left text-sm text-gray-500">Action</th></tr></thead><tbody id="report-preview-body"><tr><td colspan="4" class="loading-cell">Loading data...</td></tr></tbody></table></div><div class="modal-footer"><div onclick="exportPDF()" class="export-btn flex-1 justify-center mb-0"><i class="fa-solid fa-file-pdf export-icon mr-2"></i><span>Download PDF</span></div><div onclick="exportCSV()" class="export-btn flex-1 justify-center mb-0"><i class="fa-solid fa-file-csv export-icon mr-2"></i><span>Download CSV</span></div></div></div></div>
     
     <!-- Booking Modal (Doctor Directory) -->
@@ -760,6 +851,7 @@
                     <label class="input-label">Select Time</label>
                     <input type="time" id="schedule-time" class="form-control" disabled required>
                     <p class="text-xs text-red-500 mt-1" id="schedule-time-hint" style="display:none;"></p>
+                    <p class="text-xs text-gray-400 mt-1" style="font-style:italic;"><i class="fa-solid fa-clock" style="color:#9ca3af;margin-right:3px;"></i>Appointments must be at least 1 hour apart from existing bookings.</p>
                     <div id="booked-slots-container" style="display:none; margin-top:8px;">
                         <p class="text-xs text-gray-500 mb-1"><i class="fa-solid fa-circle-info mr-1 text-yellow-500"></i>Already booked on this day:</p>
                         <div id="booked-slots-list" class="booked-slots-list"></div>
@@ -784,6 +876,16 @@
                         <option value="Lab Review">Lab Review</option>
                         <option value="Urgent Issue">Urgent Issue</option>
                     </select>
+                </div>
+
+                <div class="form-group" style="margin-top:0.5rem;">
+                    <div style="display:flex;align-items:flex-start;gap:0.75rem;padding:0.75rem;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
+                        <input type="checkbox" id="share-records-consent" style="width:18px;height:18px;accent-color:#2ecc71;cursor:pointer;margin-top:2px;">
+                        <label for="share-records-consent" style="font-size:0.8rem;color:#374151;cursor:pointer;margin:0;line-height:1.5;">
+                            <strong>Share my health records with this doctor</strong><br>
+                            <span style="color:#6b7280;">Your logged vitals (BP, weight, glucose, BMI) will be visible to this doctor for this consultation. You may revoke access at any time from Settings.</span>
+                        </label>
+                    </div>
                 </div>
 
                 <button type="submit" class="book-btn btn-full">Confirm Booking</button>
@@ -885,6 +987,19 @@
         </form>
         <div id="feedback-status"></div>
       </div>
+    </div>
+    <div class="modal-overlay" id="patient-records-modal">
+    <div class="modal-content" style="max-width: 600px; width: 95%;">
+        <div class="modal-header flex justify-between items-center mb-4 border-b border-gray-100 pb-3">
+            <h3 class="font-bold text-lg text-gray-800" id="records-modal-title"><i class="fa-solid fa-folder-medical text-blue-500 mr-2"></i> Patient Records</h3>
+            <button class="text-gray-400 hover:text-gray-800 transition-colors" onclick="closeModals()"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+        <div id="records-modal-body" class="max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
+            </div>
+        <div class="mt-5 pt-3 border-t border-gray-100 flex justify-end">
+            <button class="btn-action bg-gray-100 hover:bg-gray-200 text-gray-700 border-none px-5 py-2 rounded-lg cursor-pointer transition-colors font-medium" onclick="closeModals()">Close Secure View</button>
+        </div>
+    </div>
     </div>
 </body>
 </html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patients & Individuals - InstaDoc</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .service-hero { background: transparent; padding: 7rem 0 5rem; text-align: center; color: var(--white); }
+        .service-hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; margin-bottom: 1.25rem; }
+        .service-hero p { font-size: 1.15rem; max-width: 680px; margin: 0 auto; opacity: 0.93; }
+        .service-content { padding: 5rem 0; background: transparent; }
+        .service-inner { max-width: 1100px; margin: 0 auto; padding: 0 2rem; }
+        .capability-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin: 3rem 0; }
+        .capability-card { background: var(--off-white); border-radius: 14px; padding: 2.2rem; border-left: 4px solid var(--primary-green); transition: all 0.3s ease; }
+        .capability-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .capability-card .cap-icon { width: 52px; height: 52px; background: var(--primary-green); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.4rem; margin-bottom: 1.2rem; }
+        .capability-card h3 { font-size: 1.2rem; color: var(--primary-navy); margin-bottom: 0.75rem; font-weight: 700; }
+        .capability-card p { color: var(--dark-gray); line-height: 1.75; font-size: 0.97rem; }
+        .section-lead { font-size: 1.1rem; color: var(--dark-gray); line-height: 1.8; margin-bottom: 2.5rem; max-width: 820px; }
+        .cta-strip { background: linear-gradient(135deg, #2f8f46, #1a3c5e); border-radius: 16px; padding: 3rem; text-align: center; color: #fff; margin-top: 3rem; }
+        .cta-strip h3 { font-size: 1.6rem; font-weight: 700; margin-bottom: 1rem; }
+        .cta-strip p { margin-bottom: 1.5rem; opacity: 0.92; }
+        .btn-cta-white { background: #fff; color: var(--primary-green); padding: 0.85rem 2.2rem; border-radius: 8px; text-decoration: none; font-weight: 700; transition: all 0.2s; display: inline-block; }
+        .btn-cta-white:hover { background: #f0fdf4; transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+    <div class="page-decorations">
+    <div class="bg-circle circle-1"></div>
+    <div class="bg-circle circle-2"></div>
+    <div class="bg-circle circle-3"></div>
+    <div class="bg-circle circle-4"></div>
+</div>
+    <nav class="main-nav">
+        <div class="nav-container">
+            <a href="index.html" class="logo"><img src="INN.png" alt="InstaDoc Logo" class="logo-img"></a>
+            <button class="mobile-menu-toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+            <ul class="nav-menu">
+                <li><a href="index.html" class="nav-link">Home</a></li>
+                <li class="dropdown">
+                    <a href="services.html" class="nav-link">Services <span class="arrow">&#9660;</span></a>
+                    <ul class="dropdown-content">
+                        <li><a href="services_org_industry.html">Organizations</a></li>
+                        <li><a href="services_healthcare_providers.html">Medical Practitioners</a></li>
+                        <li><a href="services_patients.html">Patients &amp; Caregivers</a></li>
+                    </ul>
+                </li>
+                <li><a href="about.html" class="nav-link">About Us</a></li>
+                <li><a href="contact.html" class="nav-link-primary">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="service-hero">
+        <div class="container">
+            <h1>Your Personal Health Companion</h1>
+            <p>Take control of your wellbeing. InstaDoc makes it simple to track your vitals, understand your health trends, and connect with your doctor anytime, anywhere.</p>
+        </div>
+    </section>
+
+    <section class="service-content">
+        <div class="service-inner">
+            <p class="section-lead">Whether you are managing a chronic condition, monitoring post-procedure recovery, or simply staying on top of your health, InstaDoc gives you the tools to understand your body and collaborate meaningfully with your care team.</p>
+
+            <div class="capability-grid">
+                <div class="capability-card">
+                    <div class="cap-icon"><i class="fa-solid fa-droplet"></i></div>
+                    <h3>Vitals &amp; Metrics Logging</h3>
+                    <p>Log blood pressure, weight, glucose levels, and BMI with ease. Track trends over time with intuitive charts and receive AI-generated summaries of your health trajectory.</p>
+                </div>
+                <div class="capability-card">
+                    <div class="cap-icon"><i class="fa-solid fa-robot"></i></div>
+                    <h3>Personalised AI Health Insights</h3>
+                    <p>InstaDoc's AI analyses your latest readings using clinically validated guidelines (AHA/ACC) and delivers plain-language feedback, helping you understand what your numbers mean.</p>
+                </div>
+                <div class="capability-card">
+                    <div class="cap-icon"><i class="fa-solid fa-calendar-plus"></i></div>
+                    <h3>Easy Appointment Booking</h3>
+                    <p>Book consultations directly with your doctor from within the app. Choose between in-person and virtual (video/audio) visits, and receive automatic reminders before your appointment.</p>
+                </div>
+                <div class="capability-card">
+                    <div class="cap-icon"><i class="fa-solid fa-chart-area"></i></div>
+                    <h3>Health History &amp; Reports</h3>
+                    <p>Access your complete longitudinal health record. Export a PDF health report to share with any healthcare provider, perfect for specialist referrals and second opinions.</p>
+                </div>
+                <div class="capability-card">
+                    <div class="cap-icon"><i class="fa-solid fa-bell"></i></div>
+                    <h3>Smart Reminders</h3>
+                    <p>Set daily reminders to log your measurements so you never miss a reading. Consistent tracking is the foundation of meaningful health insights.</p>
+                </div>
+                <div class="capability-card">
+                    <div class="cap-icon"><i class="fa-solid fa-lock"></i></div>
+                    <h3>Private &amp; Secure</h3>
+                    <p>Your health data belongs to you. InstaDoc uses bank-grade encryption and is fully HIPAA compliant. You control what is shared and with whom, always.</p>
+                </div>
+            </div>
+
+            <div class="cta-strip">
+                <h3>Start your health journey today, it's free</h3>
+                <p>Create your account in under two minutes and begin tracking your vitals immediately.</p>
+                <a href="index.html" class="btn-cta-white">Sign Up Free</a>
+            </div>
+        </div>
+    </section>
+
+    <footer class="main-footer">
+        <div class="footer-container">
+            <div class="footer-brand"><img src="INN.png" alt="InstaDoc Logo" class="footer-logo"></div>
+            <div class="footer-links">
+                <div class="footer-column"><h4>Company</h4><ul><li><a href="about.html">About Us</a></li><li><a href="services.html">Services</a></li><li><a href="contact.html">Contact</a></li></ul></div>
+                <div class="footer-column"><h4>Legal</h4><ul><li><a href="#">Privacy Policy</a></li><li><a href="#">Terms of Service</a></li></ul></div>
+            </div>
+        </div>
+        <div class="footer-bottom"><div class="footer-container"><p>&copy; 2026 InstaDoc, Inc. All rights reserved.</p></div></div>
+    </footer>
+    <script>
+        const menuToggle = document.querySelector('.mobile-menu-toggle');
+        const navMenu = document.querySelector('.nav-menu');
+        menuToggle.addEventListener('click', () => { navMenu.classList.toggle('active'); menuToggle.classList.toggle('active'); });
+        document.addEventListener('click', (e) => { if (!e.target.closest('.nav-container')) { navMenu.classList.remove('active'); menuToggle.classList.remove('active'); } });
+        document.querySelectorAll('.dropdown').forEach(dropdown => {
+            dropdown.querySelector('.nav-link').addEventListener('click', (e) => { if (window.innerWidth < 1024) { e.preventDefault(); dropdown.classList.toggle('active'); } });
+        });
+        window.addEventListener('click', (e) => { if (!e.target.closest('.dropdown')) { document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('active')); } });
+    </script>
+</body>
+</html>
