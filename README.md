@@ -80,6 +80,19 @@ Each stylesheet is scoped to its own `index.html`. No conflicts.
 
 ## Changelog
 
+### [Chore] Sentry removed
+**Files:** `index.html`, `app/index.html`
+
+Sentry was included for error and performance monitoring. For a Nigerian healthcare platform, sending user session data (IP, browser, OS, URL) to a US-based third-party service on every error raises NDPR compliance concerns — personal data leaving Nigeria requires explicit consent and appropriate safeguards. Given the app is pre-scale beta, the risk/benefit trade-off doesn't yet justify it.
+
+**What changed:**
+- Sentry CDN `<script>` tag and `Sentry.init()` block removed from `index.html`, `app/index.html`, and `admin/index.html`.
+- No code elsewhere referenced `Sentry` directly, so no further changes were needed.
+
+**If re-introducing monitoring later:** consider a self-hosted option like [GlitchTip](https://glitchtip.com) (open source, GDPR/NDPR-friendly, Sentry-compatible SDK) so patient data stays under your control.
+
+---
+
 ### [Fix] Avatar upload — store in Supabase Storage, not auth metadata
 **Files:** `app/script.js` (`handleFileUpload`)
 
@@ -124,6 +137,17 @@ A `script.js` existed at the repo root (2,358 lines) alongside the canonical `ad
 - `package.json` description updated — it referenced `script.js` as "ID Metric misc scripts" which was no longer accurate.
 
 **Action required:** Run `git rm script.js && git commit -m "chore: remove orphaned root script.js"` if not already done.
+
+---
+
+### [Chore] Committed zip artefacts removed, `*.zip` added to `.gitignore`
+**Files:** `app.zip` (deleted), `admin.zip` (deleted), `.gitignore`
+
+`app.zip` and `admin.zip` were committed to the repo root — likely accidental exports. Binary artefacts like these have no place in version control: they bloat the repo, don't diff meaningfully, and go stale silently.
+
+**What changed:**
+- Both zip files removed via `git rm`.
+- `*.zip` added to `.gitignore` so re-generated archives can't be accidentally committed in future.
 
 ---
 

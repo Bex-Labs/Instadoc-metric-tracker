@@ -1,7 +1,7 @@
 {
   "name": "unified_instadoc",
   "version": "1.0.0",
-  "description": "InstaDoc Metric Tracker — unified patient/doctor dashboard, admin panel, and landing page. Stack: vanilla HTML/CSS/JS, Supabase (auth + DB + storage), Sentry, Playwright.",
+  "description": "InstaDoc Metric Tracker - unified patient/doctor dashboard, admin panel, and landing page. Stack: vanilla HTML/CSS/JS, Supabase (auth + DB + storage), Playwright.",
   "main": "consultation.js",
   "scripts": {},
   "repository": {

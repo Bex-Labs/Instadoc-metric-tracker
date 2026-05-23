@@ -7,19 +7,6 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://js.sentry-cdn.com/c7d6d262f60f48f7d44048eca6627c0b.min.js" crossorigin="anonymous"></script>
-
-    <script>
-      Sentry.init({
-        dsn: "https://c7d6d262f60f48f7d44048eca6627c0b@o4511234098921472.ingest.us.sentry.io/4511234135752705", // Replace with your actual DSN string
-        
-        // Automatically capture performance metrics
-        tracesSampleRate: 1.0, 
-        
-        // Optional: Tag the environment to separate local tests from live Vercel errors
-        environment: window.location.hostname === "localhost" ? "development" : "production",
-      });
-    </script>
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <!-- Chart.js -->
