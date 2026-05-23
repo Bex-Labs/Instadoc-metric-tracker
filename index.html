@@ -105,12 +105,6 @@
         }
         @keyframes lp-spin { to { transform:rotate(360deg); } }
 
-        /* Admin footer link */
-        .admin-portal-link {
-            display:inline-block; margin-top:.35rem; font-size:.72rem;
-            color:#9ca3af; text-decoration:none; transition:color .2s; letter-spacing:.02em;
-        }
-        .admin-portal-link:hover { color:#6b7280; }
         .footer-bottom-inner { display:flex; flex-direction:column; align-items:center; gap:.1rem; }
 
         /* Hero auth section */
@@ -292,8 +286,6 @@
             <div class="footer-container footer-bottom-inner">
                 <p>&copy; 2026 InstaDoc, Inc. All rights reserved.</p>
                 <p>415 Adetokunbo Ademola Street, Abuja, FCT, Nigeria</p>
-                <!-- Subtle admin portal link — minimal, professional, not attention-grabbing -->
-                <a href="admin/index.html" class="admin-portal-link">Admin Portal</a>
             </div>
         </div>
     </footer>
@@ -346,15 +338,6 @@
                 </div>
                 <div class="lp-form-group">
                     <input type="password" id="lp-signup-confirm" class="lp-form-control" placeholder="Confirm Password" required autocomplete="new-password">
-                </div>
-                <div class="lp-doctor-checkbox">
-                    <input type="checkbox" id="lp-signup-as-doctor" onchange="lpToggleDoctorFields()">
-                    <label for="lp-signup-as-doctor">Register as Doctor</label>
-                </div>
-                <div id="lp-doctor-fields" style="display:none;">
-                    <div class="lp-form-group"><input type="text" id="lp-signup-fullname" class="lp-form-control" placeholder="Full Name (e.g. Dr. Jane Doe)"></div>
-                    <div class="lp-form-group"><input type="text" id="lp-signup-license" class="lp-form-control" placeholder="Medical License Number"></div>
-                    <div class="lp-form-group"><input type="text" id="lp-signup-specialty" class="lp-form-control" placeholder="Specialization (e.g. Cardiologist)"></div>
                 </div>
                 <button type="submit" id="lp-btn-signup" class="lp-btn-submit">Sign Up</button>
             </form>
@@ -451,11 +434,6 @@
             if (e.key === 'Escape') lpCloseModals();
         });
 
-        // ── Doctor signup fields toggle ────────────────────────────────
-        window.lpToggleDoctorFields = function () {
-            var checked = document.getElementById('lp-signup-as-doctor').checked;
-            document.getElementById('lp-doctor-fields').style.display = checked ? 'block' : 'none';
-        };
 
         // ── Loading state helper ───────────────────────────────────────
         var btnLabels = { 'lp-btn-login': 'Login', 'lp-btn-signup': 'Sign Up', 'lp-btn-reset': 'Send Reset Link' };
@@ -500,17 +478,13 @@
             var email    = document.getElementById('lp-signup-email').value.trim();
             var password = document.getElementById('lp-signup-password').value;
             var confirm  = document.getElementById('lp-signup-confirm').value;
-            var isDoctor = document.getElementById('lp-signup-as-doctor').checked;
 
             if (password !== confirm) { lpMsg('lp-signup-error', 'Passwords do not match.', true); return; }
             if (password.length < 6) { lpMsg('lp-signup-error', 'Password must be at least 6 characters.', true); return; }
 
-            var meta = { role: isDoctor ? 'doctor' : 'patient' };
-            if (isDoctor) {
-                meta.full_name = document.getElementById('lp-signup-fullname').value.trim();
-                meta.license   = document.getElementById('lp-signup-license').value.trim();
-                meta.specialty = document.getElementById('lp-signup-specialty').value.trim();
-            }
+            // All self-registered accounts are patients.
+            // Doctor accounts are created exclusively by admins via the admin panel.
+            var meta = { role: 'patient' };
 
             lpSetLoading('lp-btn-signup', true);
 
@@ -678,9 +652,6 @@
 
             // 3. Auto-fill the Sign-Up modal so they don't have to type it twice
             document.getElementById('lp-signup-email').value = email;
-            if(document.getElementById('lp-signup-fullname')) {
-                document.getElementById('lp-signup-fullname').value = name;
-            }
 
             // 4. Update the modal subtitle to explain WHY they are signing up
             document.querySelector('#lp-signup-modal .lp-modal-subtitle').textContent = "Create a free account to finalize your booking.";

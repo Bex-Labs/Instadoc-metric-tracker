@@ -41,8 +41,7 @@ unified_instadoc/
 6. INSTADOC's `onAuthStateChange` then performs **role-based routing** — patients see the patient dashboard, doctors see the doctor dashboard.
 
 ### 2. Admin Access
-- A subtle **"Admin Portal"** link is in the footer of the landing page.
-- It points to `admin/index.html`.
+- Admins navigate directly to `admin/index.html` — there is no public link to this URL.
 - The admin panel is fully self-contained and only accessible to users with `role: 'admin'` in Supabase profiles.
 - A **"← Main Site"** button in the admin header returns to the landing page.
 
@@ -76,3 +75,64 @@ Each stylesheet is scoped to its own `index.html`. No conflicts.
 - All INSTADOC authentication flows, chart initialisations, API calls, form validations, and video consultation features are **unchanged**.
 - All admin user management, realtime subscriptions, ticket workflows, and doctor assignments are **unchanged**.
 - Integration is purely additive — new routing glue + modal integration.
+
+---
+
+## Changelog
+
+### [Fix] Avatar upload — store in Supabase Storage, not auth metadata
+**Files:** `app/script.js` (`handleFileUpload`)
+
+The previous implementation used `FileReader.readAsDataURL()` to convert uploaded avatars into base64 strings and saved them directly into Supabase auth user metadata. This bloated every session token and auth API call with tens of kilobytes of image data, risking metadata size limit errors and degraded performance.
+
+**What changed:**
+- Avatar files are now uploaded to the `avatars` Supabase Storage bucket at path `{userId}/avatar.{ext}` with `upsert: true` (re-uploads cleanly overwrite in place).
+- Only the short public CDN URL is stored in auth user metadata (`avatar_url`), not the image data itself.
+- An optimistic local blob URL is shown instantly while the upload is in progress, then swapped for the permanent URL on success.
+- File validation added: images only, 2 MB maximum.
+- Upload failures revert the preview to the previous avatar and surface an error toast.
+
+**Supabase setup required (one-time):**
+1. Create a public `avatars` bucket in Supabase Storage.
+2. Add RLS policies:
+   - **INSERT / UPDATE:** `(auth.uid()::text) = (storage.foldername(name))[1]` — users may only write to their own folder.
+   - **SELECT:** `true` — public read so avatar URLs resolve in the browser.
+
+---
+
+### [Security] Doctor registration — invite-only via admin panel
+**Files:** `index.html`, `app/index.html`, `app/script.js`
+
+Previously, any visitor could tick a "Register as Doctor" checkbox on the signup form and self-assign the `doctor` role. Because role assignment happened entirely in the browser, it could not be trusted — anyone could send the same Supabase `signUp` call with `role: 'doctor'` in the metadata.
+
+**What changed:**
+- The "Register as Doctor" checkbox, doctor name/license/specialty fields, and `toggleDoctorSignupFields` function have been removed from both the landing page signup modal (`index.html`) and the in-app signup modal (`app/index.html`, `app/script.js`).
+- All self-registered accounts are now created as `patient` unconditionally, with a comment in the code explaining the policy.
+- Doctor accounts are created exclusively by admins through the existing **Admin Panel → Create User** modal, where role can be set to `doctor` explicitly.
+
+**No admin panel changes were required** — the create-user and edit-user flows already support the `doctor` role.
+
+---
+
+### [Chore] Orphaned root `script.js` removed
+**Files:** `script.js` (deleted), `package.json`
+
+A `script.js` existed at the repo root (2,358 lines) alongside the canonical `admin/script.js` (2,659 lines). Comparison confirmed it was an older snapshot of the admin script with no unique content and no HTML file loading it — the landing page has all its JS inline. Leaving it in place risked engineers editing the wrong file and the two copies silently diverging.
+
+**What changed:**
+- Root `script.js` deleted via `git rm`.
+- `package.json` description updated — it referenced `script.js` as "ID Metric misc scripts" which was no longer accurate.
+
+**Action required:** Run `git rm script.js && git commit -m "chore: remove orphaned root script.js"` if not already done.
+
+---
+
+### [Security] Admin portal link removed from public footer
+**Files:** `index.html`
+
+The landing page footer contained a visible (if small) link to `admin/index.html`. While the admin panel enforces a server-side role check (`role: 'admin'`), advertising the admin URL in public HTML is unnecessary and makes it trivially discoverable via page source inspection.
+
+**What changed:**
+- The `<a href="admin/index.html">Admin Portal</a>` link and its associated CSS (`.admin-portal-link`) have been removed from the landing page footer.
+- The admin panel URL is unchanged — admins navigate to it directly.
+- The "Admin Access" section in this README has been updated to reflect this.
