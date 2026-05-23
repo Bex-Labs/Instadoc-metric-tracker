@@ -142,7 +142,7 @@
                     </ul>
                 </li>
                 <li><a href="about.html" class="nav-link">About Us</a></li>
-                <li><a href="contact.html" class="nav-link-primary">Contact</a></li>
+               <li><a href="#" class="nav-link-primary" onclick="lpOpenModal('login'); return false;">Login</a></li>
             </ul>
         </div>
     </nav>
@@ -166,19 +166,8 @@
                     Track your vitals, visualize trends, and connect with your doctor securely.
                     Your comprehensive health companion anytime, anywhere.
                 </p>
-                <button class="btn-read-more">Read More</button>
-                <div class="auth-section">
-                    <div class="auth-buttons">
-                        <div class="auth-btn-group">
-                            <p class="auth-question">Already have an account?</p>
-                            <button class="btn-login" onclick="lpOpenModal('login')">Login</button>
-                        </div>
-                        <div class="auth-btn-group">
-                            <p class="auth-question">No account?</p>
-                            <button class="btn-signup" onclick="lpOpenModal('signup')">Signup</button>
-                        </div>
-                    </div>
-                </div>
+                <button class="btn-read-more" onclick="lpOpenModal('signup')">Sign Up</button>
+                
             </div>
 
             <div class="hero-center">
@@ -232,7 +221,7 @@
                 </div>
             </div>
             <div class="cta-box">
-                <a href="#" onclick="lpOpenModal('signup'); return false;" class="btn-cta">Book a Consultation</a>
+                <a href="contact.html" class="btn-cta">Contact Us</a>
             </div>
         </div>
     </section>

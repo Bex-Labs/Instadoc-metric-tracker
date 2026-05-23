@@ -500,6 +500,34 @@
               <div id="patientList" class="list-panel">Select a doctor</div>
             </div>
           </div>
+          <div class="card p-6 mb-6" style="background: white; border-radius: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3 style="font-weight: 700; font-size: 1.125rem; color: #1f2937;">
+                    <i class="fa-solid fa-user-doctor" style="color: #3b82f6; margin-right: 0.5rem;"></i> Doctor Activity & Workflows
+                </h3>
+                <div style="position: relative; width: 300px;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #9ca3af;"></i>
+                    <input type="text" id="admin-doc-search" placeholder="Search doctor ID or action..." onkeyup="filterDoctorActivity()" 
+                           style="width: 100%; padding: 0.5rem 1rem 0.5rem 2.5rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; outline: none;">
+                </div>
+            </div>
+            
+            <div style="overflow-x: auto; width: 100%;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                    <thead>
+                        <tr style="text-align: left; color: #6b7280; border-bottom: 1px solid #e5e7eb;">
+                            <th style="padding: 0.75rem;">Timestamp</th>
+                            <th style="padding: 0.75rem;">Doctor ID (Masked)</th>
+                            <th style="padding: 0.75rem;">Action / Event</th>
+                            <th style="padding: 0.75rem;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-doctor-activity-body">
+                        <tr><td colspan="4" style="text-align: center; padding: 1.5rem; color: #9ca3af;"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading telemetry...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
         </section>
 
         <!-- =========================

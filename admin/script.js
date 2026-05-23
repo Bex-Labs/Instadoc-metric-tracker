@@ -21,6 +21,33 @@ const CONFIG = {
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvYXFsY2x0dmFrdXFxZWhreW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNTk1MzksImV4cCI6MjA4MTczNTUzOX0._7ISJbfJzryBJWmtRuN72F-JZpYdvJxsltwwhombPtE",
 };
 
+// ==========================================
+// PRIVACY & COMPLIANCE: DATA MASKING ENGINE
+// ==========================================
+function maskPII(text) {
+    if (!text || typeof text !== 'string') return text;
+    
+    let maskedText = text;
+    
+    // 1. Mask Emails (e.g., john.doe@email.com -> j***@email.com)
+    maskedText = maskedText.replace(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi, (match) => {
+        const parts = match.split('@');
+        return parts[0][0] + "***@" + parts[1];
+    });
+
+    // 2. Mask Phone Numbers (e.g., 1234567890 -> ***-***-7890)
+    maskedText = maskedText.replace(/\b\d{10,11}\b/g, (match) => {
+        return "***-***-" + match.slice(-4);
+    });
+    
+    // 3. Mask UUIDs for security (e.g., showing only first 8 chars of a user ID)
+    maskedText = maskedText.replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, (match) => {
+        return match.substring(0, 8) + "-****-****-****-************";
+    });
+
+    return maskedText;
+}
+
 const supabaseClient = supabase.createClient(
   CONFIG.SUPABASE_URL,
   CONFIG.SUPABASE_ANON_KEY,
@@ -468,6 +495,7 @@ async function loadAllData() {
     loadWeeklyChart(),
     loadDoctors(),
     loadLoginHistory(),
+    loadDoctorActivity()
   ]);
 }
 
@@ -1329,11 +1357,21 @@ async function loadRecentLogs() {
     allLogs.slice(0, 20).forEach((log) => {
       const status = getHealthStatus(log);
       const row = document.createElement("tr");
+      
+      // 🔒 Privacy Enhancement: Mask all raw numbers within the metric reading string
+      const safeReading = log.reading ? log.reading.replace(/\d+/g, '***') : '--';
+      
+      // Optional Name masking helper logic for standard plaintext names inside the cell
+      const rawName = log.user_name || 'Unknown';
+      let safeName = maskPII(rawName);
+      if (safeName === rawName && !rawName.includes('@') && rawName !== 'Unknown') {
+         safeName = rawName.split(' ').map(n => n.length > 1 ? n.charAt(0) + '***' : n).join(' ');
+      }
+
       row.innerHTML = `
         <td><span class="badge badge-${log.type.toLowerCase()}">${log.type}</span></td>
-        <td>${escapeHtml(log.user_name)}</td>
-        <td><strong>${escapeHtml(log.reading)}</strong></td>
-        <td><small>${escapeHtml(formatDateTime(log.created_at))}</small></td>
+        <td>${escapeHtml(safeName)}</td> 
+        <td><strong>${escapeHtml(safeReading)}</strong></td> <td><small>${escapeHtml(formatDateTime(log.created_at))}</small></td>
         <td><span class="badge ${status.class}">${status.text}</span></td>
       `;
       tbody.appendChild(row);
@@ -1435,7 +1473,7 @@ function renderActivityPage() {
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <div>
           <div class="time"><i class="fa-solid fa-clock"></i> ${escapeHtml(timeAgo(a.created_at))}</div>
-          <div class="description">${icon} ${escapeHtml(a.description || "")}</div>
+          <div class="description">${icon} ${escapeHtml(maskPII(a.description || ""))}</div>
         </div>
       </div>
     `;
@@ -1527,7 +1565,7 @@ async function loadActivityFeed() {
           module: a.module,
           action: a.action,
           created_at: a.created_at,
-          description: desc,
+          description: maskPII(desc),
         };
       });
 
@@ -1568,12 +1606,14 @@ async function loadActivityFeed() {
       const user = idToName[x.user_id];
       if (user?.deleted_at) return; // hide archived users
       const name = user?.name || user?.email || "Unknown User";
+      
+      // 🔒 Mask the raw systolic/diastolic numbers
       healthItems.push({
         kind: "health",
         module: "health",
         action: "bp",
         created_at: x.created_at,
-        description: `${name} logged BP ${x.systolic}/${x.diastolic} mmHg`,
+        description: `${maskName(name)} logged BP ***/*** mmHg`,
       });
     });
 
@@ -1582,12 +1622,14 @@ async function loadActivityFeed() {
       if (user?.deleted_at) return;
       const name = user?.name || user?.email || "Unknown User";
       if (x.weight == null) return;
+      
+      // 🔒 Mask the raw weight values
       healthItems.push({
         kind: "health",
         module: "health",
         action: "weight",
         created_at: x.created_at,
-        description: `${name} logged weight ${x.weight} kg`,
+        description: `${maskName(name)} logged weight *** kg`,
       });
     });
 
@@ -1596,12 +1638,14 @@ async function loadActivityFeed() {
       if (user?.deleted_at) return;
       const name = user?.name || user?.email || "Unknown User";
       if (x.level == null) return;
+      
+      // 🔒 Mask the raw glucose levels
       healthItems.push({
         kind: "health",
         module: "health",
         action: "glucose",
         created_at: x.created_at,
-        description: `${name} logged glucose ${x.level} mg/dL`,
+        description: `${maskName(name)} logged glucose *** mg/dL`,
       });
     });
 
@@ -1610,15 +1654,19 @@ async function loadActivityFeed() {
       const patientName = x.patient_name || idToName[x.user_id]?.name || idToName[x.user_id]?.email || "Unknown Patient";
       const doctorName  = x.doctor_name || "Unknown Doctor";
       const apptType    = x.type || "appointment";
+      
+      // 🔒 Clean any stray digits inside appointment formats
+      const cleanApptType = apptType.replace(/\d+/g, '***');
+      
       apptItems.push({
         kind: "appointment",
         module: "appointments",
         action: "created",
         created_at: x.created_at,
-        description: `${patientName} booked a ${apptType} with ${doctorName}`,
+        description: `${maskName(patientName)} booked a ${cleanApptType} with Dr. ${maskName(doctorName)}`,
       });
     });
-
+    
     // Merge + sort by time (no slice — keep all for pagination)
     activityFeedState.allItems = [...platformItems, ...healthItems, ...apptItems]
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -2658,3 +2706,95 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// ==========================================
+// DOCTOR ACTIVITY MONITORING LOGIC
+// ==========================================
+let allDoctorActivity = [];
+
+async function loadDoctorActivity() {
+    const tbody = document.getElementById('admin-doctor-activity-body');
+    if (!tbody) return;
+
+    // 1. Fetch only verified doctor IDs to act as our strict security filter
+    const { data: docs } = await supabaseClient.from('profiles').select('id').eq('role', 'doctor');
+    const docIds = docs ? docs.map(d => d.id) : [];
+
+    if (docIds.length === 0) {
+         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#9ca3af; padding: 1.5rem;">No doctors found in system.</td></tr>';
+         return;
+    }
+
+    // 2. Fetch ONLY activity where the actor is a doctor AND the action is NOT administrative
+    const { data, error } = await supabaseClient
+        .from('platform_activity') 
+        .select('*')
+        .in('actor_id', docIds) 
+        .neq('module', 'users')     // EXPLICITLY BLOCKS USER CREATION/DELETION LOGS
+        .neq('module', 'tickets')   // EXPLICITLY BLOCKS TICKET LOGS
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+    if (error) {
+        tbody.innerHTML = `<tr><td colspan="4" style="color:#dc2626; text-align:center; padding: 1rem;">Error loading telemetry: ${error.message}</td></tr>`;
+        return;
+    }
+
+    allDoctorActivity = data || [];
+    renderDoctorActivity(allDoctorActivity);
+}
+
+function renderDoctorActivity(data) {
+    const tbody = document.getElementById('admin-doctor-activity-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#9ca3af; padding: 1.5rem;">No recent doctor activity found.</td></tr>';
+        return;
+    }
+
+    data.forEach(act => {
+        const dateStr = new Date(act.created_at).toLocaleString();
+        
+        // 🔒 APPLY THE STRICT PRIVACY MASKING HERE
+        // Maps dynamically based on how your activity table defines the user/actor
+        const rawId = act.user_id || act.actor_id || act.email || 'System';
+        const safeActor = maskPII(rawId);
+        
+        const rawAction = act.action || act.details || act.event_type || 'Workflow Event';
+        const safeDetails = maskPII(rawAction);
+        
+        // Intelligent Badge Coloring
+        let badgeStyle = 'background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb;';
+        const actionLower = safeDetails.toLowerCase();
+        
+        if (actionLower.includes('complet')) badgeStyle = 'background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;';
+        else if (actionLower.includes('cancel') || actionLower.includes('decline')) badgeStyle = 'background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;';
+        else if (actionLower.includes('record') || actionLower.includes('access')) badgeStyle = 'background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff;';
+        else if (actionLower.includes('confirm') || actionLower.includes('login')) badgeStyle = 'background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;';
+
+        tbody.innerHTML += `
+            <tr style="border-bottom: 1px solid #f3f4f6; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='transparent'">
+                <td style="padding: 0.75rem; color: #6b7280; font-size: 0.8rem;">${dateStr}</td>
+                <td style="padding: 0.75rem; font-family: monospace; font-size: 0.8rem; color: #374151;">${safeActor}</td>
+                <td style="padding: 0.75rem; color: #1f2937;">${safeDetails}</td>
+                <td style="padding: 0.75rem;">
+                    <span style="padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; ${badgeStyle}">
+                        ${act.action_type || 'Logged'}
+                    </span>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+function filterDoctorActivity() {
+    const query = document.getElementById('admin-doc-search').value.toLowerCase();
+    const filtered = allDoctorActivity.filter(act => {
+        const uid = (act.user_id || act.actor_id || act.email || '').toLowerCase();
+        const det = (act.details || act.action || act.event_type || '').toLowerCase();
+        return uid.includes(query) || det.includes(query);
+    });
+    renderDoctorActivity(filtered);
+}
