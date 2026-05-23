@@ -190,6 +190,11 @@ function setupSidebar() {
                 </a>
             </li>
             <li class="nav-item">
+                <a href="#" class="nav-link" onclick="switchView('appointments', this); return false;">
+                    <i class="fa-regular fa-calendar-check"></i><span>Appointments</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="#" class="nav-link" onclick="switchView('metrics', this); return false;">
                     <i class="fa-solid fa-heart-pulse"></i><span>Health Metrics</span>
                 </a>
@@ -198,11 +203,6 @@ function setupSidebar() {
             <li class="nav-item"><a href="#" class="nav-link" onclick="openModal('log-weight'); return false;"><i class="fa-solid fa-weight-scale text-gray-500"></i><span>Log Weight</span></a></li>
             <li class="nav-item"><a href="#" class="nav-link" onclick="openModal('log-glucose'); return false;"><i class="fa-solid fa-droplet text-gray-500"></i><span>Log Glucose</span></a></li>
             <li class="nav-item"><a href="#" class="nav-link" onclick="openModal('log-height'); return false;"><i class="fa-solid fa-ruler-vertical text-gray-500"></i><span>Log Height</span></a></li>
-            <li class="nav-item">
-                <a href="#" class="nav-link" onclick="switchView('appointments', this); return false;">
-                    <i class="fa-regular fa-calendar-check"></i><span>Appointments</span>
-                </a>
-            </li>
             <li class="nav-item">
                 <a href="#" class="nav-link" onclick="switchView('settings', this); return false;">
                     <i class="fa-solid fa-gear"></i><span>Settings</span>
@@ -851,7 +851,17 @@ const pastAppts = data.filter(a => a.status.toLowerCase() === 'completed')
 
 // Patient Renderers
 function renderAppointmentList(container, data) {
-    if (!data.length) { container.innerHTML = `<div class="loading-cell text-xs text-gray-500">No upcoming appointments.</div>`; return; }
+    if (!data.length) {
+        container.innerHTML = `
+            <div class="empty-state-appt">
+                <i class="fa-regular fa-calendar-xmark"></i>
+                <p>No upcoming appointments</p>
+                <button class="btn-action btn-green-solid" style="margin-top:.5rem;" onclick="openModal('booking')">
+                    <i class="fa-regular fa-calendar-plus"></i> Book an Appointment
+                </button>
+            </div>`;
+        return;
+    }
     container.innerHTML = '';
     data.forEach(appt => {
         const dateStr = formatAppointmentDate(new Date(appt.appointment_date));
@@ -1106,10 +1116,17 @@ async function countMedicalRecords() {
         const total = (w.count || 0) + (b.count || 0) + (g.count || 0) + (t.count || 0);
         const el = document.getElementById('record-count');
         if(el) el.textContent = total;
+        updateWelcomeBanner(total);
     } catch (e) {
         const el = document.getElementById('record-count');
         if(el) el.textContent = "--";
     }
+}
+
+function updateWelcomeBanner(totalRecords) {
+    const banner = document.getElementById('welcome-banner');
+    if (!banner) return;
+    banner.style.display = totalRecords === 0 ? 'flex' : 'none';
 }
 
 async function loadHealthTrends() {

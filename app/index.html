@@ -142,6 +142,23 @@
                             <h1 id="welcome-msg" class="text-2xl font-bold text-gray-800">Good Afternoon</h1>
                             <p class="text-gray-500 text-sm">Here's your health overview for today</p>
                         </div>
+
+                        <!-- Welcome Banner: shown only when user has zero logged metrics -->
+                        <div id="welcome-banner" style="display:none;" class="welcome-banner mb-6">
+                            <div class="welcome-banner-icon">
+                                <i class="fa-solid fa-heart-pulse"></i>
+                            </div>
+                            <div class="welcome-banner-body">
+                                <h3 class="welcome-banner-title">Let's get your health snapshot set up</h3>
+                                <p class="welcome-banner-sub">Log your first reading to start tracking your progress. It takes less than a minute.</p>
+                                <div class="welcome-banner-actions">
+                                    <button class="btn-action btn-green-solid" onclick="openModal('log-bp')"><i class="fa-solid fa-heart-pulse"></i> Log BP</button>
+                                    <button class="btn-action btn-gray-light" onclick="openModal('log-weight')"><i class="fa-solid fa-weight-scale"></i> Log Weight</button>
+                                    <button class="btn-action btn-gray-light" onclick="openModal('log-glucose')"><i class="fa-solid fa-droplet"></i> Log Glucose</button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="grid-2-col mb-6">
                             <div class="card p-6 flex flex-col justify-between">
                                 <div class="flex justify-between items-start mb-4">

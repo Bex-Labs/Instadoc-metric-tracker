@@ -399,7 +399,6 @@ section {
     font-weight: 600;
     cursor: pointer;
     transition: var(--transition);
-    margin-bottom: 3rem;
 }
 
 .btn-read-more:hover {

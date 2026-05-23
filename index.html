@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InstaDoc - We Value Your Health</title>
+    <title>InstaDoc - Your Health, All in One Place</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -96,9 +96,7 @@
 
         /* Hero auth section */
         .hero .auth-section { margin-top:1.5rem; }
-        .hero .auth-buttons { display:flex; align-items:flex-end; gap:1.5rem; }
-        .hero .auth-btn-group { display:flex; flex-direction:column; align-items:center; gap:.35rem; }
-        .hero .auth-btn-group .auth-question { margin:0; font-size:.85rem; white-space:nowrap; color:#4b5563; }
+        .hero .auth-buttons { display:flex; align-items:center; gap:1rem; }
     </style>
 </head>
 <body>
@@ -123,7 +121,8 @@
                     </ul>
                 </li>
                 <li><a href="about.html" class="nav-link">About Us</a></li>
-                <li><a href="contact.html" class="nav-link-primary">Contact</a></li>
+                <li><a href="contact.html" class="nav-link">Contact</a></li>
+                <li><a href="#" class="nav-link-primary" onclick="lpOpenModal('login'); return false;">Login</a></li>
             </ul>
         </div>
     </nav>
@@ -142,22 +141,14 @@
 
         <div class="hero-container" style="padding-top:150px;">
             <div class="hero-left">
-                <h1 class="hero-title">We Value<br>Your <span class="text-green">Health</span></h1>
+                <h1 class="hero-title">Your Health,<br>All in <span class="text-green">One Place</span></h1>
                 <p class="hero-description">
-                    Track your vitals, visualize trends, and connect with your doctor securely.
-                    Your comprehensive health companion anytime, anywhere.
+                    Connect with your doctor, track your vitals, and take charge of your health journey — from anywhere.
                 </p>
-                <button class="btn-read-more">Read More</button>
                 <div class="auth-section">
                     <div class="auth-buttons">
-                        <div class="auth-btn-group">
-                            <p class="auth-question">Already have an account?</p>
-                            <button class="btn-login" onclick="lpOpenModal('login')">Login</button>
-                        </div>
-                        <div class="auth-btn-group">
-                            <p class="auth-question">No account?</p>
-                            <button class="btn-signup" onclick="lpOpenModal('signup')">Signup</button>
-                        </div>
+                        <button class="btn-signup" onclick="lpOpenModal('signup')">Get Started</button>
+                        <button class="btn-read-more" onclick="lpOpenModal('login')">Log In →</button>
                     </div>
                 </div>
             </div>

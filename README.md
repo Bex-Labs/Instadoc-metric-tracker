@@ -160,3 +160,56 @@ The landing page footer contained a visible (if small) link to `admin/index.html
 - The `<a href="admin/index.html">Admin Portal</a>` link and its associated CSS (`.admin-portal-link`) have been removed from the landing page footer.
 - The admin panel URL is unchanged — admins navigate to it directly.
 - The "Admin Access" section in this README has been updated to reflect this.
+
+---
+
+### [UX] Landing page — nav and hero redesign
+**Files:** `index.html`, `style.css`
+
+The landing page nav and hero section were redesigned to better direct visitors toward signing in or booking an appointment.
+
+**Nav changes:**
+- The "Contact" link was demoted to a plain nav link.
+- A green "Login" pill button was added as the rightmost nav item, directly opening the login modal (`lpOpenModal('login')`).
+
+**Hero changes:**
+- Headline changed from "We Value Your Health" to **"Your Health, All in One Place"**.
+- Page `<title>` updated to match.
+- Description updated to: "Connect with your doctor, track your vitals, and take charge of your health journey — from anywhere."
+- The "Read More" button and the verbose "Already have an account?" / "No account?" label pattern were removed.
+- Replaced with two clean side-by-side CTAs: **Get Started** (green, opens signup modal) and **Log In →** (outlined, opens login modal).
+- Removed `margin-bottom: 3rem` from `.btn-read-more` in `style.css` — it was only there to space it above the now-removed auth label section.
+- Cleaned up three orphaned inline CSS rules (`.hero .auth-btn-group`, `.hero .auth-btn-group .auth-question`).
+
+---
+
+### [UX] Patient dashboard — first-time welcome banner
+**Files:** `app/index.html`, `app/script.js`, `app/style.css`
+
+New patients opening the dashboard for the first time see an empty shell with no data. This adds a contextual welcome banner that appears only when a patient has zero logged health records.
+
+**What changed:**
+- A `#welcome-banner` div was added to the dashboard view in `app/index.html`, hidden by default (`display:none`).
+- `countMedicalRecords()` in `app/script.js` now calls `updateWelcomeBanner(total)` after computing the record total.
+- `updateWelcomeBanner(total)` shows the banner when `total === 0` and hides it otherwise.
+- The banner auto-dismisses when the first metric is saved — `finalizeForm()` calls `loadDashboardData()` which calls `countMedicalRecords()`, completing the chain without a page reload.
+- The banner includes quick-log buttons for BP, Weight, and Glucose.
+- CSS for `.welcome-banner`, `.welcome-banner-icon`, `.welcome-banner-body`, `.welcome-banner-title`, `.welcome-banner-sub`, and `.welcome-banner-actions` added to `app/style.css`.
+
+---
+
+### [UX] Patient dashboard — appointment card empty state
+**Files:** `app/script.js`, `app/style.css`
+
+The "Upcoming Appointments" card previously showed plain text when empty. It now shows a proper empty state with a booking CTA, visible to both new and returning users with no scheduled appointments.
+
+**What changed:**
+- `renderAppointmentList()` empty branch replaced with a centred empty state: calendar icon, "No upcoming appointments" text, and a green "Book an Appointment" button that opens the booking modal.
+- CSS for `.empty-state-appt` added to `app/style.css`.
+
+---
+
+### [UX] Patient sidebar — Appointments moved up
+**Files:** `app/script.js` (`setupSidebar`)
+
+The Appointments nav item was previously buried below Health Metrics and all four logging shortcuts (Log BP, Log Weight, Log Glucose, Log Height). It is now the second item in the patient sidebar, directly below Dashboard.
