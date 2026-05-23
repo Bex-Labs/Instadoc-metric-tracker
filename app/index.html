@@ -7,19 +7,6 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://js.sentry-cdn.com/c7d6d262f60f48f7d44048eca6627c0b.min.js" crossorigin="anonymous"></script>
-
-    <script>
-      Sentry.init({
-        dsn: "https://c7d6d262f60f48f7d44048eca6627c0b@o4511234098921472.ingest.us.sentry.io/4511234135752705", // Replace with your actual DSN string
-        
-        // Automatically capture performance metrics
-        tracesSampleRate: 1.0, 
-        
-        // Optional: Tag the environment to separate local tests from live Vercel errors
-        environment: window.location.hostname === "localhost" ? "development" : "production",
-      });
-    </script>
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <!-- Chart.js -->
@@ -746,17 +733,6 @@
                 <div class="form-group"><input type="password" id="signup-password" class="form-control" placeholder="Password" required></div>
                 <div class="form-group"><input type="password" id="signup-confirm-password" class="form-control" placeholder="Confirm Password" required></div>
                 
-                <div class="doctor-checkbox mb-4" style="margin-top: 15px;">
-                    <input type="checkbox" id="signup-as-doctor" onchange="toggleDoctorSignupFields()">
-                    <label for="signup-as-doctor">Register as Doctor</label>
-                </div>
-                
-                <div id="doctor-signup-fields" style="display: none; margin-bottom: 15px;">
-                    <div class="form-group"><input type="text" id="signup-fullname" class="form-control" placeholder="Full Name (e.g. Dr. Jane Doe)"></div>
-                    <div class="form-group"><input type="text" id="signup-license" class="form-control" placeholder="Medical License Number"></div>
-                    <div class="form-group"><input type="text" id="signup-specialty" class="form-control" placeholder="Specialization (e.g. Cardiologist)"></div>
-                </div>
-
                 <button type="submit" class="book-btn btn-full">Sign Up</button>
             </form>
             <div class="divider">Or sign up with</div>

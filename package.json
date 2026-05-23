@@ -1,7 +1,7 @@
 {
   "name": "unified_instadoc",
   "version": "1.0.0",
-  "description": "``` unified_instadoc/ │ ├── index.html                  ← Landing page (main entry point) ├── style.css                   ← ID Metric landing page styles ├── script.js                   ← ID Metric misc scripts (consultation helper etc.) ├── consultation.html ├── consultation.js ├── consultation_firebase.js ├── about.html ├── contact.html ├── services.html ├── Performance_Metrics.html ├── Real_time_analytics_services.html ├── predictive_analytics.html ├── resource_optimization.html │ ├── app/                        ← INSTADOC dashboard (patient + doctor) │   ├── index.html │   ├── script.js │   └── style.css │ └── admin/                      ← Admin panel (admin-only access)     ├── index.html     ├── script.js     └── style.css ```",
+  "description": "InstaDoc Metric Tracker - unified patient/doctor dashboard, admin panel, and landing page. Stack: vanilla HTML/CSS/JS, Supabase (auth + DB + storage), Playwright.",
   "main": "consultation.js",
   "scripts": {},
   "repository": {

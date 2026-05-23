@@ -319,11 +319,6 @@ async function signInWithGoogle() {
 
 function signInWithPhone() { showToast("Phone Auth requires paid plan/setup. Use Email or Google.", "error"); }
 
-// Toggle logic for Doctor Signup fields
-function toggleDoctorSignupFields() {
-    const isDoc = document.getElementById('signup-as-doctor').checked;
-    document.getElementById('doctor-signup-fields').style.display = isDoc ? 'block' : 'none';
-}
 
 // LOGIN FORM HANDLER
 document.getElementById('login-form').addEventListener('submit', async (e) => { 
@@ -369,33 +364,12 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
         return;
     }
     
-    // Logic to prevent Database Trigger Errors
-    const isDoc = document.getElementById('signup-as-doctor').checked;
-    let metadata = {};
-
-    if (isDoc) {
-        const fullName = document.getElementById('signup-fullname').value;
-        const license = document.getElementById('signup-license').value;
-        
-        if (!fullName || !license) {
-            document.getElementById('signup-error').textContent = "Doctors must provide Name and License Number.";
-            document.getElementById('signup-error').style.display = 'block';
-            return;
-        }
-
-        metadata = {
-            role: 'doctor',
-            full_name: fullName,
-            license_number: license,
-            specialty: document.getElementById('signup-specialty').value
-        };
-    } else {
-        const fallbackName = email.split('@')[0]; 
-        metadata = { 
-            role: 'patient',
-            full_name: fallbackName
-        };
-    }
+    // All self-registered accounts are patients.
+    // Doctor accounts are created exclusively by admins via the admin panel.
+    const metadata = {
+        role: 'patient',
+        full_name: email.split('@')[0]
+    };
 
     btn.textContent = "Creating Account...";
     btn.disabled = true;
@@ -1811,7 +1785,69 @@ function openModal(n) {
 function toggleUnit(type) { const s = document.getElementById(type + '-slider'); const k = document.getElementById(type + '-unit'); const isK = k.value === 'kg'; s.style.transform = isK ? 'translateX(100%)' : 'translateX(0)'; k.value = isK ? 'lbs' : 'kg'; }
 window.onclick = function(e) { if(e.target.classList.contains('modal-overlay')) closeModals(); }
 
-function handleFileUpload(input) { const f = input.files[0]; if(f) { const r = new FileReader(); r.onload = async function(e) { updateAvatarUI(e.target.result); await supabaseClient.auth.updateUser({data:{avatar_url:e.target.result}}); }; r.readAsDataURL(f); } }
+async function handleFileUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    // Validate: images only, max 2 MB
+    if (!file.type.startsWith('image/')) {
+        showToast('Please select an image file.', 'error');
+        return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+        showToast('Image must be under 2 MB.', 'error');
+        return;
+    }
+
+    // Instant optimistic preview via a local blob URL (no base64 needed)
+    const blobUrl = URL.createObjectURL(file);
+    updateAvatarUI(blobUrl);
+
+    // Stable storage path: avatars/{userId}/avatar.{ext}
+    const ext = file.name.split('.').pop().toLowerCase();
+    const filePath = `${currentUser.id}/avatar.${ext}`;
+
+    // Upload to Supabase Storage (upsert so re-uploads replace in place)
+    const { error: uploadError } = await supabaseClient.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true, contentType: file.type });
+
+    if (uploadError) {
+        showToast('Avatar upload failed: ' + uploadError.message, 'error');
+        // Revert preview to whatever was stored before
+        updateAvatarUI(currentUser.user_metadata?.avatar_url || null);
+        URL.revokeObjectURL(blobUrl);
+        return;
+    }
+
+    // Retrieve the permanent public URL
+    const { data: urlData } = supabaseClient.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+    const publicUrl = urlData?.publicUrl;
+    if (!publicUrl) {
+        showToast('Upload succeeded but URL could not be retrieved.', 'error');
+        URL.revokeObjectURL(blobUrl);
+        return;
+    }
+
+    // Persist only the URL (not the raw bytes) in auth user metadata
+    const { error: metaError } = await supabaseClient.auth.updateUser({
+        data: { avatar_url: publicUrl }
+    });
+
+    URL.revokeObjectURL(blobUrl);
+
+    if (metaError) {
+        showToast('Avatar saved but profile sync failed: ' + metaError.message, 'error');
+        return;
+    }
+
+    // Swap the blob preview for the permanent CDN URL
+    updateAvatarUI(publicUrl);
+    showToast('Avatar updated!', 'success');
+}
 // --- SEARCH & FILTER LOGIC ---
 function searchAppointments() { 
     // Safely get values, fallback to empty/All if missing
