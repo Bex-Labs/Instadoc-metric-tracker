@@ -218,6 +218,11 @@ function setupSidebar() {
                 </a>
             </li>
             <li class="nav-item">
+                <a href="#" class="nav-link" onclick="switchView('doctor-patients', this); return false;">
+                    <i class="fa-solid fa-users"></i><span>My Patients</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="#" class="nav-link" onclick="switchView('doctor-appointments', this); return false;">
                     <i class="fa-regular fa-calendar-check"></i><span>Appointments</span>
                 </a>
@@ -284,6 +289,9 @@ function switchView(viewName, element) {
         }
         if (viewName === 'doctor-appointments') {
             loadDoctorAppointmentsTab();
+        }
+        if (viewName === 'doctor-patients') {
+            loadDoctorPatientsTab();
         }
     }
 }
@@ -3690,9 +3698,10 @@ async function viewPatientRecords(patientId, patientName) {
     // 1. Setup secure loading state
     const modalBody = document.getElementById('records-modal-body');
     document.getElementById('records-modal-title').innerHTML = `<i class="fa-solid fa-folder-medical text-blue-500 mr-2"></i> Medical File: ${patientName}`;
-    modalBody.innerHTML = '<div class="py-10 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3 text-blue-400"></i><p class="text-sm">Verifying authorization & fetching records securely...</p></div>';
     
-    // Use existing generic modal opener
+    // Vanilla CSS Loading State
+    modalBody.innerHTML = '<div style="padding: 3rem 0; text-align: center; color: var(--text-gray);"><i class="fa-solid fa-circle-notch fa-spin" style="font-size: 1.75rem; margin-bottom: 1rem; color: var(--primary-green);"></i><p style="font-size: 0.9rem; font-weight: 500;">Verifying authorization & securely fetching records...</p></div>';
+    
     document.getElementById('patient-records-modal').classList.add('active');
 
     // 2. Strict Authorization Validation
@@ -3704,7 +3713,7 @@ async function viewPatientRecords(patientId, patientName) {
         .in('status', ['confirmed', 'Confirmed', 'completed']);
 
     if (accessError) {
-        modalBody.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-lg text-sm border border-red-100"><i class="fa-solid fa-triangle-exclamation mr-2"></i> Database verification error.</div>`;
+        modalBody.innerHTML = `<div style="background: #fef2f2; color: #dc2626; padding: 1rem; border-radius: 0.5rem; font-size: 0.875rem; border: 1px solid #fee2e2;"><i class="fa-solid fa-triangle-exclamation" style="margin-right: 0.5rem;"></i> Database verification error.</div>`;
         return;
     }
 
@@ -3714,12 +3723,10 @@ async function viewPatientRecords(patientId, patientName) {
     // If no relationship exists, hard-block the UI
     if (!hasAccess) {
         modalBody.innerHTML = `
-            <div class="flex flex-col items-center justify-center py-10 text-center">
-                <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-400 text-2xl border border-gray-100 shadow-sm">
-                    <i class="fa-solid fa-lock"></i>
-                </div>
-                <h4 class="font-bold text-gray-800 mb-2">Access Restricted</h4>
-                <p class="text-sm text-gray-500 max-w-sm">You do not have active consent or prior confirmed consultations with this patient. Record visibility is restricted to protect patient privacy.</p>
+            <div class="record-lock-screen">
+                <div class="record-lock-icon"><i class="fa-solid fa-lock"></i></div>
+                <h4 class="record-lock-title">Access Restricted</h4>
+                <p class="record-lock-text">You do not have active consent or prior confirmed consultations with this patient. Record visibility is restricted to protect patient privacy.</p>
             </div>`;
         return;
     }
@@ -3736,35 +3743,234 @@ async function viewPatientRecords(patientId, patientName) {
 
         // Render Security Banner
         if (hasExplicitConsent) {
-            html += `<div class="bg-green-50 border border-green-200 text-green-700 text-xs p-3 rounded-lg mb-5 flex items-center gap-2 shadow-sm font-medium"><i class="fa-solid fa-shield-check text-base"></i> Patient explicitly consented to comprehensive record sharing.</div>`;
+            html += `<div class="record-alert-green"><i class="fa-solid fa-shield-check text-base"></i> Patient explicitly consented to comprehensive record sharing.</div>`;
         } else {
-            html += `<div class="bg-blue-50 border border-blue-200 text-blue-700 text-xs p-3 rounded-lg mb-5 flex items-center gap-2 shadow-sm font-medium"><i class="fa-solid fa-unlock-keyhole text-base"></i> Access granted via active/past consultation history.</div>`;
+            html += `<div class="record-alert-blue"><i class="fa-solid fa-unlock-keyhole text-base"></i> Access granted via active/past consultation history.</div>`;
         }
 
         // Section Renderer Helper
         const renderSection = (title, icon, data, formatter) => {
             if (!data || data.length === 0) {
-                return `<div class="mb-5"><h5 class="text-sm font-bold text-gray-700 mb-2 flex items-center"><i class="fa-solid ${icon} mr-2 text-gray-400 w-4"></i> ${title}</h5><div class="bg-gray-50 border border-dashed border-gray-200 rounded-lg p-3 text-xs text-gray-400 italic text-center">No recent records available.</div></div>`;
+                return `<div><h5 class="record-section-title"><i class="fa-solid ${icon}"></i> ${title}</h5><div class="record-empty">No recent records available.</div></div>`;
             }
             
             let rows = data.map(item => `
-                <div class="flex justify-between items-center py-2.5 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors px-2 rounded">
-                    <span class="text-xs text-gray-500 font-medium"><i class="fa-regular fa-calendar mr-1"></i> ${new Date(item.date).toLocaleDateString()}</span>
-                    <span class="text-sm font-bold text-gray-800">${formatter(item)}</span>
+                <div class="record-row">
+                    <span class="record-date"><i class="fa-regular fa-calendar mr-1"></i> ${new Date(item.date).toLocaleDateString()}</span>
+                    <span class="record-val">${formatter(item)}</span>
                 </div>
             `).join('');
             
-            return `<div class="mb-6"><h5 class="text-sm font-bold text-gray-800 mb-3 flex items-center"><i class="fa-solid ${icon} mr-2 text-blue-500 w-4"></i> ${title}</h5><div class="border border-gray-100 rounded-lg shadow-sm p-2 bg-white">${rows}</div></div>`;
+            return `<div><h5 class="record-section-title"><i class="fa-solid ${icon}"></i> ${title}</h5><div class="record-card">${rows}</div></div>`;
         };
 
         // Render specific vitals
-        html += renderSection('Blood Pressure History', 'fa-heart-pulse', bData.data, (item) => `${item.systolic}/${item.diastolic} <span class="text-[10px] text-gray-400 font-normal">mmHg</span>`);
-        html += renderSection('Blood Glucose Logs', 'fa-droplet', gData.data, (item) => `${item.level} <span class="text-[10px] text-gray-400 font-normal">mg/dL</span> <span class="text-[10px] font-medium bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded ml-1">${item.test_type}</span>`);
-        html += renderSection('Weight Tracking', 'fa-weight-scale', wData.data, (item) => `${item.weight} <span class="text-[10px] text-gray-400 font-normal">kg</span>`);
+        html += renderSection('Blood Pressure History', 'fa-heart-pulse', bData.data, (item) => `${item.systolic}/${item.diastolic} <span class="record-unit">mmHg</span>`);
+        html += renderSection('Blood Glucose Logs', 'fa-droplet', gData.data, (item) => `${item.level} <span class="record-unit">mg/dL</span> <span class="record-badge">${item.test_type}</span>`);
+        html += renderSection('Weight Tracking', 'fa-weight-scale', wData.data, (item) => `${item.weight} <span class="record-unit">kg</span>`);
 
         modalBody.innerHTML = html;
 
     } catch (error) {
-        modalBody.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-lg text-sm"><i class="fa-solid fa-circle-exclamation mr-2"></i> Error fetching medical data securely.</div>`;
+        modalBody.innerHTML = `<div style="background: #fef2f2; color: #dc2626; padding: 1rem; border-radius: 0.5rem; font-size: 0.875rem; border: 1px solid #fee2e2;"><i class="fa-solid fa-circle-exclamation" style="margin-right: 0.5rem;"></i> Error fetching medical data securely.</div>`;
     }
+}
+
+// =========================================
+// MY PATIENTS DIRECTORY LOGIC
+// =========================================
+let cachedPatientDirectory = []; // For local searching
+
+async function loadDoctorPatientsTab() {
+    const container = document.getElementById('doctor-patients-list');
+    if (!container) return;
+    
+    container.innerHTML = '<div style="padding: 3rem 0; text-align: center; color: var(--text-gray);"><i class="fa-solid fa-circle-notch fa-spin" style="font-size: 1.75rem; margin-bottom: 1rem; color: var(--primary-green);"></i><p style="font-size: 0.9rem; font-weight: 500;">Aggregating patient directory...</p></div>';
+
+    // Fetch all non-cancelled appointments for this doctor
+    const { data: appts, error } = await supabaseClient
+        .from('appointments')
+        .select('*')
+        .eq('doctor_id', currentUser.id)
+        .neq('status', 'cancelled')
+        .order('appointment_date', { ascending: false });
+
+    if (error) {
+        container.innerHTML = '<div class="record-empty">Failed to load patient directory.</div>';
+        return;
+    }
+
+    // Smart Aggregation: Group ledger by unique patient
+    const patientMap = new Map();
+    appts.forEach(a => {
+        if (!patientMap.has(a.user_id)) {
+            patientMap.set(a.user_id, {
+                id: a.user_id,
+                name: a.patient_name || 'Patient',
+                latestDate: new Date(a.appointment_date),
+                totalVisits: 1,
+                shareRecords: a.share_records,
+                activeAppt: (a.status === 'pending' || a.status.toLowerCase() === 'confirmed') ? a : null
+            });
+        } else {
+            const p = patientMap.get(a.user_id);
+            p.totalVisits += 1;
+            const d = new Date(a.appointment_date);
+            if (d > p.latestDate) p.latestDate = d;
+            if (!p.activeAppt && (a.status === 'pending' || a.status.toLowerCase() === 'confirmed')) p.activeAppt = a;
+            // Ensure consent is true if ANY appointment had consent checked
+            if (a.share_records) p.shareRecords = true; 
+        }
+    });
+
+    cachedPatientDirectory = Array.from(patientMap.values());
+    renderPatientDirectory(cachedPatientDirectory);
+}
+
+function renderPatientDirectory(patients) {
+    const container = document.getElementById('doctor-patients-list');
+    if (patients.length === 0) {
+         container.innerHTML = '<div class="record-empty" style="padding: 3rem;"><i class="fa-solid fa-users" style="font-size:2rem; margin-bottom:1rem; color:#d1d5db;"></i><br>You have no active patients in your directory yet.</div>';
+         return;
+    }
+
+    container.innerHTML = '';
+    patients.forEach(p => {
+        // Smart Triage Status
+        const daysSinceLast = Math.floor((new Date() - p.latestDate) / (1000 * 60 * 60 * 24));
+        let statusBadge = '';
+        if (p.activeAppt) {
+            statusBadge = `<span class="record-badge" style="background: #dbeafe; color: #2563eb; border: 1px solid #bfdbfe;"><i class="fa-solid fa-calendar-check"></i> Active Care</span>`;
+        } else if (daysSinceLast <= 30) {
+            statusBadge = `<span class="record-badge" style="background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0;">Recent Visit</span>`;
+        } else {
+            statusBadge = `<span class="record-badge" style="background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb;">Inactive</span>`;
+        }
+
+        // Quick Call Button
+        const callBtn = p.activeAppt && (p.activeAppt.status.toLowerCase() === 'confirmed') ? 
+            `<button class="btn-sm bg-blue-500 text-white border-none" onclick="event.stopPropagation(); startVideoCall('${p.activeAppt.id}', '${p.activeAppt.type.toLowerCase().includes('audio') ? 'audio' : 'video'}', '${p.id}', '${p.name}')"><i class="fa-solid fa-phone"></i> Call</button>` : '';
+
+        const card = `
+            <div class="card p-4 mb-4 cursor-pointer hover:shadow-md transition-all flex justify-between items-center" style="border-left: 4px solid var(--primary-green);" onclick="openPatientProfile('${p.id}', '${p.name}', ${p.shareRecords})">
+                <div class="flex items-center gap-4">
+                    <div class="doctor-avatar bg-gray-200 text-gray-600" style="width:50px;height:50px;font-size:1.1rem;">${getInitials(p.name)}</div>
+                    <div>
+                        <h4 class="font-bold text-md text-gray-800 flex items-center gap-2 mb-1">${p.name} ${statusBadge}</h4>
+                        <div class="flex gap-4 text-xs text-gray-500">
+                            <span><i class="fa-regular fa-clock"></i> Last Visit: ${p.latestDate.toLocaleDateString()}</span>
+                            <span><i class="fa-solid fa-notes-medical"></i> Total Visits: ${p.totalVisits}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    ${callBtn}
+                    <i class="fa-solid fa-chevron-right text-gray-400 pl-2"></i>
+                </div>
+            </div>
+        `;
+        container.innerHTML += card;
+    });
+}
+
+function searchPatients() {
+    const query = document.getElementById('patient-search').value.toLowerCase();
+    const filtered = cachedPatientDirectory.filter(p => p.name.toLowerCase().includes(query));
+    renderPatientDirectory(filtered);
+}
+
+// =========================================
+// UNIFIED PATIENT PROFILE LOGIC
+// =========================================
+function openPatientProfile(patientId, patientName, shareRecords) {
+    // Navigate without triggering the sidebar highlight (acts as a sub-page)
+    document.querySelectorAll('.patient-view, .doctor-view').forEach(el => el.style.display = 'none');
+    document.getElementById('view-patient-profile').style.display = 'block';
+
+    // Populate Headers
+    document.getElementById('profile-patient-name').textContent = patientName;
+    document.getElementById('profile-patient-initials').textContent = getInitials(patientName);
+
+    // Load sub-modules
+    loadProfileVitals(patientId, shareRecords);
+    loadProfileHistory(patientId);
+}
+
+async function loadProfileVitals(patientId, shareRecords) {
+    const container = document.getElementById('profile-vitals-body');
+    container.innerHTML = '<div style="padding: 2rem 0; text-align: center; color: var(--text-gray);"><i class="fa-solid fa-circle-notch fa-spin" style="font-size: 1.5rem; margin-bottom: 1rem; color: var(--primary-green);"></i></div>';
+
+    // UI-Level Authorization Gateway
+    if (!shareRecords) {
+        container.innerHTML = `
+            <div class="record-lock-screen" style="padding: 2rem 0;">
+                <div class="record-lock-icon" style="width:50px;height:50px;font-size:1.2rem;"><i class="fa-solid fa-lock"></i></div>
+                <h4 class="record-lock-title" style="font-size:1rem;">Access Restricted</h4>
+                <p class="record-lock-text" style="font-size:0.8rem;">Patient has not granted explicit consent to share continuous live vitals.</p>
+            </div>`;
+        return;
+    }
+
+    try {
+        const [wData, bData, gData] = await Promise.all([
+            supabaseClient.from('weight_logs').select('*').eq('user_id', patientId).order('date', {ascending:false}).limit(3),
+            supabaseClient.from('bp_logs').select('*').eq('user_id', patientId).order('date', {ascending:false}).limit(3),
+            supabaseClient.from('glucose_logs').select('*').eq('user_id', patientId).order('date', {ascending:false}).limit(3)
+        ]);
+
+        let html = `<div class="record-alert-green" style="margin-bottom: 1rem;"><i class="fa-solid fa-shield-check"></i> Live access authorized by patient.</div>`;
+
+        const renderSection = (title, icon, data, formatter) => {
+            if (!data || data.length === 0) return `<div><h5 class="record-section-title"><i class="fa-solid ${icon}"></i> ${title}</h5><div class="record-empty" style="padding:1rem;">No recent data.</div></div>`;
+            let rows = data.map(item => `
+                <div class="record-row" style="padding:8px;">
+                    <span class="record-date">${new Date(item.date).toLocaleDateString()}</span>
+                    <span class="record-val">${formatter(item)}</span>
+                </div>
+            `).join('');
+            return `<div><h5 class="record-section-title"><i class="fa-solid ${icon}"></i> ${title}</h5><div class="record-card" style="margin-bottom:1rem;">${rows}</div></div>`;
+        };
+
+        html += renderSection('Blood Pressure', 'fa-heart-pulse', bData.data, (i) => `${i.systolic}/${i.diastolic} <span class="record-unit">mmHg</span>`);
+        html += renderSection('Blood Sugar', 'fa-droplet', gData.data, (i) => `${i.level} <span class="record-unit">mg/dL</span> <span class="record-badge">${i.test_type}</span>`);
+        
+        container.innerHTML = html;
+    } catch (error) {
+        container.innerHTML = `<div class="record-alert-blue" style="border-color:#fca5a5; color:#dc2626; background:#fef2f2;">Database Error.</div>`;
+    }
+}
+
+async function loadProfileHistory(patientId) {
+    const container = document.getElementById('profile-history-body');
+    container.innerHTML = '<div style="padding: 2rem 0; text-align: center; color: var(--text-gray);"><i class="fa-solid fa-circle-notch fa-spin" style="font-size: 1.5rem; margin-bottom: 1rem; color: var(--primary-green);"></i></div>';
+
+    // Fetch exclusively THIS doctor's past notes for THIS patient
+    const { data: pastAppts, error } = await supabaseClient
+        .from('appointments')
+        .select('id, appointment_date, notes, type')
+        .eq('user_id', patientId)
+        .eq('doctor_id', currentUser.id)
+        .not('notes', 'is', null)
+        .order('appointment_date', { ascending: false });
+
+    if (error || !pastAppts || pastAppts.length === 0) {
+        container.innerHTML = '<div class="record-empty" style="padding: 3rem;"><i class="fa-regular fa-folder-open" style="font-size:2rem; margin-bottom:1rem; color:#d1d5db;"></i><br>No clinical notes history established yet.</div>';
+        return;
+    }
+
+    container.innerHTML = '';
+    pastAppts.forEach(appt => {
+        const dateStr = new Date(appt.appointment_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        const typeBadge = appt.type ? appt.type.split('•')[0].trim() : 'Visit';
+        
+        container.innerHTML += `
+            <div class="clinical-note-card">
+                <div class="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
+                    <span class="font-bold text-sm text-gray-800"><i class="fa-regular fa-calendar-check mr-2 text-green-600"></i> ${dateStr}</span>
+                    <span class="record-badge">${typeBadge}</span>
+                </div>
+                <p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed font-mono" style="font-size: 0.8rem;">${appt.notes}</p>
+            </div>
+        `;
+    });
 }
