@@ -472,7 +472,7 @@
                         <div class="dash-welcome-header mb-6 flex justify-between items-end">
                             <div>
                                 <h1 class="text-2xl font-bold text-gray-800">Dashboard</h1>
-                                <p class="text-gray-500 text-sm">Welcome back! Here's your overview</p>
+                                <p class="text-gray-500 text-sm" id="doc-welcome-greeting">Welcome back!</p>
                             </div>
                             <div class="toggle-item border-none p-0">
                                 <span class="text-xs font-bold mr-2 text-gray-500">Status:</span>
@@ -502,10 +502,27 @@
                             <div class="card p-6">
                                 <div class="flex justify-between items-start mb-2">
                                     <div class="icon-bg-green"><i class="fa-solid fa-heart-pulse"></i></div>
-                                    <span class="text-xs text-red-500 font-bold">Pending</span>
+                                    <span class="text-xs text-green-500 font-bold">Confirmed</span>
                                 </div>
                                 <h3 class="text-2xl font-bold" id="doc-stat-pending">--</h3>
-                                <p class="text-xs text-gray-500">Active Cases</p>
+                                <p class="text-xs text-gray-500">Confirmed Appointments</p>
+                            </div>
+                        </div>
+
+                        <!-- New Doctor Onboarding Banner -->
+                        <div id="doctor-onboarding-banner" style="display:none;" class="doctor-onboarding-banner mb-6">
+                            <div class="doctor-onboarding-icon"><i class="fa-solid fa-stethoscope"></i></div>
+                            <div class="doctor-onboarding-body">
+                                <h3 class="doctor-onboarding-title">You're all set — let's get your first patient!</h3>
+                                <p class="doctor-onboarding-sub">Complete your profile and set your availability so patients can find and book with you.</p>
+                                <div class="welcome-banner-actions">
+                                    <button class="btn-action btn-green-solid" onclick="switchView('doctor-settings')">
+                                        <i class="fa-solid fa-user-pen"></i> Complete Profile
+                                    </button>
+                                    <button class="btn-action btn-gray-light" onclick="switchView('doctor-settings')">
+                                        <i class="fa-regular fa-clock"></i> Set Availability
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -540,13 +557,11 @@
                                     <button class="btn-action btn-green-solid" onclick="switchView('doctor-appointments')">
                                         <i class="fa-regular fa-calendar-check"></i> View Appointments
                                     </button>
-                                    
-                                    <button class="btn-action btn-gray-light" onclick="showToast('Loading patient records...', 'success')">
-                                        <i class="fa-regular fa-folder-open"></i> Patient Records
+                                    <button class="btn-action btn-gray-light" onclick="switchView('doctor-settings')">
+                                        <i class="fa-regular fa-clock"></i> Update Availability
                                     </button>
-                                    
-                                    <button class="btn-action btn-gray-light" onclick="showToast('Opening secure messages...', 'success')">
-                                        <i class="fa-regular fa-comment-dots"></i> Messages
+                                    <button class="btn-action btn-gray-light" onclick="switchView('doctor-settings')">
+                                        <i class="fa-regular fa-user-circle"></i> Edit Profile
                                     </button>
                                 </div>
                             </div>
@@ -990,55 +1005,4 @@
                         <i class="fa-solid fa-microphone"></i> Start Dictation
                     </button>
                     <textarea id="notes-content" class="form-control" rows="6" placeholder="Type diagnostic notes, prescriptions, or patient updates here..." required></textarea>
-                </div>
-
-                <button type="submit" class="book-btn btn-full" id="notes-btn">Save Notes</button>
-            </form>
-        </div>
-    </div>
-    <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px;"></div>
-    <script src="script.js"></script>
-
-    <button id="feedback-fab" class="feedback-fab">🐞 Feedback</button>
-
-    <div id="feedback-modal" class="feedback-modal hidden">
-      <div class="feedback-content">
-        <span class="close-feedback">&times;</span>
-        <h3>Beta Feedback</h3>
-        <form id="beta-feedback-form">
-          <label for="feedback-type">What kind of feedback?</label>
-          <select id="feedback-type" required>
-            <option value="bug">Report a Bug</option>
-            <option value="feature">Suggest a Feature</option>
-            <option value="ui">UI/Layout Issue</option>
-          </select>
-
-          <label for="feedback-text">Details:</label>
-          <textarea id="feedback-text" rows="4" required placeholder="What did you notice?"></textarea>
-
-          <button type="submit" id="submit-feedback-btn">Submit Report</button>
-        </form>
-        <div id="feedback-status"></div>
-      </div>
-    </div>
-    <div class="modal-overlay" id="patient-records-modal">
-    <div class="modal-content" style="max-width: 600px; width: 95%; padding: 0; overflow: hidden;">
-        
-        <div style="padding: 1.5rem 1.5rem 1rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; background: #ffffff;">
-            <h3 style="margin: 0; font-size: 1.25rem; font-weight: 600; color: var(--text-dark);" id="records-modal-title">
-                <i class="fa-solid fa-folder-medical" style="color: var(--primary-green); margin-right: 8px;"></i> Patient Records
-            </h3>
-            <button style="background: none; border: none; font-size: 1.5rem; color: var(--text-gray); cursor: pointer; line-height: 1;" onclick="closeModals()">&times;</button>
-        </div>
-
-        <div id="records-modal-body" style="max-height: 60vh; overflow-y: auto; padding: 1.5rem; background: #ffffff;">
-            </div>
-
-        <div style="padding: 1rem 1.5rem; border-top: 1px solid #e5e7eb; text-align: right; background: #f9fafb;">
-            <button style="padding: 0.6rem 1.2rem; border-radius: 8px; border: 1px solid #d1d5db; background: #ffffff; color: var(--text-dark); cursor: pointer; font-weight: 500; font-family: inherit; transition: background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#ffffff'" onclick="closeModals()">Close Secure View</button>
-        </div>
-        
-    </div>
-</div>
-</body>
-</html>
+                </di

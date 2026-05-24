@@ -213,3 +213,76 @@ The "Upcoming Appointments" card previously showed plain text when empty. It now
 **Files:** `app/script.js` (`setupSidebar`)
 
 The Appointments nav item was previously buried below Health Metrics and all four logging shortcuts (Log BP, Log Weight, Log Glucose, Log Height). It is now the second item in the patient sidebar, directly below Dashboard.
+
+---
+
+### [Fix] Doctor dashboard — weekly chart scoped to current week
+**Files:** `app/script.js` (`updateDoctorWeeklyChart`)
+
+Previously, the "Weekly Appointments" bar chart grouped all historical appointments by day-of-week (e.g. every Monday ever). This made the bars grow indefinitely and rendered the chart meaningless for tracking current workload.
+
+**What changed:**
+- Chart now filters appointments to the current Mon–Sun window before counting.
+- Start-of-week is computed as the most recent Monday at midnight; end-of-week is Sunday at 23:59:59.
+- Only appointments within this range contribute to the per-day counts.
+
+---
+
+### [Fix] Doctor dashboard — Active Cases card label corrected
+**Files:** `app/index.html`
+
+The "Active Cases" stat card had a red "Pending" badge despite displaying the count of *Confirmed* appointments — an internal naming inconsistency left over from an earlier refactor.
+
+**What changed:**
+- Card label renamed from "Active Cases" to "Confirmed Appointments".
+- Badge text changed from "Pending" (red) to "Confirmed" (green) to match what the number actually represents.
+
+---
+
+### [Fix] Doctor dashboard — Success Rate shows N/A with no data
+**Files:** `app/script.js` (`loadDoctorDashboardData`)
+
+A new doctor with zero completed appointments always saw "0%" — indistinguishable from a doctor with a genuinely poor record.
+
+**What changed:**
+- `successRate` is now `null` when `completed === 0` (regardless of total appointment count).
+- The UI renders `"N/A"` instead of `"0%"` in this case, making the empty state honest and clear.
+
+---
+
+### [UX] Doctor dashboard — personalised welcome message
+**Files:** `app/index.html`, `app/script.js`
+
+The dashboard header showed "Welcome back!" with no personalisation.
+
+**What changed:**
+- Added `id="doc-welcome-greeting"` to the subtitle paragraph in the doctor dashboard header.
+- New `updateDoctorWelcomeMessage()` function extracts `full_name` from `user_metadata`, takes the last word as the surname, and sets the greeting to `"Welcome back, Dr. {lastName}!"`.
+- Falls back to `"Welcome back!"` if no name is stored.
+- Called at the top of `loadDoctorDashboardData()`.
+
+---
+
+### [UX] Doctor dashboard — stub Quick Action buttons replaced
+**Files:** `app/index.html`
+
+"Patient Records" and "Messages" Quick Action buttons both fired a success toast — non-functional placeholders that misled users into thinking features existed.
+
+**What changed:**
+- Both stub buttons removed.
+- Replaced with **"Update Availability"** (navigates to Settings) and **"Edit Profile"** (navigates to Settings).
+- "View Appointments" button retained as the primary action.
+
+---
+
+### [UX] Doctor dashboard — new doctor onboarding banner
+**Files:** `app/index.html`, `app/script.js`, `app/style.css`
+
+A newly activated doctor opened to a dashboard full of zeros, flat charts, and "No recent activity." — identical to a broken state with no guidance on what to do next.
+
+**What changed:**
+- A `#doctor-onboarding-banner` div added above the charts area in `app/index.html`, hidden by default.
+- `updateDoctorOnboardingBanner(totalAppointments)` shows the banner when the doctor has zero appointments, hides it otherwise.
+- Called from `loadDoctorDashboardData()` immediately after data loads.
+- Banner includes CTAs: **"Complete Profile"** and **"Set Availability"** — both navigate to the Settings view.
+- Styled in blue (distinct from the patient green welcome banner) via `.doctor-onboarding-banner` CSS classes in `app/style.css`.
