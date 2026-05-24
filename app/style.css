@@ -1052,7 +1052,6 @@ body.dark-mode .booked-slot-badge {
 .notif-dot   { width: 8px; height: 8px; background: #22c55e; border-radius: 50%;
     flex-shrink: 0; margin-top: 6px; }
 
-<<<<<<< HEAD
 /* ── Welcome Banner (first-time user) ─────────────────────────────── */
 .welcome-banner {
     display: flex;
@@ -1093,20 +1092,6 @@ body.dark-mode .booked-slot-badge {
 .empty-state-appt i { font-size: 2rem; color: #d1d5db; }
 .empty-state-appt p { font-size: .875rem; color: #6b7280; margin: 0; }
 
-/* -- Welcome Banner (first-time user) -------------------------------- */
-.welcome-banner {
-    display: flex;
-    align-items: flex-start;
-    gap: 1.25rem;
-    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-    border: 1.5px solid #bbf7d0;
-    border-radius: 16px;
-    padding: 1.5rem 1.75rem;
-}
-.welcome-banner-icon {
-    flex-shrink: 0;
-    width: 48px; height: 48px;
-    backgr
 /* --- Doctor Onboarding Banner --- */
 .doctor-onboarding-banner { display: flex; align-items: flex-start; gap: 1.25rem; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem 1.75rem; }
 .doctor-onboarding-icon { flex-shrink: 0; width: 48px; height: 48px; background: #3b82f6; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.35rem; }
