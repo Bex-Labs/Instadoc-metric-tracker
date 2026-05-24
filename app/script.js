@@ -17,11 +17,26 @@ const countriesList = [
     "China", "Japan", "South Korea", "Mexico", "Russia", "South Africa", "Nigeria", "Egypt", "Kenya", "Ghana"
 ];
 
+// Safe localStorage adapter -- prevents Edge/Safari Tracking Prevention from
+// crashing the Supabase client init when storage access is blocked.
+var safeStorage = {
+    getItem:    function(k) { try { return window.localStorage.getItem(k);    } catch(e) { return null; } },
+    setItem:    function(k, v){ try { window.localStorage.setItem(k, v);      } catch(e) {} },
+    removeItem: function(k) { try { window.localStorage.removeItem(k);        } catch(e) {} }
+};
+
 try {
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
         console.warn("Supabase credentials missing.");
     } else {
-        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                storage: safeStorage,
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true
+            }
+        });
     }
 } catch (err) { console.error("Init Error", err); }
 
