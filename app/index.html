@@ -25,6 +25,7 @@
           content="frame-src 'self' https://meet.jit.si https://*.jitsi.net https://*.supabase.co;">
 </head>
 <body>
+<div id="toast-container" style="position:fixed;top:1rem;right:1rem;z-index:99999;display:flex;flex-direction:column;gap:.5rem;"></div>
     
     <div class="decorations-container" id="decorations">
         <div class="deco-ring large-green"></div>
@@ -1005,4 +1006,8 @@
                         <i class="fa-solid fa-microphone"></i> Start Dictation
                     </button>
                     <textarea id="notes-content" class="form-control" rows="6" placeholder="Type diagnostic notes, prescriptions, or patient updates here..." required></textarea>
-                </di
+                </div>
+                <script src="script.js"></script>
+</body>
+</html>
+               

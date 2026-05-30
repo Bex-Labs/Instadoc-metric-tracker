@@ -3808,4 +3808,36 @@ async function viewPatientRecords(patientId, patientName) {
                     <span class="record-date"><i class="fa-regular fa-calendar mr-1"></i> ${new Date(item.date).toLocaleDateString()}</span>
                     <span class="record-val">${formatter(item)}</span>
                 </div>
-    
+            `).join('');
+
+            return `<div>
+                <h5 class="record-section-title"><i class="fa-solid ${icon}"></i> ${title}</h5>
+                <div class="record-rows">${rows}</div>
+            </div>`;
+        };
+
+        html += renderSection(
+            'Weight', 'fa-weight-scale',
+            wData.data,
+            item => `${item.weight} ${item.unit || 'kg'}`
+        );
+
+        html += renderSection(
+            'Blood Pressure', 'fa-heart-pulse',
+            bData.data,
+            item => `${item.systolic}/${item.diastolic} mmHg`
+        );
+
+        html += renderSection(
+            'Blood Glucose', 'fa-droplet',
+            gData.data,
+            item => `${item.glucose} ${item.unit || 'mg/dL'}`
+        );
+
+        modalBody.innerHTML = html;
+
+    } catch (err) {
+        console.error('viewPatientRecords error:', err);
+        modalBody.innerHTML = `<div style="background:#fef2f2;color:#dc2626;padding:1rem;border-radius:0.5rem;font-size:0.875rem;border:1px solid #fee2e2;"><i class="fa-solid fa-triangle-exclamation" style="margin-right:0.5rem;"></i> Failed to load records. Please try again.</div>`;
+    }
+}
