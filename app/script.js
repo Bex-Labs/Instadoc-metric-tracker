@@ -4,6 +4,7 @@ var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 var supabaseClient;
 var currentUser = null;
+var currentHospitalId = null; // Tenant scope — loaded from user's profile on login
 var myChart = null; 
 var doctorCharts = {};
 var currentChartTable = 'weight_logs'; 
@@ -104,7 +105,15 @@ if (supabaseClient) {
 
             // US-1 & US-2: Role-Based Routing
             const metaRole = (session.user.user_metadata && session.user.user_metadata.role) ? session.user.user_metadata.role : 'patient';
-            userRole = metaRole; 
+            userRole = metaRole;
+
+            // Load tenant (hospital) context from profile
+            const { data: profileData } = await supabaseClient
+                .from('profiles')
+                .select('hospital_id')
+                .eq('id', session.user.id)
+                .single();
+            currentHospitalId = profileData?.hospital_id || null; 
 
             // --- RESTORED VISUAL SWITCH LOGIC ---
             landing.style.display = 'none';
@@ -147,6 +156,8 @@ if (supabaseClient) {
             }
             
             updateWelcomeMessage();
+            loadHospitalBadge();
+            if (userRole === 'doctor') checkPendingInvitations();
             updateAvatarUI(session.user.user_metadata?.avatar_url);
 
             // --- SEAMLESS BOOKING HANDOFF ---
@@ -242,6 +253,11 @@ function setupSidebar() {
                     <i class="fa-regular fa-calendar-check"></i><span>Appointments</span>
                 </a>
             </li>
+            <li class="nav-item" id="nav-invitations">
+                <a href="#" class="nav-link" onclick="switchView('doctor-invitations', this); return false;">
+                    <i class="fa-solid fa-hospital-user"></i><span>Hospitals <span id="nav-invite-count" style="display:none;background:#ef4444;color:#fff;font-size:0.65rem;padding:1px 6px;border-radius:9999px;margin-left:4px;font-weight:700;"></span></span>
+                </a>
+            </li>
             <li class="nav-item">
                 <a href="#" class="nav-link" onclick="switchView('doctor-settings', this); return false;">
                     <i class="fa-solid fa-gear"></i><span>Settings</span>
@@ -307,6 +323,9 @@ function switchView(viewName, element) {
         }
         if (viewName === 'doctor-patients') {
             loadDoctorPatientsTab();
+        }
+        if (viewName === 'doctor-invitations') {
+            loadDoctorInvitations();
         }
     }
 }
@@ -498,11 +517,17 @@ async function loadDoctorDashboardData() {
     if(!currentUser) return;
     const docId = currentUser.id;
 
-    // 1. Fetch All Appointments for this Doctor
-    const { data: appts, error } = await supabaseClient
+    // 1. Fetch All Appointments for this Doctor (scoped to hospital if applicable)
+    let apptQuery = supabaseClient
         .from('appointments')
         .select('*')
         .eq('doctor_id', docId);
+
+    if (currentHospitalId) {
+        apptQuery = apptQuery.eq('hospital_id', currentHospitalId);
+    }
+
+    const { data: appts, error } = await apptQuery;
 
     if (error) { console.error("Error fetching doctor data", error); return; }
 
@@ -764,6 +789,26 @@ function updateWelcomeMessage() {
 
     const el = document.getElementById('welcome-msg');
     if (el) el.textContent = `${greeting}, ${name}`;
+}
+
+// Load and display hospital badge in sidebar
+async function loadHospitalBadge() {
+    const badge = document.getElementById('hospital-badge');
+    const nameEl = document.getElementById('hospital-badge-name');
+    const codeEl = document.getElementById('hospital-badge-code');
+    if (!badge || !currentHospitalId) return;
+
+    const { data: hospital } = await supabaseClient
+        .from('hospitals')
+        .select('name, code')
+        .eq('id', currentHospitalId)
+        .single();
+
+    if (hospital) {
+        nameEl.textContent = hospital.name;
+        codeEl.textContent = hospital.code;
+        badge.style.display = 'block';
+    }
 }
 
 function updateAvatarUI(avatarUrl) {
@@ -2414,14 +2459,49 @@ async function loadDoctorStatus() {
 async function loadDoctorsForBooking() {
     const container = document.getElementById('doctor-list-container');
     container.innerHTML = '<div class="loading-cell text-sm">Loading doctors...</div>';
+
+    let doctors = [];
+
+    if (currentHospitalId) {
+        // Patient belongs to a hospital — show only doctors with active membership in that hospital
+        const { data: memberships, error } = await supabaseClient
+            .from('hospital_doctor_memberships')
+            .select('doctor_id')
+            .eq('hospital_id', currentHospitalId)
+            .eq('status', 'active');
+
+        if (error || !memberships || memberships.length === 0) {
+            container.innerHTML = '<p class="text-center-muted">No available doctors found for your hospital.</p>';
+            return;
+        }
+
+        const doctorIds = memberships.map(m => m.doctor_id);
+
+        const { data: docProfiles, error: dpErr } = await supabaseClient
+            .from('doctor_profiles')
+            .select('*')
+            .eq('is_verified', true)
+            .in('id', doctorIds);
+
+        doctors = docProfiles || [];
+    } else {
+        // Unaffiliated patient — show all verified independent doctors (no hospital membership)
+        const { data: allDocs } = await supabaseClient
+            .from('doctor_profiles')
+            .select('*')
+            .eq('is_verified', true);
+
+        // Show doctors who have no hospital memberships at all (independent doctors)
+        const { data: allMemberships } = await supabaseClient
+            .from('hospital_doctor_memberships')
+            .select('doctor_id')
+            .eq('status', 'active');
+
+        const affiliatedIds = new Set((allMemberships || []).map(m => m.doctor_id));
+        doctors = (allDocs || []).filter(d => !affiliatedIds.has(d.id));
+    } 
     
-    // SECURITY UPDATE: Only fetch doctors who have been explicitly verified by the Admin
-    const { data: doctors, error } = await supabaseClient
-        .from('doctor_profiles')
-        .select('*')
-        .eq('is_verified', true); 
-    
-    if(error || !doctors || doctors.length === 0) {
+    if (!doctors || doctors.length === 0) {
         container.innerHTML = '<p class="text-center-muted">No available doctors found at this time.</p>';
         return;
     }
@@ -2589,7 +2669,8 @@ document.getElementById('schedule-form').addEventListener('submit', async (e) =>
         type: combinedType, 
         status: 'pending',
         specialty: 'General',
-        share_records: shareRecords
+        share_records: shareRecords,
+        hospital_id: currentHospitalId || null
     });
 
     if (error) {
@@ -3840,4 +3921,168 @@ async function viewPatientRecords(patientId, patientName) {
         console.error('viewPatientRecords error:', err);
         modalBody.innerHTML = `<div style="background:#fef2f2;color:#dc2626;padding:1rem;border-radius:0.5rem;font-size:0.875rem;border:1px solid #fee2e2;"><i class="fa-solid fa-triangle-exclamation" style="margin-right:0.5rem;"></i> Failed to load records. Please try again.</div>`;
     }
+}
+/* =====================================================
+   DOCTOR HOSPITAL INVITATIONS
+   ===================================================== */
+
+// Load pending invites + active memberships for the doctor
+async function loadDoctorInvitations() {
+    if (!currentUser) return;
+
+    const pendingEl = document.getElementById('pending-invitations-list');
+    const activeEl = document.getElementById('active-memberships-list');
+    if (!pendingEl || !activeEl) return;
+
+    pendingEl.innerHTML = '<p class="text-gray-400 text-sm">Loading...</p>';
+    activeEl.innerHTML = '<p class="text-gray-400 text-sm">Loading...</p>';
+
+    // Fetch all memberships for this doctor
+    const { data: memberships, error } = await supabaseClient
+        .from('hospital_doctor_memberships')
+        .select('id, hospital_id, status, invited_at, accepted_at, hospitals(name, code)')
+        .eq('doctor_id', currentUser.id)
+        .order('invited_at', { ascending: false });
+
+    if (error) {
+        pendingEl.innerHTML = `<p class="text-red-500 text-sm">Error loading invitations: ${error.message}</p>`;
+        activeEl.innerHTML = '';
+        return;
+    }
+
+    const pending = (memberships || []).filter(m => m.status === 'pending');
+    const active  = (memberships || []).filter(m => m.status === 'active');
+
+    // Update nav badge
+    const badge = document.getElementById('nav-invite-count');
+    if (badge) {
+        if (pending.length > 0) {
+            badge.textContent = pending.length;
+            badge.style.display = 'inline';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+    const invBadge = document.getElementById('invite-badge');
+    if (invBadge) {
+        invBadge.textContent = pending.length;
+        invBadge.style.display = pending.length > 0 ? 'inline' : 'none';
+    }
+
+    // Render pending invites
+    if (!pending.length) {
+        pendingEl.innerHTML = '<p class="text-gray-400 text-sm italic">No pending invitations.</p>';
+    } else {
+        pendingEl.innerHTML = pending.map(m => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.85rem 1rem; border:1px solid #fde68a; border-radius:10px; background:#fffbeb; margin-bottom:0.5rem;">
+                <div>
+                    <div style="font-weight:700; font-size:0.95rem;">${escapeHtml(m.hospitals?.name || 'Unknown Hospital')}</div>
+                    <div style="font-size:0.75rem; color:#6b7280; font-family:monospace; letter-spacing:1px;">${escapeHtml(m.hospitals?.code || '')}</div>
+                    <div style="font-size:0.72rem; color:#9ca3af; margin-top:2px;">Invited ${timeAgo(m.invited_at)}</div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button onclick="respondToInvitation('${m.id}', 'active')" style="padding:6px 14px; background:#16a34a; color:#fff; border:none; border-radius:7px; font-size:0.8rem; font-weight:600; cursor:pointer;">
+                        <i class="fa-solid fa-check"></i> Accept
+                    </button>
+                    <button onclick="respondToInvitation('${m.id}', 'declined')" style="padding:6px 14px; background:#fff; color:#dc2626; border:1px solid #fca5a5; border-radius:7px; font-size:0.8rem; font-weight:600; cursor:pointer;">
+                        <i class="fa-solid fa-xmark"></i> Decline
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Render active memberships
+    if (!active.length) {
+        activeEl.innerHTML = '<p class="text-gray-400 text-sm italic">You are not affiliated with any hospital yet. Invitations from hospital managers will appear above.</p>';
+    } else {
+        activeEl.innerHTML = active.map(m => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.85rem 1rem; border:1px solid #bbf7d0; border-radius:10px; background:#f0fdf4; margin-bottom:0.5rem;">
+                <div>
+                    <div style="font-weight:700; font-size:0.95rem;">${escapeHtml(m.hospitals?.name || 'Unknown Hospital')}</div>
+                    <div style="font-size:0.75rem; color:#6b7280; font-family:monospace; letter-spacing:1px;">${escapeHtml(m.hospitals?.code || '')}</div>
+                    <div style="font-size:0.72rem; color:#9ca3af; margin-top:2px;">Member since ${m.accepted_at ? new Date(m.accepted_at).toLocaleDateString() : 'N/A'}</div>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <span style="padding:4px 10px; background:#dcfce7; color:#15803d; border-radius:9999px; font-size:0.72rem; font-weight:700;">ACTIVE</span>
+                    <button onclick="leaveHospital('${m.id}', '${escapeHtml(m.hospitals?.name || '')}' )" style="padding:5px 12px; background:#fff; color:#dc2626; border:1px solid #fca5a5; border-radius:7px; font-size:0.78rem; font-weight:600; cursor:pointer;">
+                        Leave
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+// Doctor accepts or declines an invite
+async function respondToInvitation(membershipId, newStatus) {
+    const action = newStatus === 'active' ? 'accept' : 'decline';
+    if (!confirm(`Are you sure you want to ${action} this invitation?`)) return;
+
+    const { error } = await supabaseClient
+        .from('hospital_doctor_memberships')
+        .update({
+            status: newStatus,
+            accepted_at: newStatus === 'active' ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', membershipId)
+        .eq('doctor_id', currentUser.id); // security: can only update own rows
+
+    if (error) { showToast('Failed: ' + error.message, 'error'); return; }
+
+    showToast(newStatus === 'active' ? 'Invitation accepted! You are now affiliated with this hospital.' : 'Invitation declined.', newStatus === 'active' ? 'success' : 'info');
+    loadDoctorInvitations();
+}
+
+// Doctor voluntarily leaves a hospital
+async function leaveHospital(membershipId, hospitalName) {
+    if (!confirm(`Leave ${hospitalName}? You will no longer be visible to patients at this hospital.`)) return;
+
+    const { error } = await supabaseClient
+        .from('hospital_doctor_memberships')
+        .update({ status: 'removed', updated_at: new Date().toISOString() })
+        .eq('id', membershipId)
+        .eq('doctor_id', currentUser.id);
+
+    if (error) { showToast('Failed: ' + error.message, 'error'); return; }
+    showToast(`You have left ${hospitalName}.`, 'info');
+    loadDoctorInvitations();
+}
+
+// Check for pending invites on login and show nav badge
+async function checkPendingInvitations() {
+    if (!currentUser || userRole !== 'doctor') return;
+
+    const { data, error } = await supabaseClient
+        .from('hospital_doctor_memberships')
+        .select('id', { count: 'exact', head: true })
+        .eq('doctor_id', currentUser.id)
+        .eq('status', 'pending');
+
+    if (error) return;
+    const count = data?.length || 0;
+    const badge = document.getElementById('nav-invite-count');
+    if (badge && count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'inline';
+    }
+}
+
+// Helper — mirrors admin's escapeHtml
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Helper — mirrors admin's timeAgo
+function timeAgo(dateInput) {
+    const date = new Date(dateInput);
+    const seconds = Math.floor((new Date() - date) / 1000);
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
 }

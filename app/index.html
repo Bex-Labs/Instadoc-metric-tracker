@@ -63,6 +63,12 @@
             <div class="dash-sidebar-area">
                 <aside class="sidebar">
                     <div class="sidebar-inner">
+                        <!-- Hospital tenant badge -->
+                        <div id="hospital-badge" style="display:none; margin: 0.75rem 1rem 0; padding: 0.5rem 0.75rem; background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.18); border-radius: 8px; text-align:center;">
+                            <div style="font-size:0.65rem; text-transform:uppercase; letter-spacing:1px; color:#6b7280; margin-bottom:2px;">Hospital</div>
+                            <div id="hospital-badge-name" style="font-weight:700; font-size:0.82rem; color:#1d4ed8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+                            <div id="hospital-badge-code" style="font-size:0.7rem; font-family:monospace; color:#3b82f6; letter-spacing:2px;"></div>
+                        </div>
                         <nav class="nav-menu">
                             <ul class="nav-list" id="nav-list-container">
                                 <!-- Dynamic Nav Items will be injected here via script.js -->
@@ -730,6 +736,38 @@
                     </div>
 
                 </div>
+
+                <!-- DOCTOR: Hospital Invitations View -->
+                <div id="view-doctor-invitations" class="doctor-view hidden-view">
+                    <div class="mb-6">
+                        <h1 class="text-2xl font-bold text-gray-800"><i class="fa-solid fa-hospital-user" style="color:#2563eb"></i> Hospital Affiliations</h1>
+                        <p class="text-gray-500 text-sm">Manage your hospital memberships and pending invitations</p>
+                    </div>
+
+                    <!-- Pending Invitations -->
+                    <div class="card p-6 mb-6">
+                        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-envelope-open-text" style="color:#f59e0b"></i>
+                            Pending Invitations
+                            <span id="invite-badge" style="display:none; background:#ef4444; color:#fff; font-size:0.7rem; padding:2px 8px; border-radius:9999px; font-weight:700;"></span>
+                        </h3>
+                        <div id="pending-invitations-list">
+                            <p class="text-gray-400 text-sm">Loading...</p>
+                        </div>
+                    </div>
+
+                    <!-- Active Hospital Memberships -->
+                    <div class="card p-6">
+                        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-hospital" style="color:#16a34a"></i>
+                            My Hospitals
+                        </h3>
+                        <div id="active-memberships-list">
+                            <p class="text-gray-400 text-sm">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+
             </main>
         </div>
     </div>
@@ -1010,4 +1048,3 @@
                 <script src="script.js"></script>
 </body>
 </html>
-               

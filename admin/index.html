@@ -128,6 +128,9 @@
           <button class="nav-tab" data-target="login-history" type="button">
             <i class="fa-solid fa-lock"></i> Login History
           </button>
+          <button class="nav-tab" data-target="hospitals" type="button">
+            <i class="fa-solid fa-hospital"></i> Hospitals
+          </button>
         </nav>
 
         <!-- =========================
@@ -556,6 +559,43 @@
           <div id="loginHistoryPagination" style="margin-top:10px; text-align:center;"></div>
         </section>
 
+        <!-- =========================
+           TAB: HOSPITALS
+           ========================= -->
+        <section id="hospitals" class="tab-content" aria-label="Hospital management">
+          <h2 class="section-title"><i class="fa-solid fa-hospital"></i> Hospital Management</h2>
+          <div style="margin-bottom:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="hospitalSearch" placeholder="Search hospitals..." style="padding:8px 12px; border:1px solid #ddd; border-radius:6px; font-size:13px; width:260px;" oninput="applyHospitalFilters()" />
+            <select id="hospitalStatusFilter" style="padding:8px 12px; border:1px solid #ddd; border-radius:6px; font-size:13px;" onchange="applyHospitalFilters()">
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+            </select>
+            <button class="btn-primary" type="button" onclick="openCreateHospitalModal()" style="padding:8px 16px;">
+              <i class="fa-solid fa-plus"></i> Add Hospital
+            </button>
+          </div>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Hospital Name</th>
+                  <th>Manager</th>
+                  <th>Doctors</th>
+                  <th>Patients</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="hospitalsTableBody">
+                <tr><td colspan="8" class="empty-state">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
       </div>
     </div>
 
@@ -616,11 +656,19 @@
           <input id="newUserName" type="text" required />
 
           <label for="newUserRole">Role</label>
-          <select id="newUserRole" required>
+          <select id="newUserRole" required onchange="onNewUserRoleChange()">
             <option value="patient">Patient</option>
             <option value="doctor">Doctor</option>
+            <option value="hospital_manager">Hospital Manager</option>
             <option value="admin">Admin</option>
           </select>
+
+          <div id="newUserHospitalGroup" style="display:none; margin-top:10px;">
+            <label for="newUserHospital">Assign to Hospital</label>
+            <select id="newUserHospital">
+              <option value="">— Select Hospital —</option>
+            </select>
+          </div>
 
           <button class="btn-primary" type="submit">Create User</button>
         </form>
@@ -684,8 +732,33 @@
       </div>
     </div>
 
+    <!-- Invite New Doctor Modal (creates account via link) -->
+    <div id="inviteNewDoctorModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <button class="modal-close" type="button" onclick="const m=$('inviteNewDoctorModal'); m.classList.add('hidden'); m.style.display='none';">×</button>
+        <h3>Invite New Doctor to <span id="inviteNewHospitalName" style="color:#2563eb;"></span></h3>
+        <input type="hidden" id="inviteNewHospitalId" />
+        <p style="font-size:0.85rem; color:#6b7280; margin-bottom:14px;">Enter the doctor's email. They'll get a signup link pre-linked to your hospital.</p>
+        <form id="inviteNewDoctorForm">
+          <label for="inviteNewEmail">Doctor's Email Address</label>
+          <input type="email" id="inviteNewEmail" placeholder="doctor@email.com" required style="margin-bottom:12px;" />
+          <button class="btn-primary" type="submit">Generate Invite Link</button>
+        </form>
+        <div id="inviteNewDoctorStatus" style="margin-top:10px; font-size:0.85rem;"></div>
+        <div id="inviteNewDoctorLink" style="display:none; margin-top:14px;">
+          <label style="font-size:0.82rem; font-weight:600; color:#374151; display:block; margin-bottom:6px;">Share this link with the doctor:</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" id="inviteLinkBox" readonly style="flex:1; font-size:0.75rem; background:#f9fafb; color:#374151; padding:8px;" />
+            <button type="button" onclick="copyInviteLink()" style="padding:8px 14px; background:#2563eb; color:#fff; border:none; border-radius:7px; font-size:0.8rem; cursor:pointer; white-space:nowrap; font-weight:600;">Copy</button>
+          </div>
+          <p style="font-size:0.75rem; color:#9ca3af; margin-top:6px;">Link expires in 7 days. The doctor will be automatically linked to this hospital on signup.</p>
+        </div>
+      </div>
+    </div>
+
     <button id="feedback-fab" class="feedback-fab">🐞 Feedback</button>
 
+    <!-- Feedback Modal -->
     <div id="feedback-modal" class="feedback-modal hidden">
       <div class="feedback-content">
         <span class="close-feedback">&times;</span>
@@ -697,14 +770,65 @@
             <option value="feature">Suggest a Feature</option>
             <option value="ui">UI/Layout Issue</option>
           </select>
-
           <label for="feedback-text">Details:</label>
           <textarea id="feedback-text" rows="4" required placeholder="What did you notice?"></textarea>
-
           <button type="submit" id="submit-feedback-btn">Submit Report</button>
         </form>
         <div id="feedback-status"></div>
       </div>
     </div>
+
+    <!-- Create Hospital Modal -->
+    <div id="createHospitalModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <button class="modal-close" type="button" onclick="const m=$('createHospitalModal'); m.classList.add('hidden'); m.style.display='none';">×</button>
+        <h3>Add New Hospital</h3>
+        <form id="createHospitalForm">
+          <label for="hospitalName">Hospital Name</label>
+          <input id="hospitalName" type="text" placeholder="e.g. Lagos General Hospital" required />
+          <p class="muted-note" style="margin-top:4px;">Hospital code will be auto-generated from the first 3 letters (e.g. <strong>LAG</strong>).</p>
+          <label for="hospitalManagerSelect" style="margin-top:12px;">Assign Hospital Manager (optional)</label>
+          <select id="hospitalManagerSelect"><option value="">— None yet —</option></select>
+          <button class="btn-primary" type="submit" style="margin-top:16px;">Create Hospital</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Edit Hospital Modal -->
+    <div id="editHospitalModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <button class="modal-close" type="button" onclick="hide($('editHospitalModal'))">×</button>
+        <h3>Edit Hospital</h3>
+        <input type="hidden" id="editHospitalId" />
+        <form id="editHospitalForm">
+          <label for="editHospitalName">Hospital Name</label>
+          <input id="editHospitalName" type="text" required />
+          <label for="editHospitalStatus" style="margin-top:12px;">Status</label>
+          <select id="editHospitalStatus">
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+          </select>
+          <label for="editHospitalManager" style="margin-top:12px;">Hospital Manager</label>
+          <select id="editHospitalManager"><option value="">— None —</option></select>
+          <button class="btn-primary" type="submit" style="margin-top:16px;">Save Changes</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Invite Doctor Modal -->
+    <div id="inviteDoctorModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <button class="modal-close" type="button" onclick="hide($('inviteDoctorModal'))">×</button>
+        <h3>Invite Doctor to <span id="inviteHospitalName" style="color:#2563eb;"></span></h3>
+        <input type="hidden" id="inviteHospitalId" />
+        <p style="font-size:0.85rem; color:#6b7280; margin-bottom:12px;">Select a verified doctor to invite. They will see a notification in their dashboard to accept or decline.</p>
+        <input type="text" id="inviteDoctorSearch" placeholder="Search doctors..." style="width:100%; padding:8px 12px; border:1px solid #ddd; border-radius:6px; font-size:13px; margin-bottom:10px;" oninput="filterInviteDoctorList()" />
+        <div id="inviteDoctorList" style="max-height:320px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:8px; padding:4px;">
+          <p style="padding:12px; color:#9ca3af; font-size:0.85rem;">Loading doctors...</p>
+        </div>
+        <div id="inviteDoctorStatus" style="margin-top:10px; font-size:0.85rem;"></div>
+      </div>
+    </div>
+
   </body>
 </html>

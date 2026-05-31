@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Instadoc as a Doctor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ---- NAV ---- */
+        .nav {
+            background: #fff;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+        }
+        .nav-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; }
+        .nav-logo img { height: 36px; }
+        .nav-logo span { font-size: 1.3rem; font-weight: 800; color: #1a1a2e; }
+        .nav-logo span .green { color: #2f8f46; }
+        .nav-back { font-size: 0.85rem; color: #2f8f46; text-decoration: none; font-weight: 600; }
+        .nav-back:hover { text-decoration: underline; }
+
+        /* ---- MAIN LAYOUT ---- */
+        .page-wrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.10);
+            width: 100%;
+            max-width: 520px;
+            padding: 2.5rem 2rem;
+        }
+
+        /* Hospital invite banner */
+        .invite-banner {
+            display: none;
+            background: linear-gradient(135deg, #eff6ff, #f0fdf4);
+            border: 1px solid #bbf7d0;
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.88rem;
+        }
+        .invite-banner .hospital-name {
+            font-weight: 700;
+            color: #15803d;
+            font-size: 1rem;
+        }
+        .invite-banner p { color: #374151; margin-top: 2px; }
+
+        .card-header { text-align: center; margin-bottom: 1.75rem; }
+        .card-icon {
+            width: 60px; height: 60px;
+            background: linear-gradient(135deg, #2f8f46, #1d6b33);
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 1.6rem; color: #fff;
+        }
+        .card-header h1 { font-size: 1.5rem; font-weight: 800; color: #1a1a2e; }
+        .card-header p { font-size: 0.88rem; color: #6b7280; margin-top: 0.3rem; }
+
+        /* ---- FORM ---- */
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; font-size: 0.82rem; font-weight: 600; color: #374151; margin-bottom: 0.35rem; }
+        input, select {
+            width: 100%;
+            padding: 0.7rem 0.9rem;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 9px;
+            font-size: 0.9rem;
+            font-family: 'Poppins', sans-serif;
+            color: #1a1a2e;
+            background: #fafafa;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+        input:focus, select:focus {
+            border-color: #2f8f46;
+            box-shadow: 0 0 0 3px rgba(47,143,70,0.12);
+            background: #fff;
+        }
+        input::placeholder { color: #9ca3af; }
+
+        .btn-submit {
+            width: 100%;
+            padding: 0.85rem;
+            background: linear-gradient(135deg, #2f8f46, #1d6b33);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .btn-submit:hover { opacity: 0.92; }
+        .btn-submit:active { transform: scale(0.99); }
+        .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .divider {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 0.8rem;
+            margin: 1rem 0;
+            position: relative;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: #e5e7eb;
+        }
+        .divider::before { left: 0; }
+        .divider::after { right: 0; }
+
+        .footer-note {
+            text-align: center;
+            font-size: 0.82rem;
+            color: #6b7280;
+            margin-top: 1.25rem;
+        }
+        .footer-note a { color: #2f8f46; font-weight: 600; text-decoration: none; }
+        .footer-note a:hover { text-decoration: underline; }
+
+        /* ---- ALERTS ---- */
+        .alert {
+            padding: 0.75rem 1rem;
+            border-radius: 9px;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        .alert.error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+        .alert.success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+        .alert.show { display: block; }
+
+        /* ---- NOTE ---- */
+        .verification-note {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 9px;
+            padding: 0.75rem 1rem;
+            font-size: 0.8rem;
+            color: #92400e;
+            margin-bottom: 1rem;
+        }
+        .verification-note i { margin-right: 4px; }
+
+        /* ---- SUCCESS STATE ---- */
+        .success-state { display: none; text-align: center; padding: 1rem 0; }
+        .success-state .check { font-size: 3rem; margin-bottom: 1rem; }
+        .success-state h2 { font-size: 1.3rem; font-weight: 700; color: #15803d; }
+        .success-state p { color: #6b7280; font-size: 0.88rem; margin-top: 0.5rem; line-height: 1.6; }
+        .success-state .btn-go {
+            display: inline-block;
+            margin-top: 1.25rem;
+            padding: 0.7rem 1.75rem;
+            background: #2f8f46;
+            color: #fff;
+            border-radius: 9px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 480px) {
+            .form-row { grid-template-columns: 1fr; }
+            .card { padding: 1.75rem 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="nav">
+        <a href="index.html" class="nav-logo">
+            <span>Insta<span class="green">doc</span> 🐾</span>
+        </a>
+        <a href="index.html" class="nav-back"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
+    </nav>
+
+    <div class="page-wrap">
+        <div class="card">
+
+            <!-- Hospital invite banner (shown when coming via invite link) -->
+            <div class="invite-banner" id="invite-banner">
+                <i class="fa-solid fa-hospital" style="color:#2563eb; margin-right:6px;"></i>
+                You've been invited by <span class="hospital-name" id="invite-hospital-name"></span>
+                <p>Complete your registration below to join this hospital on Instadoc.</p>
+            </div>
+
+            <!-- Form view -->
+            <div id="form-view">
+                <div class="card-header">
+                    <div class="card-icon"><i class="fa-solid fa-user-doctor"></i></div>
+                    <h1>Join Instadoc as a Doctor</h1>
+                    <p>Create your professional account and start connecting with patients.</p>
+                </div>
+
+                <div class="verification-note">
+                    <i class="fa-solid fa-clock"></i>
+                    Your account will be <strong>pending verification</strong> until the Instadoc admin approves you. You can set up your profile while you wait.
+                </div>
+
+                <div class="alert error" id="error-msg"></div>
+
+                <form id="signup-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="full-name">Full Name *</label>
+                            <input type="text" id="full-name" placeholder="Dr. Jane Smith" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email Address *</label>
+                            <input type="email" id="email" placeholder="doctor@email.com" required />
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="password">Password *</label>
+                            <input type="password" id="password" placeholder="Min. 6 characters" required minlength="6" />
+                        </div>
+                        <div class="form-group">
+                            <label for="confirm">Confirm Password *</label>
+                            <input type="password" id="confirm" placeholder="Repeat password" required />
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="specialty">Specialization *</label>
+                            <input type="text" id="specialty" placeholder="e.g. Cardiologist" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="license">License Number *</label>
+                            <input type="text" id="license" placeholder="e.g. MED-12345678" required />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">Phone Number (optional)</label>
+                        <input type="tel" id="phone" placeholder="Clinic or mobile number" />
+                    </div>
+
+                    <!-- Hidden: pre-filled from invite link -->
+                    <input type="hidden" id="invite-token" />
+                    <input type="hidden" id="hospital-id" />
+
+                    <button type="submit" class="btn-submit" id="submit-btn">
+                        <i class="fa-solid fa-user-doctor"></i> Create Doctor Account
+                    </button>
+                </form>
+
+                <div class="footer-note">
+                    Already have an account? <a href="index.html" onclick="event.preventDefault(); window.location.href='index.html'; setTimeout(()=>lpOpenModal&&lpOpenModal('login'),200);">Log In</a>
+                    &nbsp;·&nbsp; Are you a patient? <a href="index.html">Patient signup</a>
+                </div>
+            </div>
+
+            <!-- Success state -->
+            <div class="success-state" id="success-view">
+                <div class="check">🎉</div>
+                <h2 id="success-title">Account Created!</h2>
+                <p id="success-msg">Welcome to Instadoc. Your account is pending verification by the Instadoc admin. You can log in and set up your profile while you wait.</p>
+                <a href="app/index.html" class="btn-go">Go to Dashboard →</a>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+    'use strict';
+
+    var SB_URL = 'https://ioaqlcltvakuqqehkyor.supabase.co';
+    var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvYXFsY2x0dmFrdXFxZWhreW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNTk1MzksImV4cCI6MjA4MTczNTUzOX0._7ISJbfJzryBJWmtRuN72F-JZpYdvJxsltwwhombPtE';
+    var sb = window.supabase.createClient(SB_URL, SB_KEY);
+
+    // ---- Read URL params (for invite links) ----
+    var params = new URLSearchParams(window.location.search);
+    var inviteToken    = params.get('token') || '';
+    var inviteHospital = params.get('hospital_id') || '';
+    var inviteHospitalName = decodeURIComponent(params.get('hospital_name') || '');
+    var inviteEmail    = decodeURIComponent(params.get('email') || '');
+
+    // Pre-fill from invite link
+    if (inviteToken) {
+        document.getElementById('invite-token').value  = inviteToken;
+        document.getElementById('hospital-id').value   = inviteHospital;
+        if (inviteEmail) document.getElementById('email').value = inviteEmail;
+        if (inviteHospitalName) {
+            document.getElementById('invite-hospital-name').textContent = inviteHospitalName;
+            document.getElementById('invite-banner').style.display = 'block';
+        }
+    }
+
+    // ---- Helpers ----
+    function showError(msg) {
+        var el = document.getElementById('error-msg');
+        el.textContent = msg;
+        el.classList.add('show');
+        el.className = 'alert error show';
+    }
+    function clearError() {
+        var el = document.getElementById('error-msg');
+        el.classList.remove('show');
+        el.textContent = '';
+    }
+    function setLoading(loading) {
+        var btn = document.getElementById('submit-btn');
+        btn.disabled = loading;
+        btn.innerHTML = loading
+            ? '<i class="fa-solid fa-spinner fa-spin"></i> Creating account...'
+            : '<i class="fa-solid fa-user-doctor"></i> Create Doctor Account';
+    }
+    function showSuccess(hasHospital) {
+        document.getElementById('form-view').style.display = 'none';
+        var sv = document.getElementById('success-view');
+        sv.style.display = 'block';
+        if (hasHospital) {
+            document.getElementById('success-title').textContent = 'Account Created & Hospital Linked!';
+            document.getElementById('success-msg').textContent =
+                'You are now affiliated with ' + inviteHospitalName + ' on Instadoc. ' +
+                'Your account is pending verification. Log in to set up your profile.';
+        }
+    }
+
+    // ---- Form submit ----
+    document.getElementById('signup-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        clearError();
+
+        var fullName  = document.getElementById('full-name').value.trim();
+        var email     = document.getElementById('email').value.trim();
+        var password  = document.getElementById('password').value;
+        var confirm   = document.getElementById('confirm').value;
+        var specialty = document.getElementById('specialty').value.trim();
+        var license   = document.getElementById('license').value.trim();
+        var phone     = document.getElementById('phone').value.trim();
+        var hospitalId = document.getElementById('hospital-id').value || null;
+        var token     = document.getElementById('invite-token').value || null;
+
+        if (password !== confirm) { showError('Passwords do not match.'); return; }
+        if (password.length < 6)  { showError('Password must be at least 6 characters.'); return; }
+
+        setLoading(true);
+
+        try {
+            // 1. Create auth user
+            var res = await sb.auth.signUp({
+                email: email,
+                password: password,
+                options: {
+                    data: {
+                        role: 'doctor',
+                        full_name: fullName
+                    }
+                }
+            });
+
+            if (res.error) throw res.error;
+
+            var userId = res.data.user?.id;
+            if (!userId) throw new Error('Signup succeeded but user ID was not returned.');
+
+            // 2. Upsert profile row
+            var { error: profErr } = await sb.from('profiles').upsert({
+                id: userId,
+                email: email,
+                full_name: fullName,
+                role: 'doctor',
+                status: 'active',
+                hospital_id: hospitalId,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+
+            if (profErr) console.warn('Profile upsert warning:', profErr.message);
+
+            // 3. Upsert doctor_profiles row (is_verified: false — pending admin verification)
+            var { error: dpErr } = await sb.from('doctor_profiles').upsert({
+                id: userId,
+                full_name: fullName,
+                specialty: specialty,
+                license_number: license,
+                phone: phone || null,
+                is_verified: false,
+                hospital_id: hospitalId,
+                created_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+
+            if (dpErr) console.warn('Doctor profile upsert warning:', dpErr.message);
+
+            // 4. If came via hospital invite, create active membership immediately
+            if (hospitalId && token) {
+                var { error: memErr } = await sb.from('hospital_doctor_memberships').upsert({
+                    hospital_id: hospitalId,
+                    doctor_id: userId,
+                    status: 'active',
+                    invited_by: null,
+                    invited_at: new Date().toISOString(),
+                    accepted_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'hospital_id,doctor_id' });
+
+                if (memErr) console.warn('Membership upsert warning:', memErr.message);
+
+                // Mark invite token as used
+                await sb.from('doctor_invites')
+                    .update({ used_at: new Date().toISOString(), used_by: userId })
+                    .eq('token', token);
+            }
+
+            // 5. Log activity
+            await sb.from('platform_activity').insert({
+                module: 'doctors',
+                action: 'self_registered',
+                actor_id: userId,
+                description: fullName + ' joined Instadoc as a doctor' +
+                    (inviteHospitalName ? ' via ' + inviteHospitalName + ' invite' : ' independently') + '.',
+                created_at: new Date().toISOString()
+            });
+
+            showSuccess(!!hospitalId);
+
+        } catch(err) {
+            showError(err.message || 'Something went wrong. Please try again.');
+            setLoading(false);
+        }
+    });
+    </script>
+</body>
+</html>

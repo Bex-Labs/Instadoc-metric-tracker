@@ -183,6 +183,7 @@ function initTabs() {
       // Reload data fresh when switching to certain tabs
       if (target === "login-history") loadLoginHistory();
       if (target === "metrics") { loadWeeklyChart(); loadMetrics(); }
+      if (target === "hospitals") loadHospitals();
     });
   });
 
@@ -495,7 +496,8 @@ async function loadAllData() {
     loadWeeklyChart(),
     loadDoctors(),
     loadLoginHistory(),
-    loadDoctorActivity()
+    loadDoctorActivity(),
+    loadHospitals()
   ]);
 }
 
@@ -1214,6 +1216,7 @@ async function createUser(e) {
         email,
         full_name,
         role,
+        hospital_id: $('newUserHospital')?.value || null,
         status: "active",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -2616,6 +2619,21 @@ window.AdminApp = {
   toggleVerifyDoctor
 };
 
+// Hospital functions used via inline onclick in HTML
+window.openCreateHospitalModal = openCreateHospitalModal;
+window.openEditHospitalModal   = openEditHospitalModal;
+window.toggleHospitalStatus    = toggleHospitalStatus;
+window.applyHospitalFilters    = applyHospitalFilters;
+window.onNewUserRoleChange     = onNewUserRoleChange;
+window.openInviteDoctorModal   = openInviteDoctorModal;
+window.filterInviteDoctorList  = filterInviteDoctorList;
+window.sendDoctorInvite        = sendDoctorInvite;
+
+// Utility functions used in inline HTML onclick attributes
+window.hide = hide;
+window.show = show;
+window.$    = $;
+
 /* =========================
    Init
    ========================= */
@@ -2659,9 +2677,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!fab || !modal) return;
 
   fab.addEventListener('click', () => modal.classList.remove('hidden'));
-  closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
-
-  form.addEventListener('submit', async (e) => {
+  closeBtn?.addEventListener('click', () => modal.classList.add('hidden'));
+  form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     submitBtn.textContent = 'Sending...';
     submitBtn.disabled = true;
@@ -2798,3 +2815,523 @@ function filterDoctorActivity() {
     });
     renderDoctorActivity(filtered);
 }
+/* =====================================================
+   TENANCY — HOSPITAL MANAGEMENT
+   ===================================================== */
+
+// ---- State ----
+state.allHospitals = [];
+
+// ---- Helpers ----
+function generateHospitalCode(name) {
+    return name.trim().substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, 'X');
+}
+
+// ---- Load all hospitals with manager + member counts ----
+async function loadHospitals() {
+    const tbody = $('hospitalsTableBody');
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Loading...</td></tr>';
+
+    const { data: hospitals, error } = await supabaseClient
+        .from('hospitals')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state" style="color:red">Error: ${escapeHtml(error.message)}</td></tr>`;
+        return;
+    }
+
+    state.allHospitals = hospitals || [];
+
+    // Fetch member counts per hospital
+    const ids = state.allHospitals.map(h => h.id);
+    let doctorCounts = {}, patientCounts = {}, managerNames = {};
+
+    if (ids.length) {
+        const { data: profiles } = await supabaseClient
+            .from('profiles')
+            .select('hospital_id, role, full_name, id')
+            .in('hospital_id', ids)
+            .is('deleted_at', null);
+
+        (profiles || []).forEach(p => {
+            if (p.role === 'doctor') doctorCounts[p.hospital_id] = (doctorCounts[p.hospital_id] || 0) + 1;
+            if (p.role === 'patient') patientCounts[p.hospital_id] = (patientCounts[p.hospital_id] || 0) + 1;
+        });
+
+        // Resolve manager names
+        for (const h of state.allHospitals) {
+            if (h.manager_id) {
+                const mgr = (profiles || []).find(p => p.id === h.manager_id);
+                managerNames[h.id] = mgr ? mgr.full_name : 'Unknown';
+            }
+        }
+    }
+
+    applyHospitalFilters(doctorCounts, patientCounts, managerNames);
+}
+
+function applyHospitalFilters(doctorCounts, patientCounts, managerNames) {
+    // Allow calling without args (re-filter cached data)
+    const _dc = doctorCounts || window._hdc || {};
+    const _pc = patientCounts || window._hpc || {};
+    const _mn = managerNames || window._hmn || {};
+    window._hdc = _dc; window._hpc = _pc; window._hmn = _mn;
+
+    const search = ($('hospitalSearch')?.value || '').trim().toLowerCase();
+    const statusFilter = $('hospitalStatusFilter')?.value || 'all';
+
+    let filtered = [...state.allHospitals];
+    if (search) filtered = filtered.filter(h => h.name.toLowerCase().includes(search) || h.code.toLowerCase().includes(search));
+    if (statusFilter !== 'all') filtered = filtered.filter(h => (h.status || 'active') === statusFilter);
+
+    renderHospitals(filtered, _dc, _pc, _mn);
+}
+
+function renderHospitals(hospitals, doctorCounts, patientCounts, managerNames) {
+    const tbody = $('hospitalsTableBody');
+    tbody.innerHTML = '';
+
+    if (!hospitals.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hospitals found.</td></tr>';
+        return;
+    }
+
+    hospitals.forEach(h => {
+        const status = h.status || 'active';
+        const statusBadge = status === 'active'
+            ? '<span class="badge badge-active">ACTIVE</span>'
+            : '<span class="badge badge-suspended">SUSPENDED</span>';
+        const managerDisplay = managerNames[h.id] || '<em style="color:#9ca3af">Not assigned</em>';
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong style="font-family:monospace;letter-spacing:1px;color:#2563eb">${escapeHtml(h.code)}</strong></td>
+            <td><strong>${escapeHtml(h.name)}</strong></td>
+            <td>${managerDisplay}</td>
+            <td style="text-align:center">${doctorCounts[h.id] || 0}</td>
+            <td style="text-align:center">${patientCounts[h.id] || 0}</td>
+            <td>${statusBadge}</td>
+            <td>${h.created_at ? escapeHtml(formatDate(h.created_at)) : 'N/A'}</td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn-action btn-edit" onclick="openEditHospitalModal('${h.id}')">Edit</button>
+                    <button class="btn-action btn-activate" onclick="openInviteDoctorModal('${h.id}', '${escapeHtml(h.name)}')">Invite Doctor</button>
+                    <button class="btn-action btn-view" onclick="openInviteNewDoctorModal('${h.id}', '${escapeHtml(h.name)}')">Invite New</button>
+                    <button class="btn-action btn-delete" onclick="toggleHospitalStatus('${h.id}', '${status}')">
+                        ${status === 'active' ? 'Suspend' : 'Activate'}
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// ---- Open create hospital modal ----
+async function openCreateHospitalModal() {
+    $('hospitalName').value = '';
+    $('hospitalManagerSelect').innerHTML = '<option value="">— None yet —</option>';
+
+    // Show modal directly via style to bypass any CSS class conflicts
+    const modal = $('createHospitalModal');
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+
+    $('createHospitalForm').onsubmit = async (e) => {
+        e.preventDefault();
+        await createHospital();
+    };
+
+    // Populate manager dropdown (best effort)
+    try {
+        const { data: managers } = await supabaseClient
+            .from('profiles')
+            .select('id, full_name, email')
+            .eq('role', 'hospital_manager')
+            .is('deleted_at', null);
+
+        (managers || []).forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = `${m.full_name} (${m.email})`;
+            $('hospitalManagerSelect').appendChild(opt);
+        });
+    } catch(e) {
+        console.warn('Could not load managers:', e);
+    }
+}
+
+async function createHospital() {
+    const name = $('hospitalName').value.trim();
+    const managerId = $('hospitalManagerSelect').value || null;
+
+    if (!name) { alert('Please enter a hospital name.'); return; }
+
+    const code = generateHospitalCode(name);
+
+    // Check code uniqueness
+    const { data: existing } = await supabaseClient
+        .from('hospitals')
+        .select('id')
+        .eq('code', code)
+        .limit(1);
+
+    if (existing && existing.length > 0) {
+        alert(`A hospital with code "${code}" already exists. Please use a different name or adjust the code manually.`);
+        return;
+    }
+
+    const { data: hospital, error } = await supabaseClient
+        .from('hospitals')
+        .insert({ name, code, status: 'active', manager_id: managerId, created_by: state.currentAdminId })
+        .select()
+        .single();
+
+    if (error) { alert(`Failed to create hospital: ${error.message}`); return; }
+
+    // If manager assigned, update their profile
+    if (managerId && hospital) {
+        await supabaseClient.from('profiles').update({ hospital_id: hospital.id }).eq('id', managerId);
+    }
+
+    await logAdminAction({
+        module: 'hospitals',
+        action: 'created',
+        description: `${state.currentAdminName} created hospital "${name}" (${code}).`,
+        reason: 'Hospital onboarding',
+    });
+
+    hide($('createHospitalModal'));
+    alert(`✅ Hospital "${name}" created with code: ${code}`);
+    await loadHospitals();
+    populateHospitalDropdowns(); // refresh dropdowns elsewhere
+}
+
+// ---- Open edit hospital modal ----
+async function openEditHospitalModal(hospitalId) {
+    const hospital = state.allHospitals.find(h => h.id === hospitalId);
+    if (!hospital) return;
+
+    $('editHospitalId').value = hospital.id;
+    $('editHospitalName').value = hospital.name;
+    $('editHospitalStatus').value = hospital.status || 'active';
+
+    // Populate manager dropdown — include current manager + unassigned managers
+    $('editHospitalManager').innerHTML = '<option value="">— None —</option>';
+    const { data: managers } = await supabaseClient
+        .from('profiles')
+        .select('id, full_name, email, hospital_id')
+        .eq('role', 'hospital_manager')
+        .is('deleted_at', null);
+
+    (managers || []).forEach(m => {
+        // Show managers not assigned to another hospital, or the current manager of this hospital
+        if (!m.hospital_id || m.hospital_id === hospitalId || m.id === hospital.manager_id) {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = `${m.full_name} (${m.email})`;
+            if (m.id === hospital.manager_id) opt.selected = true;
+            $('editHospitalManager').appendChild(opt);
+        }
+    });
+
+    show($('editHospitalModal'));
+
+    $('editHospitalForm').onsubmit = async (e) => {
+        e.preventDefault();
+        await saveHospitalEdits(hospital);
+    };
+}
+
+async function saveHospitalEdits(oldHospital) {
+    const name = $('editHospitalName').value.trim();
+    const status = $('editHospitalStatus').value;
+    const managerId = $('editHospitalManager').value || null;
+
+    const { error } = await supabaseClient
+        .from('hospitals')
+        .update({ name, status, manager_id: managerId, updated_at: new Date().toISOString() })
+        .eq('id', oldHospital.id);
+
+    if (error) { alert(`Failed to save: ${error.message}`); return; }
+
+    // If manager changed, unassign old, assign new
+    if (oldHospital.manager_id && oldHospital.manager_id !== managerId) {
+        await supabaseClient.from('profiles').update({ hospital_id: null }).eq('id', oldHospital.manager_id);
+    }
+    if (managerId) {
+        await supabaseClient.from('profiles').update({ hospital_id: oldHospital.id }).eq('id', managerId);
+    }
+
+    await logAdminAction({
+        module: 'hospitals',
+        action: 'updated',
+        description: `${state.currentAdminName} updated hospital "${name}".`,
+        reason: 'Hospital edit',
+    });
+
+    hide($('editHospitalModal'));
+    await loadHospitals();
+}
+
+async function toggleHospitalStatus(hospitalId, currentStatus) {
+    const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    const hospital = state.allHospitals.find(h => h.id === hospitalId);
+    if (!confirm(`${newStatus === 'suspended' ? 'Suspend' : 'Activate'} "${hospital?.name}"?`)) return;
+
+    const { error } = await supabaseClient
+        .from('hospitals')
+        .update({ status: newStatus })
+        .eq('id', hospitalId);
+
+    if (error) { alert(`Failed: ${error.message}`); return; }
+    await loadHospitals();
+}
+
+// ---- Populate hospital dropdowns in Create User modal ----
+async function populateHospitalDropdowns() {
+    const { data: hospitals } = await supabaseClient
+        .from('hospitals')
+        .select('id, name, code')
+        .eq('status', 'active')
+        .order('name');
+
+    const selects = ['newUserHospital', 'hospitalManagerSelect'];
+    selects.forEach(selId => {
+        const sel = $(selId);
+        if (!sel) return;
+        const current = sel.value;
+        sel.innerHTML = sel.id === 'hospitalManagerSelect'
+            ? '<option value="">— None yet —</option>'
+            : '<option value="">— Select Hospital —</option>';
+        (hospitals || []).forEach(h => {
+            const opt = document.createElement('option');
+            opt.value = h.id;
+            opt.textContent = `${h.name} (${h.code})`;
+            if (opt.value === current) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    });
+}
+
+// ---- Show/hide hospital dropdown when creating users ----
+function onNewUserRoleChange() {
+    const role = $('newUserRole').value;
+    const group = $('newUserHospitalGroup');
+    const sel = $('newUserHospital');
+    // Show hospital picker for doctors, patients, and hospital managers
+    if (['doctor', 'patient', 'hospital_manager'].includes(role)) {
+        group.style.display = 'block';
+        sel.required = true;
+        populateHospitalDropdowns();
+    } else {
+        group.style.display = 'none';
+        sel.required = false;
+    }
+}
+
+
+/* =====================================================
+   DOCTOR HOSPITAL INVITATIONS — ADMIN SIDE
+   ===================================================== */
+
+let _inviteDoctorList = []; // cache for filtering
+
+async function openInviteDoctorModal(hospitalId, hospitalName) {
+    $('inviteHospitalId').value = hospitalId;
+    $('inviteHospitalName').textContent = hospitalName;
+    $('inviteDoctorSearch').value = '';
+    $('inviteDoctorStatus').textContent = '';
+    $('inviteDoctorList').innerHTML = '<p style="padding:12px; color:#9ca3af; font-size:0.85rem;">Loading doctors...</p>';
+    show($('inviteDoctorModal'));
+
+    // Load all verified doctors
+    const { data: doctors, error } = await supabaseClient
+        .from('doctor_profiles')
+        .select('id, full_name, specialty, is_verified')
+        .eq('is_verified', true);
+
+    if (error || !doctors) {
+        $('inviteDoctorList').innerHTML = '<p style="padding:12px; color:#dc2626; font-size:0.85rem;">Error loading doctors.</p>';
+        return;
+    }
+
+    // Get existing memberships for this hospital to avoid duplicate invites
+    const { data: existing } = await supabaseClient
+        .from('hospital_doctor_memberships')
+        .select('doctor_id, status')
+        .eq('hospital_id', hospitalId);
+
+    const existingMap = {};
+    (existing || []).forEach(m => existingMap[m.doctor_id] = m.status);
+
+    _inviteDoctorList = doctors.map(d => ({ ...d, existingStatus: existingMap[d.id] || null }));
+    renderInviteDoctorList();
+}
+
+function filterInviteDoctorList() {
+    renderInviteDoctorList();
+}
+
+function renderInviteDoctorList() {
+    const term = ($('inviteDoctorSearch')?.value || '').toLowerCase().trim();
+    const list = _inviteDoctorList.filter(d =>
+        !term ||
+        (d.full_name || '').toLowerCase().includes(term) ||
+        (d.specialty || '').toLowerCase().includes(term)
+    );
+
+    if (!list.length) {
+        $('inviteDoctorList').innerHTML = '<p style="padding:12px; color:#9ca3af; font-size:0.85rem;">No doctors found.</p>';
+        return;
+    }
+
+    $('inviteDoctorList').innerHTML = list.map(d => {
+        let actionHtml = '';
+        if (d.existingStatus === 'active') {
+            actionHtml = '<span style="padding:4px 10px; background:#dcfce7; color:#15803d; border-radius:9999px; font-size:0.72rem; font-weight:700;">MEMBER</span>';
+        } else if (d.existingStatus === 'pending') {
+            actionHtml = '<span style="padding:4px 10px; background:#fef9c3; color:#ca8a04; border-radius:9999px; font-size:0.72rem; font-weight:700;">INVITED</span>';
+        } else {
+            actionHtml = `<button onclick="sendDoctorInvite('${d.id}', '${escapeHtml(d.full_name)}')" style="padding:5px 14px; background:#2563eb; color:#fff; border:none; border-radius:7px; font-size:0.8rem; font-weight:600; cursor:pointer;">Invite</button>`;
+        }
+
+        return `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.7rem 0.85rem; border-bottom:1px solid #f3f4f6;">
+                <div>
+                    <div style="font-weight:600; font-size:0.9rem;">${escapeHtml(d.full_name || 'Doctor')}</div>
+                    <div style="font-size:0.75rem; color:#6b7280;">${escapeHtml(d.specialty || 'General')}</div>
+                </div>
+                ${actionHtml}
+            </div>
+        `;
+    }).join('');
+}
+
+async function sendDoctorInvite(doctorId, doctorName) {
+    const hospitalId = $('inviteHospitalId').value;
+    const hospitalName = $('inviteHospitalName').textContent;
+
+    if (!confirm(`Send invitation to ${doctorName} to join ${hospitalName}?`)) return;
+
+    const { error } = await supabaseClient
+        .from('hospital_doctor_memberships')
+        .insert({
+            hospital_id: hospitalId,
+            doctor_id: doctorId,
+            status: 'pending',
+            invited_by: state.currentAdminId,
+            invited_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        });
+
+    if (error) {
+        $('inviteDoctorStatus').innerHTML = `<span style="color:#dc2626;">Failed: ${escapeHtml(error.message)}</span>`;
+        return;
+    }
+
+    // Update local cache so button changes to INVITED immediately
+    const doc = _inviteDoctorList.find(d => d.id === doctorId);
+    if (doc) doc.existingStatus = 'pending';
+    renderInviteDoctorList();
+
+    $('inviteDoctorStatus').innerHTML = `<span style="color:#16a34a;">✅ Invitation sent to ${escapeHtml(doctorName)}. They will see it in their Hospitals dashboard.</span>`;
+
+    await logAdminAction({
+        module: 'hospitals',
+        action: 'invited_doctor',
+        target_user_id: doctorId,
+        description: `${state.currentAdminName} invited ${doctorName} to join ${hospitalName}.`,
+        reason: 'Hospital doctor invite',
+    });
+}
+
+
+/* =====================================================
+   INVITE NEW DOCTOR (create account via link)
+   ===================================================== */
+
+function openInviteNewDoctorModal(hospitalId, hospitalName) {
+    $('inviteNewHospitalId').value = hospitalId;
+    $('inviteNewHospitalName').textContent = hospitalName;
+    $('inviteNewEmail').value = '';
+    $('inviteNewDoctorStatus').innerHTML = '';
+    $('inviteNewDoctorLink').style.display = 'none';
+
+    const modal = $('inviteNewDoctorModal');
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+
+    $('inviteNewDoctorForm').onsubmit = async (e) => {
+        e.preventDefault();
+        await generateDoctorInviteLink();
+    };
+}
+
+async function generateDoctorInviteLink() {
+    const hospitalId   = $('inviteNewHospitalId').value;
+    const hospitalName = $('inviteNewHospitalName').textContent;
+    const email        = $('inviteNewEmail').value.trim();
+
+    if (!email) return;
+
+    const statusEl = $('inviteNewDoctorStatus');
+    statusEl.innerHTML = '<span style="color:#6b7280;">Generating link...</span>';
+
+    // Generate a secure random token
+    const token = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+
+    // Store invite in doctor_invites table
+    const { error } = await supabaseClient
+        .from('doctor_invites')
+        .insert({
+            token,
+            hospital_id: hospitalId,
+            email,
+            invited_by: state.currentAdminId,
+            expires_at: expiresAt,
+            created_at: new Date().toISOString()
+        });
+
+    if (error) {
+        statusEl.innerHTML = `<span style="color:#dc2626;">Failed: ${escapeHtml(error.message)}</span>`;
+        return;
+    }
+
+    // Build the invite URL pointing to doctor-signup.html
+    const base = window.location.href.replace(/\/admin\/.*$/, '/');
+    const inviteUrl = `${base}doctor-signup.html?token=${token}&hospital_id=${encodeURIComponent(hospitalId)}&hospital_name=${encodeURIComponent(hospitalName)}&email=${encodeURIComponent(email)}`;
+
+    $('inviteLinkBox').value = inviteUrl;
+    $('inviteNewDoctorLink').style.display = 'block';
+    statusEl.innerHTML = `<span style="color:#16a34a;">✅ Invite link generated for <strong>${escapeHtml(email)}</strong>. Copy and share it with the doctor.</span>`;
+
+    await logAdminAction({
+        module: 'hospitals',
+        action: 'invited_new_doctor',
+        description: `${state.currentAdminName} generated a doctor signup invite for ${email} to join ${hospitalName}.`,
+        reason: 'New doctor invite',
+    });
+}
+
+function copyInviteLink() {
+    const box = $('inviteLinkBox');
+    box.select();
+    box.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(box.value).then(() => {
+        const btn = box.nextElementSibling;
+        btn.textContent = 'Copied!';
+        btn.style.background = '#16a34a';
+        setTimeout(() => {
+            btn.textContent = 'Copy';
+            btn.style.background = '#2563eb';
+        }, 2000);
+    });
+}
+
+// Expose new functions on window
+window.openInviteNewDoctorModal = openInviteNewDoctorModal;
+window.copyInviteLink = copyInviteLink;
