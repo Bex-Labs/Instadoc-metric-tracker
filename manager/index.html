@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instadoc — Hospital Manager Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Poppins', sans-serif; background: #f8fafc; color: #1a1a2e; }
+
+        /* ---- TOPBAR ---- */
+        .topbar {
+            background: #fff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 1.5rem;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 1rem; }
+        .logo { font-size: 1.2rem; font-weight: 800; color: #1a1a2e; }
+        .logo span { color: #2f8f46; }
+        .hospital-pill {
+            background: #eff6ff;
+            color: #2563eb;
+            border: 1px solid #bfdbfe;
+            border-radius: 9999px;
+            padding: 3px 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .topbar-right { display: flex; align-items: center; gap: 1rem; }
+        .manager-name { font-size: 0.85rem; color: #6b7280; }
+        .btn-logout {
+            padding: 6px 14px;
+            background: transparent;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            color: #374151;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-logout:hover { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+
+        /* ---- LAYOUT ---- */
+        .layout { display: flex; min-height: calc(100vh - 60px); }
+
+        /* ---- SIDEBAR ---- */
+        .sidebar {
+            width: 220px;
+            background: #fff;
+            border-right: 1px solid #e5e7eb;
+            padding: 1.5rem 0;
+            flex-shrink: 0;
+        }
+        .nav-section { padding: 0 1rem; margin-bottom: 0.5rem; }
+        .nav-label { font-size: 0.68rem; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; padding: 0 0.5rem; margin-bottom: 0.4rem; }
+        .nav-item {
+            display: flex; align-items: center; gap: 0.65rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: 9px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #4b5563;
+            transition: all 0.15s;
+            margin-bottom: 2px;
+            border: none; background: none; width: 100%; text-align: left;
+            font-family: 'Poppins', sans-serif;
+        }
+        .nav-item:hover { background: #f3f4f6; color: #1a1a2e; }
+        .nav-item.active { background: #f0fdf4; color: #15803d; font-weight: 600; }
+        .nav-item i { width: 16px; text-align: center; font-size: 0.9rem; }
+        .nav-badge {
+            margin-left: auto;
+            background: #ef4444; color: #fff;
+            font-size: 0.65rem; padding: 1px 6px;
+            border-radius: 9999px; font-weight: 700;
+            display: none;
+        }
+
+        /* ---- MAIN ---- */
+        .main { flex: 1; padding: 1.75rem 2rem; overflow-y: auto; }
+
+        /* ---- VIEWS ---- */
+        .view { display: none; }
+        .view.active { display: block; }
+
+        /* ---- PAGE HEADER ---- */
+        .page-header { margin-bottom: 1.5rem; }
+        .page-header h1 { font-size: 1.4rem; font-weight: 800; color: #1a1a2e; }
+        .page-header p { font-size: 0.85rem; color: #6b7280; margin-top: 2px; }
+
+        /* ---- STAT CARDS ---- */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.75rem; }
+        .stat-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 1.25rem;
+        }
+        .stat-card .stat-icon {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; margin-bottom: 0.75rem;
+        }
+        .stat-card .stat-value { font-size: 1.75rem; font-weight: 800; color: #1a1a2e; }
+        .stat-card .stat-label { font-size: 0.75rem; color: #6b7280; margin-top: 2px; }
+
+        /* ---- CARDS ---- */
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+        .card-title {
+            font-size: 0.95rem; font-weight: 700; color: #1a1a2e;
+            margin-bottom: 1rem;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+
+        /* ---- TABLE ---- */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th { background: #f9fafb; color: #6b7280; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; padding: 0.65rem 0.85rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        td { padding: 0.75rem 0.85rem; border-bottom: 1px solid #f3f4f6; color: #374151; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #fafafa; }
+
+        /* ---- BADGES ---- */
+        .badge {
+            display: inline-flex; align-items: center;
+            padding: 2px 10px; border-radius: 9999px;
+            font-size: 0.72rem; font-weight: 700; letter-spacing: 0.3px;
+        }
+        .badge-green { background: #dcfce7; color: #15803d; }
+        .badge-yellow { background: #fef9c3; color: #a16207; }
+        .badge-red { background: #fee2e2; color: #dc2626; }
+        .badge-blue { background: #dbeafe; color: #1d4ed8; }
+        .badge-gray { background: #f3f4f6; color: #6b7280; }
+
+        /* ---- BUTTONS ---- */
+        .btn {
+            padding: 6px 14px; border-radius: 8px; font-size: 0.8rem;
+            font-weight: 600; cursor: pointer; border: none;
+            font-family: 'Poppins', sans-serif; transition: opacity 0.15s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-primary { background: #2563eb; color: #fff; }
+        .btn-green { background: #16a34a; color: #fff; }
+        .btn-outline { background: #fff; color: #374151; border: 1.5px solid #e5e7eb; }
+        .btn-red { background: #dc2626; color: #fff; }
+
+        /* ---- SCHEDULE GRID ---- */
+        .schedule-grid { display: flex; flex-direction: column; gap: 0.5rem; }
+        .schedule-row {
+            display: grid; grid-template-columns: 60px 1fr 1fr 80px;
+            gap: 0.5rem; align-items: center;
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px; background: #f9fafb;
+            font-size: 0.82rem;
+        }
+        .schedule-row.inactive { opacity: 0.45; }
+        .schedule-day { font-weight: 700; color: #374151; }
+        .schedule-time { color: #6b7280; }
+
+        /* ---- MODAL ---- */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5); z-index: 500;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-box {
+            background: #fff; border-radius: 16px;
+            padding: 1.75rem; width: 90%; max-width: 480px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            position: relative;
+        }
+        .modal-close {
+            position: absolute; top: 1rem; right: 1rem;
+            background: none; border: none; font-size: 1.3rem;
+            cursor: pointer; color: #9ca3af;
+        }
+        .modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .modal-sub { font-size: 0.82rem; color: #6b7280; margin-bottom: 1.25rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: #374151; margin-bottom: 0.35rem; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 0.65rem 0.85rem;
+            border: 1.5px solid #e5e7eb; border-radius: 9px;
+            font-size: 0.88rem; font-family: 'Poppins', sans-serif;
+            outline: none; transition: border-color 0.2s;
+        }
+        .form-group input:focus, .form-group select:focus { border-color: #2563eb; }
+
+        /* ---- INVITE LINK BOX ---- */
+        .link-box {
+            display: flex; gap: 8px; align-items: center; margin-top: 10px;
+        }
+        .link-box input {
+            flex: 1; font-size: 0.75rem; background: #f9fafb;
+            padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px;
+        }
+
+        /* ---- EMPTY STATE ---- */
+        .empty { text-align: center; padding: 2.5rem 1rem; color: #9ca3af; font-size: 0.88rem; }
+        .empty i { font-size: 2rem; margin-bottom: 0.5rem; display: block; }
+
+        /* ---- LOADING ---- */
+        #loading-screen {
+            position: fixed; inset: 0; background: #fff;
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column; gap: 1rem; z-index: 9999;
+        }
+        .spinner { width: 36px; height: 36px; border: 3px solid #e5e7eb; border-top-color: #2f8f46; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ---- TOAST ---- */
+        #toast {
+            position: fixed; bottom: 1.5rem; right: 1.5rem;
+            padding: 0.75rem 1.25rem; border-radius: 10px;
+            font-size: 0.85rem; font-weight: 600; color: #fff;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            transform: translateY(80px); opacity: 0;
+            transition: all 0.3s; z-index: 9999;
+        }
+        #toast.show { transform: translateY(0); opacity: 1; }
+        #toast.success { background: #16a34a; }
+        #toast.error { background: #dc2626; }
+        #toast.info { background: #2563eb; }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .main { padding: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div id="loading-screen">
+    <div class="spinner"></div>
+    <p style="font-size:0.85rem; color:#6b7280;">Loading your portal...</p>
+</div>
+
+<!-- Topbar -->
+<div class="topbar" id="topbar" style="display:none;">
+    <div class="topbar-left">
+        <div class="logo">Insta<span>doc</span> 🐾</div>
+        <div class="hospital-pill" id="hospital-code-pill">—</div>
+        <span style="font-size:0.85rem; color:#374151; font-weight:600;" id="hospital-name-topbar"></span>
+    </div>
+    <div class="topbar-right">
+        <span class="manager-name" id="manager-name-topbar"></span>
+        <button class="btn-logout" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
+    </div>
+</div>
+
+<!-- Main layout -->
+<div class="layout" id="main-layout" style="display:none;">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="nav-section">
+            <div class="nav-label">Overview</div>
+            <button class="nav-item active" onclick="switchView('overview', this)">
+                <i class="fa-solid fa-house"></i> Dashboard
+            </button>
+        </div>
+        <div class="nav-section">
+            <div class="nav-label">Doctors</div>
+            <button class="nav-item" onclick="switchView('doctors', this)">
+                <i class="fa-solid fa-user-doctor"></i> My Doctors
+            </button>
+            <button class="nav-item" onclick="switchView('schedules', this)">
+                <i class="fa-regular fa-clock"></i> Schedules
+            </button>
+            <button class="nav-item" onclick="switchView('invitations', this)">
+                <i class="fa-solid fa-envelope"></i> Invitations
+                <span class="nav-badge" id="pending-badge">0</span>
+            </button>
+        </div>
+        <div class="nav-section">
+            <div class="nav-label">Activity</div>
+            <button class="nav-item" onclick="switchView('appointments', this)">
+                <i class="fa-regular fa-calendar-check"></i> Appointments
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main">
+
+        <!-- ======================== OVERVIEW ======================== -->
+        <div class="view active" id="view-overview">
+            <div class="page-header">
+                <h1 id="overview-greeting">Good morning</h1>
+                <p>Here's a snapshot of your hospital today.</p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#dbeafe; color:#2563eb;"><i class="fa-solid fa-user-doctor"></i></div>
+                    <div class="stat-value" id="stat-doctors">—</div>
+                    <div class="stat-label">Active Doctors</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#dcfce7; color:#16a34a;"><i class="fa-solid fa-users"></i></div>
+                    <div class="stat-value" id="stat-patients">—</div>
+                    <div class="stat-label">Registered Patients</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#fef9c3; color:#a16207;"><i class="fa-solid fa-calendar-check"></i></div>
+                    <div class="stat-value" id="stat-appointments">—</div>
+                    <div class="stat-label">Appointments This Week</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#fae8ff; color:#9333ea;"><i class="fa-solid fa-envelope-open-text"></i></div>
+                    <div class="stat-value" id="stat-pending">—</div>
+                    <div class="stat-label">Pending Invites</div>
+                </div>
+            </div>
+
+            <!-- Recent appointments preview -->
+            <div class="card">
+                <div class="card-title"><i class="fa-regular fa-calendar" style="color:#f59e0b;"></i> Recent Appointments</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Doctor</th><th>Date & Time</th><th>Type</th><th>Status</th></tr></thead>
+                        <tbody id="overview-appts-body"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Doctors online now -->
+            <div class="card">
+                <div class="card-title"><i class="fa-solid fa-circle" style="color:#16a34a; font-size:0.6rem;"></i> Doctors Currently Online</div>
+                <div id="online-doctors-list"><p class="empty"><i class="fa-solid fa-circle-notch fa-spin"></i>Loading...</p></div>
+            </div>
+        </div>
+
+        <!-- ======================== DOCTORS ======================== -->
+        <div class="view" id="view-doctors">
+            <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                    <h1>My Doctors</h1>
+                    <p>Manage doctors affiliated with your hospital.</p>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-outline" onclick="openInviteExistingModal()"><i class="fa-solid fa-user-plus"></i> Invite Existing</button>
+                    <button class="btn btn-green" onclick="openInviteNewModal()"><i class="fa-solid fa-link"></i> Invite New Doctor</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div style="display:flex; gap:10px; margin-bottom:1rem; flex-wrap:wrap;">
+                    <input type="text" id="doctor-search" placeholder="Search doctors..." style="padding:7px 12px; border:1.5px solid #e5e7eb; border-radius:8px; font-size:0.82rem; width:220px; font-family:'Poppins',sans-serif; outline:none;" oninput="filterDoctors()" />
+                    <select id="doctor-status-filter" style="padding:7px 12px; border:1.5px solid #e5e7eb; border-radius:8px; font-size:0.82rem; font-family:'Poppins',sans-serif; outline:none;" onchange="filterDoctors()">
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="pending">Pending Invite</option>
+                    </select>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Doctor</th><th>Specialty</th><th>Verified</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
+                        <tbody id="doctors-table-body"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================== SCHEDULES ======================== -->
+        <div class="view" id="view-schedules">
+            <div class="page-header">
+                <h1>Doctor Schedules</h1>
+                <p>View availability and working hours for each doctor.</p>
+            </div>
+            <div id="schedules-list"><p class="empty"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading...</p></div>
+        </div>
+
+        <!-- ======================== INVITATIONS ======================== -->
+        <div class="view" id="view-invitations">
+            <div class="page-header">
+                <h1>Invitations</h1>
+                <p>Track all doctor invitations sent from your hospital.</p>
+            </div>
+            <div class="card">
+                <div class="card-title"><i class="fa-solid fa-envelope-open-text" style="color:#f59e0b;"></i> Sent Invitations</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Doctor / Email</th><th>Type</th><th>Status</th><th>Sent</th></tr></thead>
+                        <tbody id="invitations-table-body"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================== APPOINTMENTS ======================== -->
+        <div class="view" id="view-appointments">
+            <div class="page-header">
+                <h1>Appointments</h1>
+                <p>Doctor schedules and upcoming bookings — no patient health data shown.</p>
+            </div>
+            <div style="display:flex; gap:8px; margin-bottom:1rem; flex-wrap:wrap;">
+                <select id="appt-doctor-filter" style="padding:7px 12px; border:1.5px solid #e5e7eb; border-radius:8px; font-size:0.82rem; font-family:'Poppins',sans-serif; outline:none;" onchange="filterAppointments()">
+                    <option value="all">All Doctors</option>
+                </select>
+                <select id="appt-status-filter" style="padding:7px 12px; border:1.5px solid #e5e7eb; border-radius:8px; font-size:0.82rem; font-family:'Poppins',sans-serif; outline:none;" onchange="filterAppointments()">
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div class="card">
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Doctor</th><th>Date & Time</th><th>Type</th><th>Status</th></tr></thead>
+                        <tbody id="appointments-table-body"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Invite Existing Doctor Modal -->
+<div class="modal-overlay" id="invite-existing-modal">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('invite-existing-modal')">×</button>
+        <div class="modal-title">Invite an Existing Doctor</div>
+        <div class="modal-sub">Select a verified Instadoc doctor to join your hospital.</div>
+        <input type="text" id="existing-doc-search" placeholder="Search by name..." style="width:100%; padding:8px 12px; border:1.5px solid #e5e7eb; border-radius:8px; font-size:0.85rem; font-family:'Poppins',sans-serif; margin-bottom:10px; outline:none;" oninput="filterExistingDoctorPicker()" />
+        <div id="existing-doctor-picker" style="max-height:280px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:8px;"></div>
+        <div id="invite-existing-status" style="margin-top:10px; font-size:0.82rem;"></div>
+    </div>
+</div>
+
+<!-- Invite New Doctor Modal -->
+<div class="modal-overlay" id="invite-new-modal">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('invite-new-modal')">×</button>
+        <div class="modal-title">Invite a New Doctor</div>
+        <div class="modal-sub">Generate a signup link to share with a doctor who doesn't have an Instadoc account yet.</div>
+        <div class="form-group">
+            <label>Doctor's Email Address</label>
+            <input type="email" id="new-doctor-email" placeholder="doctor@hospital.com" />
+        </div>
+        <button class="btn btn-green" style="width:100%;" onclick="generateNewDoctorInvite()">Generate Invite Link</button>
+        <div id="invite-new-status" style="margin-top:10px; font-size:0.82rem;"></div>
+        <div id="invite-new-link-box" style="display:none; margin-top:12px;">
+            <div style="font-size:0.8rem; font-weight:600; color:#374151; margin-bottom:6px;">Share this link with the doctor:</div>
+            <div class="link-box">
+                <input type="text" id="invite-link-input" readonly />
+                <button class="btn btn-primary" onclick="copyInviteLink()">Copy</button>
+            </div>
+            <p style="font-size:0.72rem; color:#9ca3af; margin-top:6px;">Link expires in 7 days.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Doctor Schedule Detail Modal -->
+<div class="modal-overlay" id="schedule-detail-modal">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('schedule-detail-modal')">×</button>
+        <div class="modal-title" id="schedule-modal-name">Dr. Name</div>
+        <div class="modal-sub" id="schedule-modal-specialty"></div>
+        <div class="schedule-grid" id="schedule-modal-grid"></div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

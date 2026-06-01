@@ -386,10 +386,15 @@
         var LP_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvYXFsY2x0dmFrdXFxZWhreW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNTk1MzksImV4cCI6MjA4MTczNTUzOX0._7ISJbfJzryBJWmtRuN72F-JZpYdvJxsltwwhombPtE';
         var lpSb = window.supabase.createClient(LP_URL, LP_KEY);
 
-        // If a session already exists, go straight to the app
-        lpSb.auth.getSession().then(function(res) {
+        // If a session already exists, go straight to the right portal
+        lpSb.auth.getSession().then(async function(res) {
             if (res.data && res.data.session && res.data.session.user) {
-                window.location.href = 'app/index.html';
+                var userId = res.data.session.user.id;
+                var profileRes = await lpSb.from('profiles').select('role').eq('id', userId).single();
+                var role = profileRes.data?.role || 'patient';
+                if (role === 'admin') window.location.href = 'admin/index.html';
+                else if (role === 'hospital_manager') window.location.href = 'manager/index.html';
+                else window.location.href = 'app/index.html';
             }
         });
 
@@ -447,8 +452,19 @@
                 lpSetLoading('lp-btn-login', false);
                 return;
             }
-            // Success → go to app. INSTADOC's onAuthStateChange will route patient/doctor.
-            window.location.href = 'app/index.html';
+
+            // Check role and redirect accordingly
+            var userId = res.data.user.id;
+            var profileRes = await lpSb.from('profiles').select('role').eq('id', userId).single();
+            var role = profileRes.data?.role || 'patient';
+
+            if (role === 'admin') {
+                window.location.href = 'admin/index.html';
+            } else if (role === 'hospital_manager') {
+                window.location.href = 'manager/index.html';
+            } else {
+                window.location.href = 'app/index.html';
+            }
         };
 
         // ── SIGNUP ────────────────────────────────────────────────────
