@@ -199,9 +199,7 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>User ID</th>
-                  <th>Full Name</th>
-                  <th>Email</th>
+                  <th>User</th>
                   <th>Role</th>
                   <th>Status</th>
                   <th>Joined</th>
@@ -210,7 +208,7 @@
               </thead>
               <tbody id="usersTableBody">
                 <tr>
-                  <td class="empty-state" colspan="8">Loading users...</td>
+                  <td class="empty-state" colspan="5">Loading users...</td>
                 </tr>
               </tbody>
             </table>
@@ -627,56 +625,90 @@
     </div>
 
     <!-- Create User Modal -->
-    <div
-      id="createUserModal"
-      class="modal hidden"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="createUserTitle"
-    >
-      <div class="modal-content">
-        <button
-          class="modal-close"
-          type="button"
-          id="closeCreateUserModalBtn"
-          aria-label="Close create user modal"
-        >
-          ×
-        </button>
-        <h3 id="createUserTitle">Create New User</h3>
+    <div id="createUserModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="createUserTitle">
+      <div class="modal-content cu-modal">
+
+        <!-- Header -->
+        <div class="cu-header">
+          <div class="cu-header-left">
+            <div class="cu-icon"><i class="fa-solid fa-user-plus"></i></div>
+            <div>
+              <h3 id="createUserTitle" class="cu-title">Create new user</h3>
+              <p class="cu-subtitle">Account will be active immediately after creation.</p>
+            </div>
+          </div>
+          <button class="cu-close" type="button" id="closeCreateUserModalBtn" aria-label="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
 
         <form id="createUserForm">
-          <label for="newUserEmail">Email</label>
-          <input id="newUserEmail" type="email" required />
 
-          <label for="newUserPassword">Temporary Password</label>
-          <input id="newUserPassword" type="password" required />
-
-          <label for="newUserName">Full Name</label>
-          <input id="newUserName" type="text" required />
-
-          <label for="newUserRole">Role</label>
-          <select id="newUserRole" required onchange="onNewUserRoleChange()">
-            <option value="patient">Patient</option>
-            <option value="doctor">Doctor</option>
-            <option value="hospital_manager">Hospital Manager</option>
-            <option value="admin">Admin</option>
-          </select>
-
-          <div id="newUserHospitalGroup" style="display:none; margin-top:10px;">
-            <label for="newUserHospital">Assign to Hospital</label>
-            <select id="newUserHospital">
-              <option value="">— Select Hospital —</option>
-            </select>
+          <!-- Section 1: Account Details -->
+          <div class="cu-section-label">
+            <span>Account details</span>
           </div>
 
-          <button class="btn-primary" type="submit">Create User</button>
-        </form>
+          <div class="cu-field-row">
+            <div class="cu-field">
+              <label for="newUserEmail"><i class="fa-regular fa-envelope"></i> Email address</label>
+              <input id="newUserEmail" type="email" placeholder="user@email.com" required />
+            </div>
+            <div class="cu-field">
+              <label for="newUserPassword"><i class="fa-solid fa-lock"></i> Temporary password</label>
+              <input id="newUserPassword" type="password" placeholder="Min. 6 characters" required />
+            </div>
+          </div>
 
-        <p class="muted-note">
-          This action creates an Auth user (email/password) and a profile
-          record. Ensure your Supabase RLS allows admins to perform this action.
-        </p>
+          <!-- Section 2: Profile -->
+          <div class="cu-section-label">
+            <span>Profile</span>
+          </div>
+
+          <div class="cu-field-row">
+            <div class="cu-field">
+              <label for="newUserName"><i class="fa-regular fa-user"></i> Full name</label>
+              <input id="newUserName" type="text" placeholder="e.g. Jane Smith" required />
+            </div>
+            <div class="cu-field">
+              <label for="newUserRole"><i class="fa-solid fa-tag"></i> Role</label>
+              <select id="newUserRole" required onchange="onNewUserRoleChange()">
+                <option value="patient">Patient</option>
+                <option value="doctor">Doctor</option>
+                <option value="hospital_manager">Hospital Manager</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Role badges -->
+          <div class="cu-role-badges">
+            <span class="cu-badge cu-badge-patient"><i class="fa-solid fa-circle-dot"></i> Patient</span>
+            <span class="cu-badge cu-badge-doctor"><i class="fa-solid fa-stethoscope"></i> Doctor</span>
+            <span class="cu-badge cu-badge-manager"><i class="fa-solid fa-hospital"></i> Hospital Manager</span>
+            <span class="cu-badge cu-badge-admin"><i class="fa-solid fa-shield"></i> Admin</span>
+          </div>
+
+          <!-- Hospital picker (shown for relevant roles) -->
+          <div id="newUserHospitalGroup" style="display:none; margin-top:12px;">
+            <div class="cu-field">
+              <label for="newUserHospital"><i class="fa-solid fa-building-columns"></i> Assign to hospital</label>
+              <select id="newUserHospital">
+                <option value="">— Select hospital —</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="cu-footer">
+            <p class="cu-note"><i class="fa-solid fa-circle-info"></i> Creates an Auth user and profile record. Ensure Supabase RLS allows admin writes.</p>
+            <div class="cu-actions">
+              <button type="button" class="cu-btn-cancel" onclick="closeCreateUserModal()">Cancel</button>
+              <button type="submit" class="cu-btn-submit"><i class="fa-solid fa-check"></i> Create user</button>
+            </div>
+          </div>
+
+        </form>
       </div>
     </div>
 

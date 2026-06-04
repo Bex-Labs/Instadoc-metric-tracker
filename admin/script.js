@@ -740,13 +740,29 @@ function renderUsers(users) {
 
     const actionButtons = buildUserActionButtons(u, status, isSelf);
 
+    const avatarColors = {
+      admin:            { bg: '#e6f1fb', color: '#185fa5' },
+      doctor:           { bg: '#eaf3de', color: '#3b6d11' },
+      patient:          { bg: '#faeeda', color: '#854f0b' },
+      hospital_manager: { bg: '#eeedfe', color: '#534ab7' },
+    };
+    const av = avatarColors[u.role] || { bg: '#f1f5f9', color: '#64748b' };
+    const initials = (u.full_name || u.email || '?')
+      .split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+
     row.innerHTML = `
-<td><small>${escapeHtml((u.id || "").substring(0, 8))}...</small></td>
-      <td><strong>${escapeHtml(u.full_name || "N/A")}</strong></td>
-      <td>${escapeHtml(u.email || "N/A")}</td>
-      <td><span class="badge ${roleBadge}">${escapeHtml(u.role || "unknown")}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:9px;">
+          <div style="width:30px;height:30px;border-radius:50%;background:${av.bg};color:${av.color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;">${initials}</div>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#1a1a2e;">${escapeHtml(u.full_name || 'N/A')}</div>
+            <div style="font-size:11px;color:#94a3b8;">${escapeHtml(u.email || '')}</div>
+          </div>
+        </div>
+      </td>
+      <td><span class="badge ${roleBadge}">${escapeHtml(u.role || 'unknown')}</span></td>
       <td><span class="badge ${statusBadge}">${escapeHtml(status.toUpperCase())}</span></td>
-      <td>${u.created_at ? escapeHtml(formatDate(u.created_at)) : "N/A"}</td>
+      <td style="font-size:12px;color:#94a3b8;">${u.created_at ? escapeHtml(formatDate(u.created_at)) : 'N/A'}</td>
       <td><div class="action-buttons">${actionButtons}</div></td>
     `;
 
@@ -795,31 +811,63 @@ function syncSelectedTicketStyles() {
 }
 
 function buildUserActionButtons(u, status, isSelf) {
-  const viewBtn = `<button class="btn btn-view" type="button" onclick="AdminApp.viewUser('${u.id}')">View</button>`;
-  const editBtn = `<button class="btn btn-edit" type="button" onclick="AdminApp.editUser('${u.id}')">Edit</button>`;
+  const id = u.id;
+
+  const viewBtn = `<button class="btn btn-view" type="button" onclick="AdminApp.viewUser('${id}')"><i class="fa-solid fa-eye"></i> View</button>`;
+  const editBtn = `<button class="btn btn-edit" type="button" onclick="AdminApp.editUser('${id}')"><i class="fa-solid fa-pen"></i> Edit</button>`;
 
   if (isSelf) {
-    return `${viewBtn}${editBtn}<small style="color:#6c757d;font-style:italic;">Cannot modify own status</small>`;
+    return `<div class="action-buttons">${viewBtn}${editBtn}<small style="color:#6c757d;font-style:italic;font-size:11px;">Own account</small></div>`;
   }
 
-  const deactivateBtn = `<button class="btn btn-inactive" type="button" onclick="AdminApp.changeUserStatus('${u.id}','inactive')">Deactivate</button>`;
-  const suspendBtn = `<button class="btn btn-suspend" type="button" onclick="AdminApp.changeUserStatus('${u.id}','suspended')">Suspend</button>`;
-  const activateBtn = `<button class="btn btn-activate" type="button" onclick="AdminApp.changeUserStatus('${u.id}','active')">Activate</button>`;
-  const archiveBtn = `<button class="btn btn-close" type="button" onclick="AdminApp.archiveUser('${u.id}')">Archive</button>`;
-  const restoreBtn = `<button class="btn btn-activate" type="button" onclick="AdminApp.restoreUser('${u.id}')">Restore</button>`;
+  // Build dropdown items based on status
+  let dropdownItems = '';
 
-  if (status === "archived") {
-    return `${viewBtn}${editBtn}${restoreBtn}`;
+  if (status === 'archived') {
+    dropdownItems = `
+      <button class="dropdown-item item-activate" onclick="AdminApp.restoreUser('${id}'); closeAllDropdowns()">
+        <i class="fa-solid fa-trash-arrow-up"></i> Restore
+      </button>`;
+  } else {
+    if (status === 'active') {
+      dropdownItems += `
+        <button class="dropdown-item item-warn" onclick="AdminApp.changeUserStatus('${id}','inactive'); closeAllDropdowns()">
+          <i class="fa-solid fa-circle-pause"></i> Deactivate
+        </button>
+        <button class="dropdown-item item-danger" onclick="AdminApp.changeUserStatus('${id}','suspended'); closeAllDropdowns()">
+          <i class="fa-solid fa-ban"></i> Suspend
+        </button>`;
+    } else if (status === 'inactive' || status === 'suspended') {
+      dropdownItems += `
+        <button class="dropdown-item item-activate" onclick="AdminApp.changeUserStatus('${id}','active'); closeAllDropdowns()">
+          <i class="fa-solid fa-circle-check"></i> Activate
+        </button>`;
+      if (status === 'inactive') {
+        dropdownItems += `
+        <button class="dropdown-item item-danger" onclick="AdminApp.changeUserStatus('${id}','suspended'); closeAllDropdowns()">
+          <i class="fa-solid fa-ban"></i> Suspend
+        </button>`;
+      }
+    }
+    dropdownItems += `
+      <div class="dropdown-divider"></div>
+      <button class="dropdown-item item-archive" onclick="AdminApp.archiveUser('${id}'); closeAllDropdowns()">
+        <i class="fa-solid fa-box-archive"></i> Archive
+      </button>`;
   }
 
-  if (status === "active")
-    return `${viewBtn}${editBtn}${deactivateBtn}${suspendBtn}${archiveBtn}`;
-  if (status === "inactive")
-    return `${viewBtn}${editBtn}${activateBtn}${suspendBtn}${archiveBtn}`;
-  if (status === "suspended")
-    return `${viewBtn}${editBtn}${activateBtn}${archiveBtn}`;
-
-  return `${viewBtn}${editBtn}${archiveBtn}`;
+  return `
+    <div class="action-buttons">
+      ${viewBtn}${editBtn}
+      <div class="dropdown-wrap">
+        <button class="btn btn-more" type="button" onclick="toggleDropdown(this)" title="More actions">
+          <i class="fa-solid fa-ellipsis-vertical"></i>
+        </button>
+        <div class="dropdown-menu">
+          ${dropdownItems}
+        </div>
+      </div>
+    </div>`;
 }
 
 async function viewUser(userId) {
@@ -2634,6 +2682,25 @@ window.hide = hide;
 window.show = show;
 window.$    = $;
 
+// Dropdown helpers
+window.toggleDropdown = function(btn) {
+  const menu = btn.nextElementSibling;
+  const isOpen = menu.classList.contains('open');
+  closeAllDropdowns();
+  if (!isOpen) {
+    menu.classList.add('open');
+    btn.classList.add('active');
+  }
+};
+window.closeAllDropdowns = function() {
+  document.querySelectorAll('.dropdown-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.btn-more.active').forEach(b => b.classList.remove('active'));
+};
+// Close dropdowns when clicking anywhere else
+document.addEventListener('click', e => {
+  if (!e.target.closest('.dropdown-wrap')) closeAllDropdowns();
+});
+
 /* =========================
    Init
    ========================= */
@@ -2916,12 +2983,25 @@ function renderHospitals(hospitals, doctorCounts, patientCounts, managerNames) {
             <td>${h.created_at ? escapeHtml(formatDate(h.created_at)) : 'N/A'}</td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn-action btn-edit" onclick="openEditHospitalModal('${h.id}')">Edit</button>
-                    <button class="btn-action btn-activate" onclick="openInviteDoctorModal('${h.id}', '${escapeHtml(h.name)}')">Invite Doctor</button>
-                    <button class="btn-action btn-view" onclick="openInviteNewDoctorModal('${h.id}', '${escapeHtml(h.name)}')">Invite New</button>
-                    <button class="btn-action btn-delete" onclick="toggleHospitalStatus('${h.id}', '${status}')">
-                        ${status === 'active' ? 'Suspend' : 'Activate'}
-                    </button>
+                    <button class="btn btn-edit" onclick="openEditHospitalModal('${h.id}')"><i class="fa-solid fa-pen"></i> Edit</button>
+                    <div class="dropdown-wrap">
+                        <button class="btn btn-more" type="button" onclick="toggleDropdown(this)" title="More actions">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                        <div class="dropdown-menu">
+                            <button class="dropdown-item" style="color:#2563eb;" onclick="openInviteDoctorModal('${h.id}', '${escapeHtml(h.name)}'); closeAllDropdowns()">
+                                <i class="fa-solid fa-user-plus"></i> Invite Doctor
+                            </button>
+                            <button class="dropdown-item" style="color:#16a34a;" onclick="openInviteNewDoctorModal('${h.id}', '${escapeHtml(h.name)}'); closeAllDropdowns()">
+                                <i class="fa-solid fa-link"></i> Invite New
+                            </button>
+                            <div class="dropdown-divider"></div>
+                            <button class="dropdown-item ${status === 'active' ? 'item-danger' : 'item-activate'}" onclick="toggleHospitalStatus('${h.id}', '${status}'); closeAllDropdowns()">
+                                <i class="fa-solid fa-${status === 'active' ? 'ban' : 'circle-check'}"></i>
+                                ${status === 'active' ? 'Suspend' : 'Activate'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </td>
         `;
