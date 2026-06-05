@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create New User — Instadoc Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Poppins', sans-serif; background: #f8fafc; color: #1a1a2e; min-height: 100vh; }
+
+        /* ---- TOPBAR ---- */
+        .topbar {
+            background: #fff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 2rem;
+            height: 58px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 1rem; }
+        .logo { font-size: 1.15rem; font-weight: 700; color: #1a1a2e; text-decoration: none; }
+        .logo span { color: #2f8f46; }
+        .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6b7280; }
+        .breadcrumb a { color: #6b7280; text-decoration: none; }
+        .breadcrumb a:hover { color: #2f8f46; }
+        .breadcrumb .sep { color: #d1d5db; }
+        .breadcrumb .current { color: #1a1a2e; font-weight: 500; }
+        .btn-back {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border: 1px solid #e5e7eb;
+            border-radius: 8px; background: #fff; color: #374151;
+            font-size: 13px; font-weight: 500; cursor: pointer;
+            font-family: 'Poppins', sans-serif; text-decoration: none;
+            transition: all 0.15s;
+        }
+        .btn-back:hover { background: #f9fafb; border-color: #d1d5db; }
+
+        /* ---- PAGE ---- */
+        .page { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+        .page-header { margin-bottom: 1.75rem; }
+        .page-header h1 { font-size: 1.4rem; font-weight: 700; color: #1a1a2e; }
+        .page-header p { font-size: 13px; color: #6b7280; margin-top: 4px; }
+
+        /* ---- TWO-COL LAYOUT ---- */
+        .layout { display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; align-items: start; }
+
+        /* ---- FORM CARD ---- */
+        .form-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+        .form-section { padding: 1.25rem 1.5rem; border-bottom: 1px solid #f3f4f6; }
+        .form-section:last-child { border-bottom: none; }
+        .section-title {
+            font-size: 11px; font-weight: 600; color: #6b7280;
+            text-transform: uppercase; letter-spacing: 0.6px;
+            margin-bottom: 1rem;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: #f3f4f6; }
+        .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .field-full { grid-column: 1 / -1; }
+        .field { display: flex; flex-direction: column; gap: 5px; }
+        .field label {
+            font-size: 12px; font-weight: 600; color: #374151;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .field label i { font-size: 11px; color: #9ca3af; }
+        .field label .req { color: #ef4444; font-size: 13px; }
+        .field input, .field select, .field textarea {
+            padding: 9px 12px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 9px;
+            font-size: 13px;
+            font-family: 'Poppins', sans-serif;
+            color: #1a1a2e;
+            background: #fafafa;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+            width: 100%;
+        }
+        .field input:focus, .field select:focus { border-color: #2f8f46; box-shadow: 0 0 0 3px rgba(47,143,70,0.1); background: #fff; }
+        .field input::placeholder { color: #c4c4c4; }
+        .field .hint { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+        .field .error-msg { font-size: 11px; color: #dc2626; margin-top: 2px; display: none; }
+        .field.has-error input, .field.has-error select { border-color: #fca5a5; }
+        .field.has-error .error-msg { display: block; }
+
+        /* Role selector */
+        .role-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 4px; }
+        .role-option {
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 10px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: #fafafa;
+        }
+        .role-option:hover { border-color: #a7d9b3; background: #f0fdf4; }
+        .role-option.selected { border-color: #2f8f46; background: #f0fdf4; }
+        .role-option .role-icon {
+            width: 32px; height: 32px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; margin: 0 auto 6px;
+        }
+        .role-option .role-name { font-size: 11px; font-weight: 600; color: #374151; }
+        .role-option.selected .role-name { color: #2f8f46; }
+        .role-option input[type=radio] { display: none; }
+
+        /* Hospital group */
+        #hospitalGroup { display: none; }
+        #hospitalGroup.visible { display: block; }
+
+        /* Form footer */
+        .form-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1.1rem 1.5rem;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            gap: 12px;
+        }
+        .form-footer-note { font-size: 11px; color: #9ca3af; display: flex; align-items: center; gap: 5px; }
+        .form-actions { display: flex; gap: 10px; }
+        .btn-cancel {
+            padding: 9px 20px; border: 1.5px solid #e5e7eb; border-radius: 9px;
+            background: #fff; color: #374151; font-size: 13px; font-weight: 500;
+            font-family: 'Poppins', sans-serif; cursor: pointer; transition: all 0.15s;
+            text-decoration: none; display: flex; align-items: center;
+        }
+        .btn-cancel:hover { background: #f9fafb; border-color: #d1d5db; }
+        .btn-submit {
+            padding: 9px 22px; border: none; border-radius: 9px;
+            background: #2f8f46; color: #fff; font-size: 13px; font-weight: 600;
+            font-family: 'Poppins', sans-serif; cursor: pointer;
+            display: flex; align-items: center; gap: 7px; transition: opacity 0.15s;
+        }
+        .btn-submit:hover { opacity: 0.88; }
+        .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* ---- PREVIEW CARD ---- */
+        .preview-card {
+            background: #fff; border: 1px solid #e5e7eb;
+            border-radius: 14px; overflow: hidden;
+            position: sticky; top: 78px;
+        }
+        .preview-header {
+            padding: 1rem 1.25rem; border-bottom: 1px solid #f3f4f6;
+            font-size: 12px; font-weight: 600; color: #6b7280;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .preview-body { padding: 1.25rem; }
+        .preview-avatar {
+            width: 56px; height: 56px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 700; margin: 0 auto 1rem;
+            transition: background 0.2s, color 0.2s;
+        }
+        .preview-name { font-size: 15px; font-weight: 700; color: #1a1a2e; text-align: center; min-height: 22px; }
+        .preview-email { font-size: 12px; color: #9ca3af; text-align: center; margin-top: 3px; min-height: 18px; word-break: break-all; }
+        .preview-badges { display: flex; gap: 6px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+        .preview-badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .preview-divider { height: 1px; background: #f3f4f6; margin: 1rem 0; }
+        .preview-field { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px; }
+        .preview-field .pf-label { color: #9ca3af; }
+        .preview-field .pf-value { color: #1a1a2e; font-weight: 500; text-align: right; }
+
+        /* Role badge colours */
+        .rb-patient  { background: #faeeda; color: #854f0b; }
+        .rb-doctor   { background: #eaf3de; color: #3b6d11; }
+        .rb-manager  { background: #eeedfe; color: #534ab7; }
+        .rb-admin    { background: #e6f1fb; color: #185fa5; }
+
+        /* Avatar colours by role */
+        .av-patient  { background: #faeeda; color: #854f0b; }
+        .av-doctor   { background: #eaf3de; color: #3b6d11; }
+        .av-manager  { background: #eeedfe; color: #534ab7; }
+        .av-admin    { background: #e6f1fb; color: #185fa5; }
+
+        /* ---- ALERT ---- */
+        .alert { padding: 10px 14px; border-radius: 9px; font-size: 13px; margin-bottom: 1rem; display: none; }
+        .alert.show { display: flex; align-items: center; gap: 8px; }
+        .alert.error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+        .alert.success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+
+        /* ---- REASON MODAL ---- */
+        .reason-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5); z-index: 500;
+            align-items: center; justify-content: center;
+        }
+        .reason-overlay.open { display: flex; }
+        .reason-box {
+            background: #fff; border-radius: 14px;
+            padding: 1.5rem; width: 90%; max-width: 420px;
+        }
+        .reason-box h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+        .reason-box p { font-size: 12px; color: #6b7280; margin-bottom: 14px; }
+        .reason-box textarea {
+            width: 100%; padding: 9px 12px; border: 1.5px solid #e5e7eb;
+            border-radius: 9px; font-size: 13px; font-family: 'Poppins', sans-serif;
+            resize: vertical; min-height: 80px; outline: none;
+        }
+        .reason-box textarea:focus { border-color: #2f8f46; }
+        .reason-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+
+        @media (max-width: 768px) {
+            .layout { grid-template-columns: 1fr; }
+            .preview-card { position: static; }
+            .field-grid { grid-template-columns: 1fr; }
+            .role-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Topbar -->
+    <div class="topbar">
+        <div class="topbar-left">
+            <a href="index.html" class="logo">Insta<span>doc</span> 🐾</a>
+            <div class="breadcrumb">
+                <span class="sep">/</span>
+                <a href="index.html">Dashboard</a>
+                <span class="sep">/</span>
+                <span class="current">Create user</span>
+            </div>
+        </div>
+        <a href="index.html" class="btn-back"><i class="fa-solid fa-arrow-left"></i> Back to dashboard</a>
+    </div>
+
+    <div class="page">
+        <div class="page-header">
+            <h1><i class="fa-solid fa-user-plus" style="color:#2f8f46; margin-right:8px;"></i>Create new user</h1>
+            <p>Fill in the details below. The account will be active immediately after creation.</p>
+        </div>
+
+        <div class="alert error" id="alert-box"><i class="fa-solid fa-circle-exclamation"></i> <span id="alert-msg"></span></div>
+
+        <div class="layout">
+
+            <!-- LEFT: Form -->
+            <div class="form-card">
+
+                <form id="create-user-form">
+
+                    <!-- Account Details -->
+                    <div class="form-section">
+                        <div class="section-title">Account details</div>
+                        <div class="field-grid">
+                            <div class="field" id="field-email">
+                                <label for="cu-email"><i class="fa-regular fa-envelope"></i> Email address <span class="req">*</span></label>
+                                <input type="email" id="cu-email" placeholder="user@email.com" autocomplete="off" oninput="updatePreview()" />
+                                <span class="error-msg">Please enter a valid email.</span>
+                            </div>
+                            <div class="field" id="field-password">
+                                <label for="cu-password"><i class="fa-solid fa-lock"></i> Temporary password <span class="req">*</span></label>
+                                <input type="password" id="cu-password" placeholder="Min. 6 characters" />
+                                <span class="hint">User can change this after first login.</span>
+                                <span class="error-msg">Password must be at least 6 characters.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Profile -->
+                    <div class="form-section">
+                        <div class="section-title">Profile</div>
+                        <div class="field-grid">
+                            <div class="field field-full" id="field-name">
+                                <label for="cu-name"><i class="fa-regular fa-user"></i> Full name <span class="req">*</span></label>
+                                <input type="text" id="cu-name" placeholder="e.g. Jane Smith" oninput="updatePreview()" />
+                                <span class="error-msg">Please enter the user's full name.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Role -->
+                    <div class="form-section">
+                        <div class="section-title">Role</div>
+                        <div class="role-grid">
+                            <label class="role-option selected" id="role-patient" onclick="selectRole('patient')">
+                                <input type="radio" name="role" value="patient" checked />
+                                <div class="role-icon" style="background:#faeeda;color:#854f0b;"><i class="fa-solid fa-user"></i></div>
+                                <div class="role-name">Patient</div>
+                            </label>
+                            <label class="role-option" id="role-doctor" onclick="selectRole('doctor')">
+                                <input type="radio" name="role" value="doctor" />
+                                <div class="role-icon" style="background:#eaf3de;color:#3b6d11;"><i class="fa-solid fa-stethoscope"></i></div>
+                                <div class="role-name">Doctor</div>
+                            </label>
+                            <label class="role-option" id="role-hospital_manager" onclick="selectRole('hospital_manager')">
+                                <input type="radio" name="role" value="hospital_manager" />
+                                <div class="role-icon" style="background:#eeedfe;color:#534ab7;"><i class="fa-solid fa-hospital"></i></div>
+                                <div class="role-name">Manager</div>
+                            </label>
+                            <label class="role-option" id="role-admin" onclick="selectRole('admin')">
+                                <input type="radio" name="role" value="admin" />
+                                <div class="role-icon" style="background:#e6f1fb;color:#185fa5;"><i class="fa-solid fa-shield-halved"></i></div>
+                                <div class="role-name">Admin</div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Hospital (conditional) -->
+                    <div class="form-section" id="hospitalGroup">
+                        <div class="section-title">Hospital assignment</div>
+                        <div class="field">
+                            <label for="cu-hospital"><i class="fa-solid fa-building-columns"></i> Assign to hospital</label>
+                            <select id="cu-hospital" onchange="updatePreview()">
+                                <option value="">— Select hospital —</option>
+                            </select>
+                            <span class="hint">Required for doctors, patients and managers.</span>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="form-footer">
+                        <p class="form-footer-note"><i class="fa-solid fa-circle-info"></i> Creates a Supabase Auth user + profile record.</p>
+                        <div class="form-actions">
+                            <a href="index.html" class="btn-cancel">Cancel</a>
+                            <button type="submit" class="btn-submit" id="submit-btn">
+                                <i class="fa-solid fa-check"></i> Create user
+                            </button>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            <!-- RIGHT: Live preview -->
+            <div class="preview-card">
+                <div class="preview-header"><i class="fa-regular fa-eye" style="margin-right:5px;"></i> Live preview</div>
+                <div class="preview-body">
+                    <div class="preview-avatar av-patient" id="preview-avatar">?</div>
+                    <div class="preview-name" id="preview-name">Full name</div>
+                    <div class="preview-email" id="preview-email">email@address.com</div>
+                    <div class="preview-badges">
+                        <span class="preview-badge rb-patient" id="preview-role-badge">patient</span>
+                        <span class="preview-badge" style="background:#f0fdf4;color:#15803d;" id="preview-status-badge">ACTIVE</span>
+                    </div>
+                    <div class="preview-divider"></div>
+                    <div class="preview-field">
+                        <span class="pf-label">Role</span>
+                        <span class="pf-value" id="preview-role-value">Patient</span>
+                    </div>
+                    <div class="preview-field">
+                        <span class="pf-label">Hospital</span>
+                        <span class="pf-value" id="preview-hospital-value" style="color:#9ca3af;">Not assigned</span>
+                    </div>
+                    <div class="preview-field">
+                        <span class="pf-label">Status</span>
+                        <span class="pf-value" style="color:#16a34a;">Active</span>
+                    </div>
+                    <div class="preview-field">
+                        <span class="pf-label">Joined</span>
+                        <span class="pf-value" id="preview-joined">Today</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Reason modal -->
+    <div class="reason-overlay" id="reason-overlay">
+        <div class="reason-box">
+            <h3><i class="fa-solid fa-clipboard-list" style="color:#2f8f46;margin-right:6px;"></i>Reason for audit</h3>
+            <p>Please provide a reason for creating this account. This is logged for security and compliance.</p>
+            <textarea id="reason-input" placeholder="e.g. New doctor onboarded for Harmony Hospital"></textarea>
+            <div class="reason-actions">
+                <button class="btn-cancel" type="button" onclick="closeReason()">Cancel</button>
+                <button class="btn-submit" type="button" onclick="confirmCreate()"><i class="fa-solid fa-check"></i> Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    'use strict';
+
+    const SB_URL = 'https://ioaqlcltvakuqqehkyor.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvYXFsY2x0dmFrdXFxZWhreW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNTk1MzksImV4cCI6MjA4MTczNTUzOX0._7ISJbfJzryBJWmtRuN72F-JZpYdvJxsltwwhombPtE';
+    const sb = window.supabase.createClient(SB_URL, SB_KEY);
+
+    let selectedRole = 'patient';
+    let formData = {};
+
+    // ---- Verify admin session ----
+    (async () => {
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) { window.location.href = 'index.html'; return; }
+        const { data: profile } = await sb.from('profiles').select('role').eq('id', session.user.id).single();
+        if (profile?.role !== 'admin') { window.location.href = 'index.html'; return; }
+        loadHospitals();
+        setPreviewDate();
+    })();
+
+    function setPreviewDate() {
+        const today = new Date();
+        document.getElementById('preview-joined').textContent =
+            today.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    // ---- Load hospitals into dropdown ----
+    async function loadHospitals() {
+        const { data } = await sb.from('hospitals').select('id, name, code').eq('status', 'active').order('name');
+        const sel = document.getElementById('cu-hospital');
+        (data || []).forEach(h => {
+            const opt = document.createElement('option');
+            opt.value = h.id;
+            opt.textContent = `${h.name} (${h.code})`;
+            sel.appendChild(opt);
+        });
+    }
+
+    // ---- Role selection ----
+    function selectRole(role) {
+        selectedRole = role;
+        document.querySelectorAll('.role-option').forEach(el => el.classList.remove('selected'));
+        document.getElementById('role-' + role)?.classList.add('selected');
+
+        const hospitalGroup = document.getElementById('hospitalGroup');
+        if (['doctor', 'patient', 'hospital_manager'].includes(role)) {
+            hospitalGroup.classList.add('visible');
+        } else {
+            hospitalGroup.classList.remove('visible');
+        }
+        updatePreview();
+    }
+
+    // ---- Live preview ----
+    const roleColors = {
+        patient:          { av: 'av-patient', rb: 'rb-patient', label: 'Patient' },
+        doctor:           { av: 'av-doctor',  rb: 'rb-doctor',  label: 'Doctor' },
+        hospital_manager: { av: 'av-manager', rb: 'rb-manager', label: 'Manager' },
+        admin:            { av: 'av-admin',   rb: 'rb-admin',   label: 'Admin' },
+    };
+
+    function updatePreview() {
+        const name  = document.getElementById('cu-name').value.trim();
+        const email = document.getElementById('cu-email').value.trim();
+        const hospitalSel = document.getElementById('cu-hospital');
+        const hospitalName = hospitalSel.options[hospitalSel.selectedIndex]?.text || 'Not assigned';
+
+        const initials = name
+            ? name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+            : '?';
+
+        const av = document.getElementById('preview-avatar');
+        av.textContent = initials;
+        av.className = 'preview-avatar ' + (roleColors[selectedRole]?.av || 'av-patient');
+
+        document.getElementById('preview-name').textContent  = name  || 'Full name';
+        document.getElementById('preview-email').textContent = email || 'email@address.com';
+
+        const rb = document.getElementById('preview-role-badge');
+        rb.textContent = roleColors[selectedRole]?.label || selectedRole;
+        rb.className   = 'preview-badge ' + (roleColors[selectedRole]?.rb || 'rb-patient');
+
+        document.getElementById('preview-role-value').textContent = roleColors[selectedRole]?.label || selectedRole;
+        document.getElementById('preview-hospital-value').textContent =
+            hospitalName === '— Select hospital —' ? 'Not assigned' : hospitalName;
+        document.getElementById('preview-hospital-value').style.color =
+            hospitalName === '— Select hospital —' ? '#9ca3af' : '#1a1a2e';
+    }
+
+    // ---- Form submit ----
+    document.getElementById('create-user-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (!validateForm()) return;
+
+        formData = {
+            email:    document.getElementById('cu-email').value.trim(),
+            password: document.getElementById('cu-password').value,
+            fullName: document.getElementById('cu-name').value.trim(),
+            role:     selectedRole,
+            hospitalId: document.getElementById('cu-hospital').value || null,
+        };
+
+        // Show reason modal
+        document.getElementById('reason-input').value = '';
+        document.getElementById('reason-overlay').classList.add('open');
+    });
+
+    function validateForm() {
+        let valid = true;
+        const email    = document.getElementById('cu-email').value.trim();
+        const password = document.getElementById('cu-password').value;
+        const name     = document.getElementById('cu-name').value.trim();
+
+        const setError = (id, show) => {
+            document.getElementById(id).classList.toggle('has-error', show);
+            if (show) valid = false;
+        };
+
+        setError('field-email',    !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+        setError('field-password', password.length < 6);
+        setError('field-name',     !name);
+        return valid;
+    }
+
+    function closeReason() {
+        document.getElementById('reason-overlay').classList.remove('open');
+    }
+
+    async function confirmCreate() {
+        const reason = document.getElementById('reason-input').value.trim();
+        if (!reason) {
+            document.getElementById('reason-input').style.borderColor = '#fca5a5';
+            return;
+        }
+        document.getElementById('reason-input').style.borderColor = '';
+        closeReason();
+        await doCreate(reason);
+    }
+
+    async function doCreate(reason) {
+        const btn = document.getElementById('submit-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating...';
+
+        const alertBox = document.getElementById('alert-box');
+        alertBox.className = 'alert';
+
+        try {
+            const { data: { session: adminSession } } = await sb.auth.getSession();
+
+            const { data: signUpData, error: signUpError } = await sb.auth.signUp({
+                email: formData.email,
+                password: formData.password,
+            });
+
+            if (signUpError) throw signUpError;
+            const newUserId = signUpData?.user?.id;
+            if (!newUserId) throw new Error('Signup succeeded but user ID was not returned.');
+
+            // Restore admin session
+            if (adminSession) {
+                await sb.auth.setSession({
+                    access_token: adminSession.access_token,
+                    refresh_token: adminSession.refresh_token,
+                });
+            }
+
+            // Upsert profile
+            const { error: profileError } = await sb.from('profiles').upsert({
+                id: newUserId,
+                email: formData.email,
+                full_name: formData.fullName,
+                role: formData.role,
+                hospital_id: formData.hospitalId,
+                status: 'active',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            }, { onConflict: 'id' });
+
+            if (profileError) throw profileError;
+
+            // Log audit
+            const { data: adminProfile } = await sb.from('profiles').select('full_name, email').eq('id', adminSession.user.id).single();
+            const adminName = adminProfile?.full_name || adminProfile?.email || 'Admin';
+
+            await Promise.allSettled([
+                sb.from('admin_audit_log').insert({
+                    admin_id: adminSession.user.id,
+                    target_user_id: newUserId,
+                    module: 'users',
+                    action: 'created',
+                    reason,
+                    created_at: new Date().toISOString(),
+                }),
+                sb.from('platform_activity').insert({
+                    actor_id: adminSession.user.id,
+                    target_user_id: newUserId,
+                    module: 'users',
+                    action: 'created',
+                    description: `${adminName} created new ${formData.role} account for ${formData.email}.`,
+                    created_at: new Date().toISOString(),
+                }),
+            ]);
+
+            // Redirect back with success flag
+            window.location.href = 'index.html?created=1&name=' + encodeURIComponent(formData.fullName);
+
+        } catch (err) {
+            console.error('Create user error:', err);
+            document.getElementById('alert-msg').textContent = err.message;
+            alertBox.className = 'alert error show';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Create user';
+        }
+    }
+    </script>
+
+</body>
+</html>

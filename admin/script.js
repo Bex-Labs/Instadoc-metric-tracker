@@ -1202,8 +1202,7 @@ async function restoreUser(userId) {
    9) CREATE USER
    ========================= */
 function openCreateUserModal() {
-  $("createUserForm")?.reset();
-  show($("createUserModal"));
+  window.location.href = 'create-user.html';
 }
 
 function closeCreateUserModal() {
@@ -2705,6 +2704,24 @@ document.addEventListener('click', e => {
    Init
    ========================= */
 document.addEventListener("DOMContentLoaded", bootstrap);
+
+// Show success toast when returning from create-user page
+(function checkCreateSuccess() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('created') === '1') {
+    const name = decodeURIComponent(params.get('name') || 'User');
+    // Remove query params from URL without reload
+    window.history.replaceState({}, '', window.location.pathname);
+    // Show toast after dashboard loads
+    setTimeout(() => {
+      const toast = document.createElement('div');
+      toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#16a34a;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:9999;display:flex;align-items:center;gap:8px;font-family:inherit;';
+      toast.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + name + ' created successfully!';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }, 800);
+  }
+})();
 
 async function updateTicketPriority(ticketId, newPriority) {
   try {
