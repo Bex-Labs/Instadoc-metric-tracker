@@ -1236,10 +1236,16 @@ async function createUser(e) {
     const { data: { session: adminSession } } = await supabaseClient.auth.getSession();
 
     const { data: signUpData, error: signUpError } =
-      await supabaseClient.auth.signUp({
-        email,
-        password,
-      });
+  await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        role: role,             // <-- Injects the role into user_metadata
+        full_name: full_name    // <-- Injects the name into user_metadata
+      }
+    }
+  });
 
     if (signUpError) throw signUpError;
 
@@ -2710,18 +2716,29 @@ document.addEventListener("DOMContentLoaded", bootstrap);
   const params = new URLSearchParams(window.location.search);
   if (params.get('created') === '1') {
     const name = decodeURIComponent(params.get('name') || 'User');
-    // Remove query params from URL without reload
     window.history.replaceState({}, '', window.location.pathname);
-    // Show toast after dashboard loads
+    setTimeout(() => showSuccessToast(`${name} created successfully!`), 800);
+  }
+  if (params.get('hospital_created') === '1') {
+    const hname = decodeURIComponent(params.get('hname') || 'Hospital');
+    const hcode = decodeURIComponent(params.get('hcode') || '');
+    window.history.replaceState({}, '', window.location.pathname);
     setTimeout(() => {
-      const toast = document.createElement('div');
-      toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#16a34a;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:9999;display:flex;align-items:center;gap:8px;font-family:inherit;';
-      toast.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + name + ' created successfully!';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 4000);
+      showSuccessToast(`${hname} (${hcode}) created successfully!`);
+      // Switch to hospitals tab
+      const hospitalsBtn = document.querySelector('.nav-tab[data-target="hospitals"]');
+      if (hospitalsBtn) hospitalsBtn.click();
     }, 800);
   }
 })();
+
+function showSuccessToast(msg) {
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#16a34a;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:9999;display:flex;align-items:center;gap:8px;font-family:inherit;animation:slideUp 0.3s ease;';
+  toast.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
 
 async function updateTicketPriority(ticketId, newPriority) {
   try {
@@ -3028,36 +3045,7 @@ function renderHospitals(hospitals, doctorCounts, patientCounts, managerNames) {
 
 // ---- Open create hospital modal ----
 async function openCreateHospitalModal() {
-    $('hospitalName').value = '';
-    $('hospitalManagerSelect').innerHTML = '<option value="">— None yet —</option>';
-
-    // Show modal directly via style to bypass any CSS class conflicts
-    const modal = $('createHospitalModal');
-    modal.classList.remove('hidden');
-    modal.style.display = 'flex';
-
-    $('createHospitalForm').onsubmit = async (e) => {
-        e.preventDefault();
-        await createHospital();
-    };
-
-    // Populate manager dropdown (best effort)
-    try {
-        const { data: managers } = await supabaseClient
-            .from('profiles')
-            .select('id, full_name, email')
-            .eq('role', 'hospital_manager')
-            .is('deleted_at', null);
-
-        (managers || []).forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m.id;
-            opt.textContent = `${m.full_name} (${m.email})`;
-            $('hospitalManagerSelect').appendChild(opt);
-        });
-    } catch(e) {
-        console.warn('Could not load managers:', e);
-    }
+    window.location.href = 'create-hospital.html';
 }
 
 async function createHospital() {

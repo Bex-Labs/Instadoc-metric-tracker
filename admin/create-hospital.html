@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Hospital — Instadoc Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Poppins', sans-serif; background: #f8fafc; color: #1a1a2e; min-height: 100vh; }
+
+        /* ---- TOPBAR ---- */
+        .topbar {
+            background: #fff; border-bottom: 1px solid #e5e7eb;
+            padding: 0 2rem; height: 58px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 1rem; }
+        .logo { font-size: 1.15rem; font-weight: 700; color: #1a1a2e; text-decoration: none; }
+        .logo span { color: #2f8f46; }
+        .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6b7280; }
+        .breadcrumb a { color: #6b7280; text-decoration: none; }
+        .breadcrumb a:hover { color: #2f8f46; }
+        .breadcrumb .sep { color: #d1d5db; }
+        .breadcrumb .current { color: #1a1a2e; font-weight: 500; }
+        .btn-back {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border: 1px solid #e5e7eb;
+            border-radius: 8px; background: #fff; color: #374151;
+            font-size: 13px; font-weight: 500; cursor: pointer;
+            font-family: 'Poppins', sans-serif; text-decoration: none;
+            transition: all 0.15s;
+        }
+        .btn-back:hover { background: #f9fafb; border-color: #d1d5db; }
+
+        /* ---- PAGE ---- */
+        .page { max-width: 1000px; margin: 0 auto; padding: 2rem 1.5rem; }
+        .page-header { margin-bottom: 1.75rem; }
+        .page-header h1 { font-size: 1.4rem; font-weight: 700; color: #1a1a2e; }
+        .page-header p { font-size: 13px; color: #6b7280; margin-top: 4px; }
+
+        /* ---- LAYOUT ---- */
+        .layout { display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem; align-items: start; }
+
+        /* ---- FORM CARD ---- */
+        .form-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; }
+        .form-section { padding: 1.25rem 1.5rem; border-bottom: 1px solid #f3f4f6; }
+        .form-section:last-of-type { border-bottom: none; }
+        .section-title {
+            font-size: 11px; font-weight: 600; color: #6b7280;
+            text-transform: uppercase; letter-spacing: 0.6px;
+            margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;
+        }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: #f3f4f6; }
+        .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+        .field:last-child { margin-bottom: 0; }
+        .field label { font-size: 12px; font-weight: 600; color: #374151; display: flex; align-items: center; gap: 5px; }
+        .field label i { font-size: 11px; color: #9ca3af; }
+        .field label .req { color: #ef4444; }
+        .field input, .field select {
+            padding: 9px 12px; border: 1.5px solid #e5e7eb; border-radius: 9px;
+            font-size: 13px; font-family: 'Poppins', sans-serif; color: #1a1a2e;
+            background: #fafafa; transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+        }
+        .field input:focus, .field select:focus {
+            border-color: #2f8f46; box-shadow: 0 0 0 3px rgba(47,143,70,0.1); background: #fff;
+        }
+        .field input::placeholder { color: #c4c4c4; }
+        .field .hint { font-size: 11px; color: #9ca3af; }
+        .field .error-msg { font-size: 11px; color: #dc2626; display: none; }
+        .field.has-error input { border-color: #fca5a5; }
+        .field.has-error .error-msg { display: block; }
+
+        /* Code preview pill */
+        .code-preview {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #eff6ff; border: 1px solid #bfdbfe;
+            border-radius: 8px; padding: 6px 12px;
+            font-size: 13px; margin-top: 6px;
+        }
+        .code-preview .code-val {
+            font-family: monospace; font-weight: 700;
+            font-size: 15px; color: #2563eb; letter-spacing: 2px;
+        }
+        .code-preview .code-label { font-size: 11px; color: #6b7280; }
+
+        /* Status toggle */
+        .status-toggle { display: flex; gap: 8px; margin-top: 4px; }
+        .status-opt {
+            flex: 1; padding: 9px; border: 1.5px solid #e5e7eb;
+            border-radius: 9px; text-align: center; cursor: pointer;
+            font-size: 12px; font-weight: 500; color: #6b7280;
+            transition: all 0.15s; background: #fafafa;
+        }
+        .status-opt:hover { border-color: #d1d5db; }
+        .status-opt.selected-active { border-color: #2f8f46; background: #f0fdf4; color: #15803d; }
+        .status-opt.selected-suspended { border-color: #fca5a5; background: #fef2f2; color: #dc2626; }
+        .status-opt i { display: block; font-size: 16px; margin-bottom: 4px; }
+
+        /* Form footer */
+        .form-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1.1rem 1.5rem; background: #f9fafb; border-top: 1px solid #e5e7eb; gap: 12px;
+        }
+        .form-footer-note { font-size: 11px; color: #9ca3af; display: flex; align-items: center; gap: 5px; }
+        .form-actions { display: flex; gap: 10px; }
+        .btn-cancel {
+            padding: 9px 20px; border: 1.5px solid #e5e7eb; border-radius: 9px;
+            background: #fff; color: #374151; font-size: 13px; font-weight: 500;
+            font-family: 'Poppins', sans-serif; cursor: pointer; text-decoration: none;
+            display: flex; align-items: center; transition: all 0.15s;
+        }
+        .btn-cancel:hover { background: #f9fafb; }
+        .btn-submit {
+            padding: 9px 22px; border: none; border-radius: 9px;
+            background: #2f8f46; color: #fff; font-size: 13px; font-weight: 600;
+            font-family: 'Poppins', sans-serif; cursor: pointer;
+            display: flex; align-items: center; gap: 7px; transition: opacity 0.15s;
+        }
+        .btn-submit:hover { opacity: 0.88; }
+        .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* ---- PREVIEW CARD ---- */
+        .preview-card {
+            background: #fff; border: 1px solid #e5e7eb;
+            border-radius: 14px; overflow: hidden; position: sticky; top: 78px;
+        }
+        .preview-header {
+            padding: 1rem 1.25rem; border-bottom: 1px solid #f3f4f6;
+            font-size: 12px; font-weight: 600; color: #6b7280;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .preview-body { padding: 1.25rem; }
+        .preview-hospital-icon {
+            width: 56px; height: 56px; border-radius: 14px;
+            background: #eff6ff; color: #2563eb;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; margin: 0 auto 1rem;
+        }
+        .preview-name { font-size: 15px; font-weight: 700; color: #1a1a2e; text-align: center; min-height: 22px; }
+        .preview-code {
+            font-family: monospace; font-size: 13px; font-weight: 700;
+            color: #2563eb; letter-spacing: 3px; text-align: center;
+            margin-top: 4px; min-height: 20px;
+        }
+        .preview-badges { display: flex; gap: 6px; justify-content: center; margin-top: 10px; }
+        .preview-badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .badge-active { background: #dcfce7; color: #15803d; }
+        .badge-suspended { background: #fee2e2; color: #dc2626; }
+        .preview-divider { height: 1px; background: #f3f4f6; margin: 1rem 0; }
+        .preview-field { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px; }
+        .preview-field .pf-label { color: #9ca3af; }
+        .preview-field .pf-value { color: #1a1a2e; font-weight: 500; }
+
+        /* ---- ALERT ---- */
+        .alert { padding: 10px 14px; border-radius: 9px; font-size: 13px; margin-bottom: 1rem; display: none; }
+        .alert.show { display: flex; align-items: center; gap: 8px; }
+        .alert.error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+        @media (max-width: 768px) {
+            .layout { grid-template-columns: 1fr; }
+            .preview-card { position: static; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="topbar">
+        <div class="topbar-left">
+            <a href="index.html" class="logo">Insta<span>doc</span> 🐾</a>
+            <div class="breadcrumb">
+                <span class="sep">/</span>
+                <a href="index.html">Dashboard</a>
+                <span class="sep">/</span>
+                <a href="index.html#hospitals">Hospitals</a>
+                <span class="sep">/</span>
+                <span class="current">Add hospital</span>
+            </div>
+        </div>
+        <a href="index.html" class="btn-back"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    </div>
+
+    <div class="page">
+        <div class="page-header">
+            <h1><i class="fa-solid fa-hospital" style="color:#2563eb; margin-right:8px;"></i>Add new hospital</h1>
+            <p>Register a new hospital tenant on Instadoc. The hospital code is auto-generated from the name.</p>
+        </div>
+
+        <div class="alert error" id="alert-box"><i class="fa-solid fa-circle-exclamation"></i> <span id="alert-msg"></span></div>
+
+        <div class="layout">
+
+            <!-- LEFT: Form -->
+            <div class="form-card">
+                <form id="create-hospital-form">
+
+                    <!-- Hospital Identity -->
+                    <div class="form-section">
+                        <div class="section-title">Hospital identity</div>
+
+                        <div class="field" id="field-name">
+                            <label for="h-name"><i class="fa-solid fa-hospital"></i> Hospital name <span class="req">*</span></label>
+                            <input type="text" id="h-name" placeholder="e.g. Lagos General Hospital" oninput="onNameInput()" autocomplete="off" />
+                            <span class="hint">The hospital code will be auto-generated from the first 3 letters.</span>
+                            <span class="error-msg">Please enter the hospital name.</span>
+                        </div>
+
+                        <div class="field">
+                            <label><i class="fa-solid fa-code"></i> Hospital code (auto-generated)</label>
+                            <div class="code-preview">
+                                <span class="code-label">Code:</span>
+                                <span class="code-val" id="code-display">—</span>
+                                <span class="code-label" id="code-status"></span>
+                            </div>
+                            <span class="hint">Unique 3-letter identifier. Shared with patients and doctors to identify the hospital.</span>
+                        </div>
+                    </div>
+
+                    <!-- Manager -->
+                    <div class="form-section">
+                        <div class="section-title">Hospital manager</div>
+                        <div class="field">
+                            <label for="h-manager"><i class="fa-solid fa-user-tie"></i> Assign manager <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+                            <select id="h-manager" onchange="updatePreview()">
+                                <option value="">— None yet —</option>
+                            </select>
+                            <span class="hint">You can assign or change the manager later from the Hospitals tab.</span>
+                        </div>
+                    </div>
+
+                    <!-- Status -->
+                    <div class="form-section">
+                        <div class="section-title">Status</div>
+                        <div class="status-toggle">
+                            <div class="status-opt selected-active" id="status-active" onclick="selectStatus('active')">
+                                <i class="fa-solid fa-circle-check"></i> Active
+                            </div>
+                            <div class="status-opt" id="status-suspended" onclick="selectStatus('suspended')">
+                                <i class="fa-solid fa-ban"></i> Suspended
+                            </div>
+                        </div>
+                        <p class="hint" style="margin-top:8px;">Active hospitals are visible to patients and doctors immediately.</p>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="form-footer">
+                        <p class="form-footer-note"><i class="fa-solid fa-circle-info"></i> A unique code conflict will be flagged before saving.</p>
+                        <div class="form-actions">
+                            <a href="index.html" class="btn-cancel">Cancel</a>
+                            <button type="submit" class="btn-submit" id="submit-btn">
+                                <i class="fa-solid fa-plus"></i> Create hospital
+                            </button>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            <!-- RIGHT: Preview -->
+            <div class="preview-card">
+                <div class="preview-header"><i class="fa-regular fa-eye" style="margin-right:5px;"></i> Live preview</div>
+                <div class="preview-body">
+                    <div class="preview-hospital-icon"><i class="fa-solid fa-hospital"></i></div>
+                    <div class="preview-name" id="preview-name">Hospital name</div>
+                    <div class="preview-code" id="preview-code">—</div>
+                    <div class="preview-badges">
+                        <span class="preview-badge badge-active" id="preview-status-badge">ACTIVE</span>
+                    </div>
+                    <div class="preview-divider"></div>
+                    <div class="preview-field">
+                        <span class="pf-label">Code</span>
+                        <span class="pf-value" id="preview-code-field" style="font-family:monospace;color:#2563eb;letter-spacing:2px;">—</span>
+                    </div>
+                    <div class="preview-field">
+                        <span class="pf-label">Manager</span>
+                        <span class="pf-value" id="preview-manager" style="color:#9ca3af;">Not assigned</span>
+                    </div>
+                    <div class="preview-field">
+                        <span class="pf-label">Doctors</span>
+                        <span class="pf-value">0</span>
+                    </div>
+                    <div class="preview-field">
+                        <span class="pf-label">Patients</span>
+                        <span class="pf-value">0</span>
+                    </div>
+                    <div class="preview-field">
+                        <span class="pf-label">Created</span>
+                        <span class="pf-value" id="preview-date">Today</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+    'use strict';
+
+    const SB_URL = 'https://ioaqlcltvakuqqehkyor.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvYXFsY2x0dmFrdXFxZWhreW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNTk1MzksImV4cCI6MjA4MTczNTUzOX0._7ISJbfJzryBJWmtRuN72F-JZpYdvJxsltwwhombPtE';
+    const sb = window.supabase.createClient(SB_URL, SB_KEY);
+
+    let selectedStatus = 'active';
+    let adminSession = null;
+    let codeCheckTimer = null;
+
+    // ---- Boot ----
+    (async () => {
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) { window.location.href = 'index.html'; return; }
+        const { data: profile } = await sb.from('profiles').select('role').eq('id', session.user.id).single();
+        if (profile?.role !== 'admin') { window.location.href = 'index.html'; return; }
+        adminSession = session;
+        loadManagers();
+        document.getElementById('preview-date').textContent =
+            new Date().toLocaleDateString('en-GB');
+    })();
+
+    async function loadManagers() {
+        const { data } = await sb.from('profiles')
+            .select('id, full_name, email')
+            .eq('role', 'hospital_manager')
+            .is('deleted_at', null);
+        const sel = document.getElementById('h-manager');
+        (data || []).forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = `${m.full_name} (${m.email})`;
+            sel.appendChild(opt);
+        });
+    }
+
+    // ---- Code generation ----
+    function generateCode(name) {
+        return name.trim().substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, 'X');
+    }
+
+    function onNameInput() {
+        const name = document.getElementById('h-name').value.trim();
+        const code = name ? generateCode(name) : '—';
+        document.getElementById('code-display').textContent = code;
+        document.getElementById('preview-name').textContent = name || 'Hospital name';
+        document.getElementById('preview-code').textContent = code;
+        document.getElementById('preview-code-field').textContent = code;
+
+        if (name.length >= 3) {
+            clearTimeout(codeCheckTimer);
+            document.getElementById('code-status').textContent = 'Checking...';
+            codeCheckTimer = setTimeout(() => checkCodeUnique(code), 500);
+        } else {
+            document.getElementById('code-status').textContent = '';
+        }
+    }
+
+    async function checkCodeUnique(code) {
+        const { data } = await sb.from('hospitals').select('id').eq('code', code).limit(1);
+        const statusEl = document.getElementById('code-status');
+        if (data && data.length > 0) {
+            statusEl.textContent = '⚠ Already in use';
+            statusEl.style.color = '#dc2626';
+        } else {
+            statusEl.textContent = '✓ Available';
+            statusEl.style.color = '#16a34a';
+        }
+    }
+
+    // ---- Status toggle ----
+    function selectStatus(status) {
+        selectedStatus = status;
+        document.getElementById('status-active').className = 'status-opt' + (status === 'active' ? ' selected-active' : '');
+        document.getElementById('status-suspended').className = 'status-opt' + (status === 'suspended' ? ' selected-suspended' : '');
+        const badge = document.getElementById('preview-status-badge');
+        badge.textContent = status.toUpperCase();
+        badge.className = 'preview-badge ' + (status === 'active' ? 'badge-active' : 'badge-suspended');
+    }
+
+    // ---- Preview manager ----
+    function updatePreview() {
+        const sel = document.getElementById('h-manager');
+        const managerName = sel.options[sel.selectedIndex]?.text || 'Not assigned';
+        const el = document.getElementById('preview-manager');
+        el.textContent = managerName === '— None yet —' ? 'Not assigned' : managerName;
+        el.style.color = managerName === '— None yet —' ? '#9ca3af' : '#1a1a2e';
+    }
+    document.getElementById('h-manager').addEventListener('change', updatePreview);
+
+    // ---- Submit ----
+    document.getElementById('create-hospital-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const name = document.getElementById('h-name').value.trim();
+        if (!name) {
+            document.getElementById('field-name').classList.add('has-error');
+            return;
+        }
+        document.getElementById('field-name').classList.remove('has-error');
+
+        const code = generateCode(name);
+        const managerId = document.getElementById('h-manager').value || null;
+        const btn = document.getElementById('submit-btn');
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating...';
+
+        try {
+            // Check code uniqueness
+            const { data: existing } = await sb.from('hospitals').select('id').eq('code', code).limit(1);
+            if (existing && existing.length > 0) {
+                showError(`A hospital with code "${code}" already exists. Please use a different name.`);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-plus"></i> Create hospital';
+                return;
+            }
+
+            const { data: hospital, error } = await sb.from('hospitals')
+                .insert({ name, code, status: selectedStatus, manager_id: managerId, created_by: adminSession.user.id })
+                .select().single();
+
+            if (error) throw error;
+
+            if (managerId && hospital) {
+                await sb.from('profiles').update({ hospital_id: hospital.id }).eq('id', managerId);
+            }
+
+            // Log
+            const { data: adminProfile } = await sb.from('profiles').select('full_name, email').eq('id', adminSession.user.id).single();
+            const adminName = adminProfile?.full_name || adminProfile?.email || 'Admin';
+            await Promise.allSettled([
+                sb.from('admin_audit_log').insert({
+                    admin_id: adminSession.user.id,
+                    module: 'hospitals', action: 'created',
+                    reason: 'Hospital onboarding',
+                    created_at: new Date().toISOString(),
+                }),
+                sb.from('platform_activity').insert({
+                    actor_id: adminSession.user.id,
+                    module: 'hospitals', action: 'created',
+                    description: `${adminName} created hospital "${name}" (${code}).`,
+                    created_at: new Date().toISOString(),
+                }),
+            ]);
+
+            window.location.href = 'index.html?hospital_created=1&hname=' + encodeURIComponent(name) + '&hcode=' + encodeURIComponent(code);
+
+        } catch (err) {
+            showError(err.message);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-plus"></i> Create hospital';
+        }
+    });
+
+    function showError(msg) {
+        document.getElementById('alert-msg').textContent = msg;
+        const box = document.getElementById('alert-box');
+        box.className = 'alert error show';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    </script>
+</body>
+</html>
