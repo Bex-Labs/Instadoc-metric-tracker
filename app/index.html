@@ -207,6 +207,17 @@
                             </div>
                             </div>
                         </div>
+
+                        <!-- My Doctor Summary Card -->
+                        <div id="dashboard-doctor-card" class="card p-6 mb-6" style="display:none;">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="font-bold text-md">My Doctor</h3>
+                                <a href="#" onclick="switchView('my-doctor'); return false;" class="text-green-600 text-sm font-medium link-no-decor">View Details</a>
+                            </div>
+                            <div id="dashboard-doctor-content">
+                                <div class="loading-cell text-xs text-gray-500">Loading...</div>
+                            </div>
+                        </div>
                         <div class="grid-main-layout">
                             <div class="card p-6">
                                 <h3 class="font-bold text-md mb-4">Health Trends - Last 7 Days</h3>
@@ -238,6 +249,20 @@
                                     <div class="alert-icon bg-yellow-500 text-white" id="alert-appt-icon"><i class="fa-regular fa-calendar"></i></div>
                                     <div><h4 class="font-bold text-sm" id="alert-appt-title">Appointment</h4><p class="text-xs text-gray-500" id="alert-appt-text">Checking...</p></div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MY DOCTOR VIEW -->
+                    <div id="view-my-doctor" class="patient-view hidden-view">
+                        <div class="dash-welcome-header mb-6">
+                            <h1 class="text-2xl font-bold text-gray-800">My Doctor</h1>
+                            <p class="text-gray-500 text-sm">Your assigned care provider</p>
+                        </div>
+                        <div id="my-doctor-container">
+                            <div style="text-align:center; padding:3rem 1rem; color:#9ca3af;">
+                                <i class="fa-solid fa-spinner fa-spin" style="font-size:2rem; display:block; margin-bottom:0.75rem;"></i>
+                                <p style="font-size:0.85rem;">Loading...</p>
                             </div>
                         </div>
                     </div>
@@ -903,6 +928,50 @@
         </form>
       </div>
     </div>
+    <!-- Send Message to Doctor Modal -->
+    <div class="modal-overlay" id="send-message-modal">
+        <div class="auth-modal" style="max-width:460px;">
+            <button class="close-modal" onclick="closeModals()">&times;</button>
+            <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.25rem;">
+                <div style="width:44px; height:44px; border-radius:50%; background:#dcfce7;
+                            display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <i class="fa-regular fa-paper-plane" style="color:#16a34a; font-size:1rem;"></i>
+                </div>
+                <div>
+                    <h2 class="modal-title" style="margin:0; font-size:1rem;">Send Message</h2>
+                    <p style="font-size:0.78rem; color:#6b7280; margin:2px 0 0;">To: <strong id="msg-doctor-name">Your Doctor</strong></p>
+                </div>
+            </div>
+            <input type="hidden" id="msg-doctor-id">
+            <div style="margin-bottom:1rem;">
+                <textarea
+                    id="msg-text"
+                    rows="5"
+                    placeholder="Type your message here... e.g. I have a question about my medication, or I'd like to reschedule."
+                    style="width:100%; padding:0.75rem; border:1.5px solid #e5e7eb; border-radius:10px;
+                           font-size:0.85rem; font-family:inherit; resize:vertical; outline:none;
+                           line-height:1.6; color:#1a1a2e;"
+                    onfocus="this.style.borderColor='#2f8f46'"
+                    onblur="this.style.borderColor='#e5e7eb'"
+                ></textarea>
+            </div>
+            <div id="msg-status" style="margin-bottom:0.75rem; min-height:20px;"></div>
+            <button
+                id="msg-send-btn"
+                onclick="sendMessageToDoctor()"
+                style="width:100%; padding:12px; background:#2f8f46; color:#fff; border:none;
+                       border-radius:10px; font-size:0.88rem; font-weight:700; cursor:pointer;
+                       font-family:inherit; display:flex; align-items:center; justify-content:center; gap:6px;"
+                onmouseover="this.style.opacity='0.88'"
+                onmouseout="this.style.opacity='1'">
+                <i class="fa-regular fa-paper-plane"></i> Send Message
+            </button>
+            <p style="font-size:0.72rem; color:#9ca3af; text-align:center; margin-top:0.75rem;">
+                Your message will be reviewed by your doctor. Do not include emergency information here.
+            </p>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="reports-modal"><div class="auth-modal modal-wide overflow-hidden"><button class="close-modal" onclick="closeModals()">&times;</button><h2 class="modal-title">Health History Report</h2><div class="flex justify-between items-center mb-4"><p class="text-sm text-gray-500">Review your history before downloading.</p><select class="chart-select select-bordered"><option>All Time</option><option>Last 30 Days</option><option>Last 7 Days</option></select></div><div class="table-scroll-container"><table class="history-table w-full"><thead class="table-header-sticky"><tr><th class="p-3 text-left text-sm text-gray-500">Date</th><th class="p-3 text-left text-sm text-gray-500">Type</th><th class="p-3 text-left text-sm text-gray-500">Value</th><th class="p-3 text-left text-sm text-gray-500">Action</th></tr></thead><tbody id="report-preview-body"><tr><td colspan="4" class="loading-cell">Loading data...</td></tr></tbody></table></div><div class="modal-footer"><div onclick="exportPDF()" class="export-btn flex-1 justify-center mb-0"><i class="fa-solid fa-file-pdf export-icon mr-2"></i><span>Download PDF</span></div><div onclick="exportCSV()" class="export-btn flex-1 justify-center mb-0"><i class="fa-solid fa-file-csv export-icon mr-2"></i><span>Download CSV</span></div></div></div></div>
     
     <!-- Booking Modal (Doctor Directory) -->

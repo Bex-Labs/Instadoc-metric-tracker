@@ -216,6 +216,11 @@ function setupSidebar() {
                 </a>
             </li>
             <li class="nav-item">
+                <a href="#" class="nav-link" onclick="switchView('my-doctor', this); return false;">
+                    <i class="fa-solid fa-user-doctor"></i><span>My Doctor</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="#" class="nav-link" onclick="switchView('appointments', this); return false;">
                     <i class="fa-regular fa-calendar-check"></i><span>Appointments</span>
                 </a>
@@ -326,6 +331,9 @@ function switchView(viewName, element) {
         }
         if (viewName === 'doctor-invitations') {
             loadDoctorInvitations();
+        }
+        if (viewName === 'my-doctor') {
+            loadMyDoctorView();
         }
     }
 }
@@ -864,10 +872,79 @@ async function loadDashboardData() {
     updateBMI();
     updateChart(currentChartTable);
     loadHistory();
-    loadAppointments(); 
+    loadAppointments();
     countMedicalRecords();
     loadHealthTrends();
-    loadHealthAlerts(); 
+    loadHealthAlerts();
+    loadDashboardDoctorCard();
+}
+
+async function loadDashboardDoctorCard() {
+    if (!currentUser) return;
+    const card    = document.getElementById('dashboard-doctor-card');
+    const content = document.getElementById('dashboard-doctor-content');
+    if (!card || !content) return;
+
+    const { data: assignments } = await supabaseClient
+        .from('doctor_patient_assignments')
+        .select('doctor_id')
+        .eq('patient_id', currentUser.id)
+        .limit(1);
+
+    if (!assignments?.length) return; // hide card if no doctor
+
+    const doctorId = assignments[0].doctor_id;
+
+    const [profileRes, docProfRes, hospitalRes] = await Promise.all([
+        supabaseClient.from('profiles').select('id, full_name').eq('id', doctorId).single(),
+        supabaseClient.from('doctor_profiles').select('specialty, is_verified, is_online').eq('id', doctorId).single(),
+        supabaseClient.from('hospital_doctor_memberships')
+            .select('hospitals(name)')
+            .eq('doctor_id', doctorId)
+            .eq('status', 'active')
+            .limit(1)
+    ]);
+
+    const name      = profileRes.data?.full_name || 'Your Doctor';
+    const specialty = docProfRes.data?.specialty || 'General Practitioner';
+    const isOnline  = !!docProfRes.data?.is_online;
+    const isVerified = !!docProfRes.data?.is_verified;
+    const hospital  = hospitalRes.data?.[0]?.hospitals?.name || '';
+    const initials  = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'DR';
+
+    content.innerHTML = `
+        <div style="display:flex; align-items:center; gap:1rem;">
+            <div style="position:relative; flex-shrink:0;">
+                <div style="width:50px; height:50px; border-radius:50%;
+                            background:linear-gradient(135deg,#2f8f46,#16a34a);
+                            display:flex; align-items:center; justify-content:center;
+                            font-weight:800; color:#fff; font-size:0.95rem;">
+                    ${initials}
+                </div>
+                <div style="position:absolute; bottom:1px; right:1px; width:12px; height:12px;
+                            border-radius:50%; background:${isOnline ? '#22c55e' : '#9ca3af'};
+                            border:2px solid #fff;"></div>
+            </div>
+            <div style="flex:1; min-width:0;">
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                    <span style="font-weight:700; font-size:0.92rem; color:#1a1a2e;">Dr. ${name}</span>
+                    ${isVerified ? '<span style="background:#dbeafe;color:#1d4ed8;font-size:0.62rem;font-weight:700;padding:1px 7px;border-radius:9999px;"><i class="fa-solid fa-shield-halved" style="margin-right:2px;"></i>Verified</span>' : ''}
+                </div>
+                <div style="font-size:0.78rem; color:#6b7280;">${specialty}${hospital ? ' · ' + hospital : ''}</div>
+                <div style="font-size:0.72rem; margin-top:3px; display:flex; align-items:center; gap:4px;">
+                    <span style="width:6px;height:6px;border-radius:50%;background:${isOnline ? '#22c55e' : '#9ca3af'};display:inline-block;"></span>
+                    <span style="color:${isOnline ? '#16a34a' : '#9ca3af'};font-weight:600;">${isOnline ? 'Available Now' : 'Offline'}</span>
+                </div>
+            </div>
+            <button onclick="openSendMessageModal('${doctorId}', '${name.replace(/'/g, "\\'")}')"
+                style="padding:7px 14px; background:#f0fdf4; color:#16a34a; border:1.5px solid #bbf7d0;
+                       border-radius:8px; font-size:0.75rem; font-weight:700; cursor:pointer;
+                       font-family:inherit; white-space:nowrap; display:flex; align-items:center; gap:4px;">
+                <i class="fa-regular fa-paper-plane"></i> Message
+            </button>
+        </div>`;
+
+    card.style.display = 'block';
 }
 
 // Consolidated Patient Appt Logic
@@ -4080,6 +4157,322 @@ async function checkPendingInvitations() {
    Shows patients assigned via doctor_patient_assignments.
    No health data is fetched or shown here.
    ===================================================== */
+/* =====================================================
+   PATIENT: MY DOCTOR VIEW
+   Shows assigned doctor(s) — name, specialty, hospital,
+   online status, schedule, next appointment, and actions.
+   No health data is exposed.
+   ===================================================== */
+async function loadMyDoctorView() {
+    const container = document.getElementById('my-doctor-container');
+    if (!container || !currentUser) return;
+
+    container.innerHTML = `
+        <div style="text-align:center; padding:2.5rem 1rem; color:#9ca3af;">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size:1.8rem; margin-bottom:0.75rem; display:block;"></i>
+            <p style="font-size:0.85rem;">Loading your doctor...</p>
+        </div>`;
+
+    try {
+        // 1. Get assigned doctor IDs for this patient
+        const { data: assignments, error: aErr } = await supabaseClient
+            .from('doctor_patient_assignments')
+            .select('doctor_id, assigned_at')
+            .eq('patient_id', currentUser.id);
+
+        if (aErr) throw aErr;
+
+        if (!assignments?.length) {
+            container.innerHTML = `
+                <div style="text-align:center; padding:4rem 1.5rem; color:#9ca3af;">
+                    <i class="fa-solid fa-user-doctor" style="font-size:3rem; margin-bottom:1rem; display:block; opacity:0.25;"></i>
+                    <h3 style="font-size:1rem; font-weight:700; color:#374151; margin-bottom:0.5rem;">No Doctor Assigned Yet</h3>
+                    <p style="font-size:0.85rem; max-width:320px; margin:0 auto; line-height:1.6;">
+                        Your hospital or care team will assign a doctor to you soon.
+                        In the meantime, you can still book an appointment.
+                    </p>
+                    <button onclick="openModal('booking')"
+                        style="margin-top:1.5rem; padding:10px 24px; background:#2f8f46; color:#fff;
+                               border:none; border-radius:10px; font-size:0.85rem; font-weight:600;
+                               cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fa-regular fa-calendar-plus"></i> Book Appointment
+                    </button>
+                </div>`;
+            return;
+        }
+
+        const doctorIds = assignments.map(a => a.doctor_id);
+
+        // 2. Fetch profiles
+        const { data: profiles } = await supabaseClient
+            .from('profiles')
+            .select('id, full_name, email')
+            .in('id', doctorIds);
+
+        // 3. Fetch doctor_profiles (specialty, schedule, is_verified, is_online)
+        const { data: docProfiles } = await supabaseClient
+            .from('doctor_profiles')
+            .select('id, specialty, is_verified, is_online, schedule')
+            .in('id', doctorIds);
+
+        // 4. Fetch hospital info
+        const { data: memberships } = await supabaseClient
+            .from('hospital_doctor_memberships')
+            .select('doctor_id, hospital_id, hospitals(name, code)')
+            .in('doctor_id', doctorIds)
+            .eq('status', 'active');
+
+        // 5. Fetch next appointment with each doctor
+        const { data: appointments } = await supabaseClient
+            .from('appointments')
+            .select('doctor_id, doctor_name, appointment_date, type, status')
+            .eq('user_id', currentUser.id)
+            .in('status', ['pending', 'confirmed'])
+            .gte('appointment_date', new Date().toISOString())
+            .order('appointment_date', { ascending: true });
+
+        // Build lookup maps
+        const profileMap = {};
+        (profiles || []).forEach(p => profileMap[p.id] = p);
+        const docProfileMap = {};
+        (docProfiles || []).forEach(d => docProfileMap[d.id] = d);
+        const hospitalMap = {};
+        (memberships || []).forEach(m => {
+            if (!hospitalMap[m.doctor_id]) {
+                hospitalMap[m.doctor_id] = m.hospitals;
+            }
+        });
+        const nextApptMap = {};
+        (appointments || []).forEach(a => {
+            if (!nextApptMap[a.doctor_id]) nextApptMap[a.doctor_id] = a;
+        });
+
+        // 6. Render each doctor card
+        container.innerHTML = assignments.map(a => {
+            const profile   = profileMap[a.doctor_id] || {};
+            const docProf   = docProfileMap[a.doctor_id] || {};
+            const hospital  = hospitalMap[a.doctor_id];
+            const nextAppt  = nextApptMap[a.doctor_id];
+
+            const name      = profile.full_name || 'Your Doctor';
+            const specialty = docProf.specialty || 'General Practitioner';
+            const isOnline  = !!docProf.is_online;
+            const isVerified = !!docProf.is_verified;
+            const initials  = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'DR';
+            const schedule  = docProf.schedule || {};
+            const days      = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+            // Schedule pills
+            const schedulePills = days.map(day => {
+                const active = schedule[day]?.active;
+                return `<span style="
+                    padding:3px 9px; border-radius:9999px; font-size:0.68rem; font-weight:600;
+                    background:${active ? '#dcfce7' : '#f3f4f6'};
+                    color:${active ? '#15803d' : '#9ca3af'};
+                    border:1px solid ${active ? '#bbf7d0' : '#e5e7eb'};">
+                    ${day}
+                </span>`;
+            }).join('');
+
+            // Next appointment
+            let nextApptHtml = '';
+            if (nextAppt) {
+                const apptDate = new Date(nextAppt.appointment_date);
+                const dateStr  = apptDate.toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
+                const timeStr  = apptDate.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+                const typeIcon = nextAppt.type?.toLowerCase().includes('video') ? 'fa-video' : 'fa-location-dot';
+                nextApptHtml = `
+                    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px;
+                                padding:0.75rem 1rem; margin-bottom:1rem; display:flex; align-items:center; gap:0.75rem;">
+                        <div style="width:36px; height:36px; border-radius:50%; background:#dcfce7;
+                                    display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <i class="fa-regular fa-calendar-check" style="color:#16a34a; font-size:0.9rem;"></i>
+                        </div>
+                        <div style="flex:1;">
+                            <div style="font-size:0.72rem; color:#6b7280; font-weight:500; text-transform:uppercase; letter-spacing:0.5px;">
+                                Next Appointment
+                            </div>
+                            <div style="font-weight:700; font-size:0.88rem; color:#1a1a2e; margin-top:1px;">
+                                ${dateStr} at ${timeStr}
+                            </div>
+                            <div style="font-size:0.75rem; color:#6b7280; margin-top:1px;">
+                                <i class="fa-solid ${typeIcon}" style="margin-right:4px;"></i>${nextAppt.type || 'Appointment'}
+                                <span style="color:#16a34a; font-weight:600; margin-left:6px; text-transform:capitalize;">${nextAppt.status}</span>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+            return `
+                <div class="card" style="padding:1.5rem; margin-bottom:1.5rem; border-radius:16px;
+                                         box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+                    <!-- Doctor header -->
+                    <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.25rem;">
+                        <div style="position:relative; flex-shrink:0;">
+                            <div style="width:60px; height:60px; border-radius:50%; background:linear-gradient(135deg,#2f8f46,#16a34a);
+                                        display:flex; align-items:center; justify-content:center;
+                                        font-weight:800; color:#fff; font-size:1.1rem;">
+                                ${initials}
+                            </div>
+                            <div style="position:absolute; bottom:1px; right:1px; width:14px; height:14px;
+                                        border-radius:50%; background:${isOnline ? '#22c55e' : '#9ca3af'};
+                                        border:2px solid #fff;" title="${isOnline ? 'Online' : 'Offline'}">
+                            </div>
+                        </div>
+                        <div style="flex:1; min-width:0;">
+                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                <h2 style="font-size:1.05rem; font-weight:800; color:#1a1a2e; margin:0;">
+                                    Dr. ${name}
+                                </h2>
+                                ${isVerified ? `
+                                <span style="display:inline-flex; align-items:center; gap:3px; padding:2px 8px;
+                                             background:#dbeafe; color:#1d4ed8; border-radius:9999px;
+                                             font-size:0.65rem; font-weight:700;">
+                                    <i class="fa-solid fa-shield-halved"></i> Verified
+                                </span>` : ''}
+                            </div>
+                            <div style="font-size:0.82rem; color:#6b7280; margin-top:3px;">${specialty}</div>
+                            ${hospital ? `
+                            <div style="font-size:0.75rem; color:#9ca3af; margin-top:2px; display:flex; align-items:center; gap:4px;">
+                                <i class="fa-solid fa-hospital" style="font-size:0.68rem;"></i>
+                                ${hospital.name}
+                                <span style="font-family:monospace; font-size:0.65rem; color:#3b82f6;
+                                             background:#eff6ff; padding:1px 5px; border-radius:4px;">
+                                    ${hospital.code}
+                                </span>
+                            </div>` : ''}
+                            <div style="font-size:0.72rem; margin-top:4px; display:flex; align-items:center; gap:4px;">
+                                <span style="width:7px; height:7px; border-radius:50%;
+                                             background:${isOnline ? '#22c55e' : '#9ca3af'};
+                                             display:inline-block;"></span>
+                                <span style="color:${isOnline ? '#16a34a' : '#9ca3af'}; font-weight:600;">
+                                    ${isOnline ? 'Available Now' : 'Currently Offline'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Next Appointment -->
+                    ${nextApptHtml || `
+                        <div style="background:#fafafa; border:1px dashed #e5e7eb; border-radius:10px;
+                                    padding:0.75rem 1rem; margin-bottom:1rem; text-align:center;">
+                            <p style="font-size:0.78rem; color:#9ca3af;">
+                                <i class="fa-regular fa-calendar" style="margin-right:5px;"></i>
+                                No upcoming appointment with this doctor
+                            </p>
+                        </div>`}
+
+                    <!-- Availability Schedule -->
+                    <div style="margin-bottom:1.25rem;">
+                        <div style="font-size:0.72rem; font-weight:700; color:#6b7280; text-transform:uppercase;
+                                    letter-spacing:0.5px; margin-bottom:0.5rem;">
+                            <i class="fa-regular fa-clock" style="margin-right:4px;"></i> Weekly Availability
+                        </div>
+                        <div style="display:flex; flex-wrap:wrap; gap:5px;">
+                            ${schedulePills}
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+                        <button onclick="openModal('booking')"
+                            style="flex:1; min-width:140px; padding:10px 16px; background:#2f8f46; color:#fff;
+                                   border:none; border-radius:10px; font-size:0.82rem; font-weight:700;
+                                   cursor:pointer; font-family:inherit; display:flex; align-items:center;
+                                   justify-content:center; gap:6px; transition:opacity 0.15s;"
+                            onmouseover="this.style.opacity='0.88'"
+                            onmouseout="this.style.opacity='1'">
+                            <i class="fa-regular fa-calendar-plus"></i> Book Appointment
+                        </button>
+                        <button onclick="openSendMessageModal('${a.doctor_id}', '${name.replace(/'/g, "\\'")}')"
+                            style="flex:1; min-width:140px; padding:10px 16px; background:#fff; color:#2f8f46;
+                                   border:2px solid #2f8f46; border-radius:10px; font-size:0.82rem; font-weight:700;
+                                   cursor:pointer; font-family:inherit; display:flex; align-items:center;
+                                   justify-content:center; gap:6px; transition:all 0.15s;"
+                            onmouseover="this.style.background='#f0fdf4'"
+                            onmouseout="this.style.background='#fff'">
+                            <i class="fa-regular fa-paper-plane"></i> Send Message
+                        </button>
+                    </div>
+                </div>`;
+        }).join('');
+
+    } catch (err) {
+        console.error('loadMyDoctorView error:', err);
+        container.innerHTML = `
+            <div style="text-align:center; padding:3rem 1rem; color:#dc2626;">
+                <i class="fa-solid fa-circle-xmark" style="font-size:2rem; margin-bottom:0.5rem; display:block;"></i>
+                <p style="font-size:0.85rem;">Error loading doctor info: ${err.message}</p>
+            </div>`;
+    }
+}
+
+/* ---- Send Message Modal ---- */
+function openSendMessageModal(doctorId, doctorName) {
+    document.getElementById('msg-doctor-id').value   = doctorId;
+    document.getElementById('msg-doctor-name').textContent = `Dr. ${doctorName}`;
+    document.getElementById('msg-text').value         = '';
+    document.getElementById('msg-status').innerHTML   = '';
+    openModal('send-message');
+}
+
+async function sendMessageToDoctor() {
+    const doctorId   = document.getElementById('msg-doctor-id').value;
+    const message    = document.getElementById('msg-text').value.trim();
+    const statusEl   = document.getElementById('msg-status');
+    const btn        = document.getElementById('msg-send-btn');
+
+    if (!message) {
+        statusEl.innerHTML = '<span style="color:#dc2626; font-size:0.8rem;">Please type a message.</span>';
+        return;
+    }
+
+    btn.disabled   = true;
+    btn.textContent = 'Sending...';
+
+    try {
+        const { data: profile } = await supabaseClient
+            .from('profiles')
+            .select('full_name, email')
+            .eq('id', currentUser.id)
+            .single();
+
+        const senderName = profile?.full_name || profile?.email || 'Patient';
+
+        const { error } = await supabaseClient
+            .from('tickets')
+            .insert({
+                user_id:     currentUser.id,
+                user:        senderName,
+                subject:     `Message from ${senderName}`,
+                description: message,
+                doctor_id:   doctorId,
+                type:        'patient_message',
+                status:      'open',
+                priority:    'medium',
+                created_at:  new Date().toISOString(),
+                updated_at:  new Date().toISOString(),
+            });
+
+        if (error) throw error;
+
+        statusEl.innerHTML = '<span style="color:#16a34a; font-size:0.82rem;">✅ Message sent! Your doctor will respond soon.</span>';
+        btn.textContent = 'Sent!';
+
+        setTimeout(() => {
+            closeModals();
+            btn.disabled    = false;
+            btn.textContent = 'Send Message';
+        }, 2000);
+
+    } catch (err) {
+        console.error('sendMessageToDoctor error:', err);
+        statusEl.innerHTML = `<span style="color:#dc2626; font-size:0.8rem;">Failed: ${err.message}</span>`;
+        btn.disabled    = false;
+        btn.textContent = 'Send Message';
+    }
+}
+
 async function loadDoctorPatientsTab() {
     const container = document.getElementById('doctor-patients-list');
     if (!container || !currentUser) return;

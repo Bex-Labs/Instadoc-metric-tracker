@@ -648,13 +648,13 @@ async function loadPatients() {
     const container = document.getElementById('patients-list');
     if (!container) return;
 
-    container.innerHTML = '<p style="color:#9ca3af; font-size:0.85rem;">Loading...</p>';
+    container.innerHTML = '<p style="color:#9ca3af; font-size:0.85rem; padding:0.5rem;">Loading...</p>';
 
-    // Only load patients belonging to this hospital
+    // Load ALL patients on the platform so the manager can assign any of them
+    // to their hospital's doctors. Patients don't have hospital_id set on signup.
     const { data: patients, error } = await sb
         .from('profiles')
         .select('id, full_name, email, status, created_at')
-        .eq('hospital_id', currentHospital.id)
         .eq('role', 'patient')
         .is('deleted_at', null)
         .order('full_name', { ascending: true });
@@ -683,7 +683,7 @@ function renderPatients() {
         container.innerHTML = `
             <div style="text-align:center; padding:2.5rem 1rem; color:#9ca3af;">
                 <i class="fa-solid fa-users" style="font-size:2rem; margin-bottom:0.75rem; display:block;"></i>
-                <p style="font-size:0.88rem;">${allPatients.length === 0 ? 'No patients registered at this hospital yet.' : 'No patients match your search.'}</p>
+                <p style="font-size:0.88rem;">${allPatients.length === 0 ? 'No patients found on the platform yet.' : 'No patients match your search.'}</p>
             </div>`;
         return;
     }

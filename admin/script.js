@@ -3298,16 +3298,29 @@ async function openInviteDoctorModal(hospitalId, hospitalName) {
     $('inviteDoctorList').innerHTML = '<p style="padding:12px; color:#9ca3af; font-size:0.85rem;">Loading doctors...</p>';
     show($('inviteDoctorModal'));
 
-    // Load all verified doctors
-    const { data: doctors, error } = await supabaseClient
-        .from('doctor_profiles')
-        .select('id, full_name, specialty, is_verified')
-        .eq('is_verified', true);
+    // Query ALL doctors from profiles (not doctor_profiles)
+    // so doctors who haven't completed their profile still appear
+    const { data: doctorProfiles, error } = await supabaseClient
+        .from('profiles')
+        .select('id, full_name, email, status')
+        .eq('role', 'doctor')
+        .is('deleted_at', null)
+        .order('full_name');
 
-    if (error || !doctors) {
+    if (error || !doctorProfiles) {
         $('inviteDoctorList').innerHTML = '<p style="padding:12px; color:#dc2626; font-size:0.85rem;">Error loading doctors.</p>';
         return;
     }
+
+    // Fetch verification status separately
+    const doctorIds = doctorProfiles.map(d => d.id);
+    const { data: docProfs } = await supabaseClient
+        .from('doctor_profiles')
+        .select('id, specialty, is_verified')
+        .in('id', doctorIds);
+
+    const docProfMap = {};
+    (docProfs || []).forEach(d => docProfMap[d.id] = d);
 
     // Get existing memberships for this hospital to avoid duplicate invites
     const { data: existing } = await supabaseClient
@@ -3318,7 +3331,13 @@ async function openInviteDoctorModal(hospitalId, hospitalName) {
     const existingMap = {};
     (existing || []).forEach(m => existingMap[m.doctor_id] = m.status);
 
-    _inviteDoctorList = doctors.map(d => ({ ...d, existingStatus: existingMap[d.id] || null }));
+    _inviteDoctorList = doctorProfiles.map(d => ({
+        ...d,
+        specialty: docProfMap[d.id]?.specialty || 'General',
+        is_verified: !!docProfMap[d.id]?.is_verified,
+        existingStatus: existingMap[d.id] || null
+    }));
+
     renderInviteDoctorList();
 }
 
@@ -3331,33 +3350,64 @@ function renderInviteDoctorList() {
     const list = _inviteDoctorList.filter(d =>
         !term ||
         (d.full_name || '').toLowerCase().includes(term) ||
-        (d.specialty || '').toLowerCase().includes(term)
+        (d.specialty || '').toLowerCase().includes(term) ||
+        (d.email || '').toLowerCase().includes(term)
     );
 
     if (!list.length) {
-        $('inviteDoctorList').innerHTML = '<p style="padding:12px; color:#9ca3af; font-size:0.85rem;">No doctors found.</p>';
+        $('inviteDoctorList').innerHTML = `
+            <div style="text-align:center; padding:2rem 1rem; color:#9ca3af;">
+                <i class="fa-solid fa-magnifying-glass" style="font-size:1.5rem; margin-bottom:0.5rem; display:block; opacity:0.4;"></i>
+                <p style="font-size:0.82rem;">No doctors found.</p>
+            </div>`;
         return;
     }
 
     $('inviteDoctorList').innerHTML = list.map(d => {
+        const initials = (d.full_name || 'D').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+        const verifiedBadge = d.is_verified
+            ? '<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;background:#dbeafe;color:#1d4ed8;border-radius:9999px;font-size:0.62rem;font-weight:700;"><i class="fa-solid fa-shield-halved"></i> Verified</span>'
+            : '<span style="padding:1px 6px;background:#f3f4f6;color:#9ca3af;border-radius:9999px;font-size:0.62rem;font-weight:700;">Unverified</span>';
+
         let actionHtml = '';
         if (d.existingStatus === 'active') {
-            actionHtml = '<span style="padding:4px 10px; background:#dcfce7; color:#15803d; border-radius:9999px; font-size:0.72rem; font-weight:700;">MEMBER</span>';
+            actionHtml = '<span style="padding:4px 10px;background:#dcfce7;color:#15803d;border-radius:9999px;font-size:0.72rem;font-weight:700;white-space:nowrap;"><i class="fa-solid fa-check" style="margin-right:3px;"></i>Member</span>';
         } else if (d.existingStatus === 'pending') {
-            actionHtml = '<span style="padding:4px 10px; background:#fef9c3; color:#ca8a04; border-radius:9999px; font-size:0.72rem; font-weight:700;">INVITED</span>';
+            actionHtml = '<span style="padding:4px 10px;background:#fef9c3;color:#ca8a04;border-radius:9999px;font-size:0.72rem;font-weight:700;white-space:nowrap;"><i class="fa-solid fa-clock" style="margin-right:3px;"></i>Invited</span>';
         } else {
-            actionHtml = `<button onclick="sendDoctorInvite('${d.id}', '${escapeHtml(d.full_name)}')" style="padding:5px 14px; background:#2563eb; color:#fff; border:none; border-radius:7px; font-size:0.8rem; font-weight:600; cursor:pointer;">Invite</button>`;
+            actionHtml = `<button onclick="sendDoctorInvite('${d.id}', '${escapeHtml(d.full_name)}')"
+                style="padding:5px 14px;background:#2563eb;color:#fff;border:none;border-radius:7px;
+                       font-size:0.78rem;font-weight:600;cursor:pointer;white-space:nowrap;
+                       display:inline-flex;align-items:center;gap:4px;"
+                onmouseover="this.style.opacity='0.85'"
+                onmouseout="this.style.opacity='1'">
+                <i class="fa-solid fa-paper-plane"></i> Invite
+            </button>`;
         }
 
         return `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.7rem 0.85rem; border-bottom:1px solid #f3f4f6;">
-                <div>
-                    <div style="font-weight:600; font-size:0.9rem;">${escapeHtml(d.full_name || 'Doctor')}</div>
-                    <div style="font-size:0.75rem; color:#6b7280;">${escapeHtml(d.specialty || 'General')}</div>
+            <div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;
+                        border-bottom:1px solid #f3f4f6;transition:background 0.12s;"
+                 onmouseover="this.style.background='#f9fafb'"
+                 onmouseout="this.style.background=''">
+                <div style="width:36px;height:36px;border-radius:50%;background:#dbeafe;
+                            display:flex;align-items:center;justify-content:center;
+                            font-weight:700;color:#2563eb;font-size:0.78rem;flex-shrink:0;">
+                    ${initials}
                 </div>
-                ${actionHtml}
-            </div>
-        `;
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+                        <span style="font-weight:600;font-size:0.85rem;color:#1a1a2e;">
+                            ${escapeHtml(d.full_name || 'Doctor')}
+                        </span>
+                        ${verifiedBadge}
+                    </div>
+                    <div style="font-size:0.72rem;color:#6b7280;margin-top:1px;">
+                        ${escapeHtml(d.specialty || 'General')}
+                    </div>
+                </div>
+                <div style="flex-shrink:0;">${actionHtml}</div>
+            </div>`;
     }).join('');
 }
 
