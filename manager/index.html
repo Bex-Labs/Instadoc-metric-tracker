@@ -300,6 +300,9 @@
             <button class="nav-item" onclick="switchView('appointments', this)">
                 <i class="fa-regular fa-calendar-check"></i> Appointments
             </button>
+            <button class="nav-item" onclick="switchView('patients', this)">
+                <i class="fa-solid fa-users"></i> Patients
+            </button>
         </div>
     </aside>
 
@@ -439,6 +442,30 @@
             </div>
         </div>
 
+        <!-- ======================== PATIENTS ======================== -->
+        <div class="view" id="view-patients">
+            <div class="page-header">
+                <h1>Patients</h1>
+                <p>Assign patients at your hospital to doctors. No health data is shown here.</p>
+            </div>
+
+            <div class="card">
+                <div style="display:flex; gap:10px; margin-bottom:1rem; flex-wrap:wrap; align-items:center;">
+                    <input
+                        type="text"
+                        id="patient-search-input"
+                        placeholder="Search patients by name or email..."
+                        oninput="filterPatients()"
+                        style="padding:7px 12px; border:1.5px solid #e5e7eb; border-radius:8px;
+                               font-size:0.82rem; width:280px; font-family:'Poppins',sans-serif; outline:none;"
+                    />
+                </div>
+                <div id="patients-list">
+                    <p class="empty"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading...</p>
+                </div>
+            </div>
+        </div>
+
     </main>
 </div>
 
@@ -489,6 +516,19 @@
         <div class="modal-title" id="schedule-modal-name">Dr. Name</div>
         <div class="modal-sub" id="schedule-modal-specialty"></div>
         <div class="schedule-grid" id="schedule-modal-grid"></div>
+    </div>
+</div>
+
+<!-- Assign Patient to Doctor Modal -->
+<div class="modal-overlay" id="assign-patient-to-doctor-modal">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('assign-patient-to-doctor-modal')">×</button>
+        <div class="modal-title" id="assign-patient-modal-title">Assign Doctor to Patient</div>
+        <div class="modal-sub">Select an active doctor from your hospital.</div>
+        <div id="assign-doctor-picker"
+             style="max-height:320px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:8px;">
+        </div>
+        <div id="assign-patient-status" style="margin-top:10px; font-size:0.82rem;"></div>
     </div>
 </div>
 

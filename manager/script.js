@@ -14,6 +14,8 @@ let currentHospital = null; // { id, name, code }
 let allDoctors    = [];
 let allAppointments = [];
 let existingDoctorPickerList = [];
+let allPatients   = []; // patients belonging to this hospital
+let selectedAssignDoctorId = null; // for patient assignment modal
 
 /* =====================================================
    BOOT
@@ -92,6 +94,7 @@ async function boot() {
         loadAppointments(),
         loadStats(),
         loadInvitations(),
+        loadPatients(),
     ]);
 }
 
@@ -107,6 +110,7 @@ function switchView(name, btn) {
     if (name === 'schedules') renderSchedules();
     if (name === 'appointments') renderAppointments();
     if (name === 'invitations') loadInvitations();
+    if (name === 'patients') loadPatients();
 }
 
 /* =====================================================
@@ -419,19 +423,39 @@ function renderOnlineDoctors() {
 
 /* =====================================================
    INVITATIONS
+   FIX: Fetch profiles separately instead of relying on
+   the foreign key join which fails under RLS constraints.
    ===================================================== */
 async function loadInvitations() {
     const tbody = document.getElementById('invitations-table-body');
     tbody.innerHTML = `<tr><td colspan="4" class="empty">Loading...</td></tr>`;
 
-    // Hospital doctor memberships (existing doctor invites)
-    const { data: memberships } = await sb.from('hospital_doctor_memberships')
-        .select('doctor_id, status, invited_at, profiles(full_name, email)')
+    // 1. Fetch memberships (without the broken join)
+    const { data: memberships, error: memErr } = await sb
+        .from('hospital_doctor_memberships')
+        .select('doctor_id, status, invited_at')
         .eq('hospital_id', currentHospital.id)
         .order('invited_at', { ascending: false });
 
-    // New doctor invites (invite links)
-    const { data: linkInvites } = await sb.from('doctor_invites')
+    if (memErr) {
+        tbody.innerHTML = `<tr><td colspan="4" class="empty" style="color:#dc2626;">Error loading invitations: ${esc(memErr.message)}</td></tr>`;
+        return;
+    }
+
+    // 2. Fetch profiles for all doctor_ids separately (avoids RLS join issues)
+    const doctorIds = (memberships || []).map(m => m.doctor_id).filter(Boolean);
+    let profileMap = {};
+    if (doctorIds.length) {
+        const { data: profiles } = await sb
+            .from('profiles')
+            .select('id, full_name, email')
+            .in('id', doctorIds);
+        (profiles || []).forEach(p => { profileMap[p.id] = p; });
+    }
+
+    // 3. Fetch new doctor invite links
+    const { data: linkInvites } = await sb
+        .from('doctor_invites')
         .select('email, created_at, expires_at, used_at')
         .eq('hospital_id', currentHospital.id)
         .order('created_at', { ascending: false });
@@ -439,14 +463,21 @@ async function loadInvitations() {
     const rows = [];
 
     (memberships || []).forEach(m => {
-        const name = m.profiles?.full_name || m.profiles?.email || 'Unknown';
+        const profile = profileMap[m.doctor_id];
+        const name  = profile?.full_name || profile?.email || 'Unknown Doctor';
+        const email = profile?.email || '';
+
         const statusBadge = m.status === 'active'
             ? '<span class="badge badge-green">Accepted</span>'
             : m.status === 'pending'
             ? '<span class="badge badge-yellow">Pending</span>'
             : '<span class="badge badge-gray">Declined/Removed</span>';
+
         rows.push(`<tr>
-            <td><strong>${esc(name)}</strong><div style="font-size:0.75rem;color:#9ca3af;">${esc(m.profiles?.email || '')}</div></td>
+            <td>
+                <strong>${esc(name)}</strong>
+                <div style="font-size:0.75rem;color:#9ca3af;">${esc(email)}</div>
+            </td>
             <td><span class="badge badge-blue">Existing Doctor</span></td>
             <td>${statusBadge}</td>
             <td style="font-size:0.78rem;color:#9ca3af;">${m.invited_at ? formatDate(m.invited_at) : '—'}</td>
@@ -460,6 +491,7 @@ async function loadInvitations() {
             : expired
             ? '<span class="badge badge-red">Expired</span>'
             : '<span class="badge badge-yellow">Pending</span>';
+
         rows.push(`<tr>
             <td><strong>${esc(i.email)}</strong></td>
             <td><span class="badge badge-gray">New Doctor Link</span></td>
@@ -557,6 +589,7 @@ async function sendExistingInvite(doctorId, doctorName) {
     });
 
     await loadStats();
+    await loadInvitations(); // Refresh invitations table immediately
 }
 
 /* =====================================================
@@ -605,6 +638,156 @@ function copyInviteLink() {
     const input = document.getElementById('invite-link-input');
     input.select();
     navigator.clipboard.writeText(input.value).then(() => showToast('Link copied!', 'success'));
+}
+
+/* =====================================================
+   PATIENTS — View & Assign to Doctors
+   No health data is ever loaded or displayed here.
+   ===================================================== */
+async function loadPatients() {
+    const container = document.getElementById('patients-list');
+    if (!container) return;
+
+    container.innerHTML = '<p style="color:#9ca3af; font-size:0.85rem;">Loading...</p>';
+
+    // Only load patients belonging to this hospital
+    const { data: patients, error } = await sb
+        .from('profiles')
+        .select('id, full_name, email, status, created_at')
+        .eq('hospital_id', currentHospital.id)
+        .eq('role', 'patient')
+        .is('deleted_at', null)
+        .order('full_name', { ascending: true });
+
+    if (error) {
+        container.innerHTML = `<p style="color:#dc2626; font-size:0.85rem;">Error loading patients: ${esc(error.message)}</p>`;
+        return;
+    }
+
+    allPatients = patients || [];
+    renderPatients();
+}
+
+function renderPatients() {
+    const container = document.getElementById('patients-list');
+    if (!container) return;
+
+    const search = (document.getElementById('patient-search-input')?.value || '').toLowerCase();
+    const list = allPatients.filter(p =>
+        !search ||
+        (p.full_name || '').toLowerCase().includes(search) ||
+        (p.email || '').toLowerCase().includes(search)
+    );
+
+    if (!list.length) {
+        container.innerHTML = `
+            <div style="text-align:center; padding:2.5rem 1rem; color:#9ca3af;">
+                <i class="fa-solid fa-users" style="font-size:2rem; margin-bottom:0.75rem; display:block;"></i>
+                <p style="font-size:0.88rem;">${allPatients.length === 0 ? 'No patients registered at this hospital yet.' : 'No patients match your search.'}</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = list.map(p => `
+        <div style="display:flex; justify-content:space-between; align-items:center;
+                    padding:0.85rem 1rem; border-bottom:1px solid #f3f4f6;">
+            <div>
+                <div style="font-weight:600; font-size:0.9rem;">${esc(p.full_name || 'Patient')}</div>
+                <div style="font-size:0.75rem; color:#6b7280;">${esc(p.email || '')}</div>
+            </div>
+            <button
+                onclick="openAssignPatientToDoctorModal('${p.id}', '${esc(p.full_name || 'Patient')}')"
+                style="padding:5px 14px; background:#2563eb; color:#fff; border:none;
+                       border-radius:7px; font-size:0.8rem; font-weight:600; cursor:pointer;">
+                <i class="fa-solid fa-user-doctor"></i> Assign Doctor
+            </button>
+        </div>
+    `).join('');
+}
+
+function filterPatients() { renderPatients(); }
+
+/* ---- Assign Patient to Doctor Modal ---- */
+async function openAssignPatientToDoctorModal(patientId, patientName) {
+    // Only active doctors in this hospital can be assigned
+    const activeDoctors = allDoctors.filter(d => d.membership_status === 'active');
+
+    document.getElementById('assign-patient-modal-title').textContent = `Assign Doctor to ${patientName}`;
+    document.getElementById('assign-patient-status').innerHTML = '';
+
+    const pickerEl = document.getElementById('assign-doctor-picker');
+
+    if (!activeDoctors.length) {
+        pickerEl.innerHTML = '<p style="padding:12px; color:#9ca3af; font-size:0.82rem;">No active doctors in your hospital yet. Invite a doctor first.</p>';
+        openModal('assign-patient-to-doctor-modal');
+        return;
+    }
+
+    // Fetch existing assignments for this patient so we can show current state
+    const { data: existing } = await sb
+        .from('doctor_patient_assignments')
+        .select('doctor_id')
+        .eq('patient_id', patientId);
+
+    const assignedDoctorIds = new Set((existing || []).map(a => a.doctor_id));
+
+    pickerEl.innerHTML = activeDoctors.map(d => {
+        const isAssigned = assignedDoctorIds.has(d.id);
+        const actionBtn = isAssigned
+            ? `<span style="padding:4px 10px; background:#dcfce7; color:#15803d; border-radius:9999px; font-size:0.72rem; font-weight:700;">Assigned</span>`
+            : `<button onclick="assignPatientToDoctor('${patientId}', '${d.id}', '${esc(patientName)}', '${esc(d.full_name || 'Doctor')}')"
+                      style="padding:5px 14px; background:#16a34a; color:#fff; border:none;
+                             border-radius:7px; font-size:0.78rem; font-weight:600; cursor:pointer;">
+                   Assign
+               </button>`;
+
+        return `
+            <div style="display:flex; justify-content:space-between; align-items:center;
+                        padding:0.65rem 0.85rem; border-bottom:1px solid #f3f4f6;">
+                <div>
+                    <div style="font-weight:600; font-size:0.88rem;">${esc(d.full_name || 'Doctor')}</div>
+                    <div style="font-size:0.75rem; color:#6b7280;">${esc(d.specialty || 'General')}</div>
+                </div>
+                ${actionBtn}
+            </div>`;
+    }).join('');
+
+    openModal('assign-patient-to-doctor-modal');
+}
+
+async function assignPatientToDoctor(patientId, doctorId, patientName, doctorName) {
+    const { error } = await sb
+        .from('doctor_patient_assignments')
+        .insert({
+            doctor_id: doctorId,
+            patient_id: patientId,
+            assigned_by: currentUser.id,
+            assigned_at: new Date().toISOString(),
+        });
+
+    if (error) {
+        document.getElementById('assign-patient-status').innerHTML =
+            `<span style="color:#dc2626; font-size:0.82rem;">Failed: ${esc(error.message)}</span>`;
+        return;
+    }
+
+    // Log activity
+    await sb.from('platform_activity').insert({
+        module: 'hospitals',
+        action: 'assigned_patient',
+        actor_id: currentUser.id,
+        description: `${currentUser.profile.full_name || 'Manager'} assigned ${patientName} to Dr. ${doctorName} at ${currentHospital.name}.`,
+        created_at: new Date().toISOString()
+    });
+
+    showToast(`${patientName} assigned to Dr. ${doctorName}!`, 'success');
+    document.getElementById('assign-patient-status').innerHTML =
+        `<span style="color:#16a34a; font-size:0.82rem;">✅ ${esc(patientName)} assigned to Dr. ${esc(doctorName)}.</span>`;
+
+    // Refresh the picker to show updated state
+    const titleEl = document.getElementById('assign-patient-modal-title');
+    const name = titleEl.textContent.replace('Assign Doctor to ', '');
+    await openAssignPatientToDoctorModal(patientId, name);
 }
 
 /* =====================================================

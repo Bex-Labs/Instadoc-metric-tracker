@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assign Patients — Instadoc Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Poppins', sans-serif; background: #f8fafc; color: #1a1a2e; min-height: 100vh; }
+
+        /* ---- TOPBAR ---- */
+        .topbar {
+            background: #fff; border-bottom: 1px solid #e5e7eb;
+            padding: 0 2rem; height: 58px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 1rem; }
+        .logo { font-size: 1.15rem; font-weight: 700; color: #1a1a2e; text-decoration: none; }
+        .logo span { color: #2f8f46; }
+        .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6b7280; }
+        .breadcrumb a { color: #6b7280; text-decoration: none; }
+        .breadcrumb a:hover { color: #2f8f46; }
+        .breadcrumb .sep { color: #d1d5db; }
+        .breadcrumb .current { color: #1a1a2e; font-weight: 500; }
+        .btn-back {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border: 1px solid #e5e7eb;
+            border-radius: 8px; background: #fff; color: #374151;
+            font-size: 13px; font-weight: 500; cursor: pointer;
+            font-family: 'Poppins', sans-serif; text-decoration: none;
+            transition: all 0.15s;
+        }
+        .btn-back:hover { background: #f9fafb; border-color: #d1d5db; }
+
+        /* ---- PAGE ---- */
+        .page { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+        .page-header { margin-bottom: 1.75rem; }
+        .page-header h1 { font-size: 1.4rem; font-weight: 700; color: #1a1a2e; }
+        .page-header p { font-size: 13px; color: #6b7280; margin-top: 4px; }
+
+        /* ---- TWO COLUMN LAYOUT ---- */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+        @media (max-width: 768px) {
+            .two-col { grid-template-columns: 1fr; }
+        }
+
+        /* ---- PANEL CARD ---- */
+        .panel {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            overflow: hidden;
+            position: sticky;
+            top: 78px;
+        }
+        .panel-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+        .panel-title {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #1a1a2e;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .panel-title i { color: #6b7280; font-size: 0.85rem; }
+        .panel-search {
+            width: 100%;
+            padding: 7px 12px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-family: 'Poppins', sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+            background: #fafafa;
+        }
+        .panel-search:focus { border-color: #2f8f46; background: #fff; }
+        .panel-search-wrap {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .panel-list {
+            max-height: calc(100vh - 260px);
+            overflow-y: auto;
+        }
+
+        /* ---- LIST ITEMS ---- */
+        .list-item {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            padding: 0.85rem 1.1rem;
+            border-bottom: 1px solid #f3f4f6;
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        .list-item:last-child { border-bottom: none; }
+        .list-item:hover { background: #f9fafb; }
+        .list-item.selected { background: #f0fdf4; border-left: 3px solid #2f8f46; }
+        .list-item.assigned-item { background: #f0fdf4; }
+
+        .avatar {
+            width: 38px; height: 38px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.8rem; flex-shrink: 0;
+        }
+        .avatar-blue { background: #dbeafe; color: #2563eb; }
+        .avatar-green { background: #dcfce7; color: #16a34a; }
+        .avatar-purple { background: #ede9fe; color: #7c3aed; }
+
+        .item-info { flex: 1; min-width: 0; }
+        .item-name {
+            font-weight: 600; font-size: 0.85rem; color: #1a1a2e;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .item-sub { font-size: 0.72rem; color: #6b7280; margin-top: 1px; }
+
+        .item-action { flex-shrink: 0; }
+
+        /* ---- BADGES ---- */
+        .badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 2px 9px; border-radius: 9999px;
+            font-size: 0.7rem; font-weight: 700;
+        }
+        .badge-green { background: #dcfce7; color: #15803d; }
+        .badge-yellow { background: #fef9c3; color: #a16207; }
+        .badge-gray { background: #f3f4f6; color: #6b7280; }
+        .badge-blue { background: #dbeafe; color: #1d4ed8; }
+
+        /* ---- BUTTONS ---- */
+        .btn {
+            padding: 5px 14px; border-radius: 7px; font-size: 0.78rem;
+            font-weight: 600; cursor: pointer; border: none;
+            font-family: 'Poppins', sans-serif; transition: opacity 0.15s;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-assign { background: #2f8f46; color: #fff; }
+        .btn-unassign { background: #fff; color: #dc2626; border: 1.5px solid #fca5a5; }
+        .btn-unassign:hover { background: #fef2f2; opacity: 1; }
+
+        /* ---- SELECTED DOCTOR BANNER ---- */
+        .selected-doctor-banner {
+            display: none;
+            background: linear-gradient(135deg, #f0fdf4, #eff6ff);
+            border: 1px solid #bbf7d0;
+            border-radius: 10px;
+            padding: 0.85rem 1.1rem;
+            margin-bottom: 1.25rem;
+            align-items: center;
+            gap: 0.85rem;
+        }
+        .selected-doctor-banner.visible { display: flex; }
+        .selected-doctor-banner .sdb-avatar {
+            width: 44px; height: 44px; border-radius: 50%;
+            background: #dcfce7; color: #16a34a;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.88rem; flex-shrink: 0;
+        }
+        .selected-doctor-banner .sdb-info { flex: 1; }
+        .selected-doctor-banner .sdb-name { font-weight: 700; font-size: 0.9rem; color: #1a1a2e; }
+        .selected-doctor-banner .sdb-sub { font-size: 0.75rem; color: #6b7280; margin-top: 2px; }
+        .selected-doctor-banner .sdb-count {
+            font-size: 0.72rem; font-weight: 700;
+            background: #dcfce7; color: #15803d;
+            padding: 3px 10px; border-radius: 9999px;
+        }
+
+        /* ---- EMPTY STATE ---- */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: #9ca3af;
+        }
+        .empty-state i { font-size: 2.5rem; margin-bottom: 0.75rem; display: block; opacity: 0.4; }
+        .empty-state p { font-size: 0.85rem; }
+        .empty-state .hint { font-size: 0.75rem; margin-top: 0.3rem; }
+
+        /* ---- TOAST ---- */
+        #toast {
+            position: fixed; bottom: 1.5rem; right: 1.5rem;
+            padding: 0.75rem 1.25rem; border-radius: 10px;
+            font-size: 0.85rem; font-weight: 600; color: #fff;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            transform: translateY(80px); opacity: 0;
+            transition: all 0.3s; z-index: 9999;
+            display: flex; align-items: center; gap: 8px;
+        }
+        #toast.show { transform: translateY(0); opacity: 1; }
+        #toast.success { background: #16a34a; }
+        #toast.error { background: #dc2626; }
+        #toast.info { background: #2563eb; }
+
+        /* ---- LOADING ---- */
+        .loading-row {
+            padding: 1.5rem; text-align: center;
+            color: #9ca3af; font-size: 0.82rem;
+        }
+        .spinner-sm {
+            display: inline-block; width: 14px; height: 14px;
+            border: 2px solid #e5e7eb; border-top-color: #2f8f46;
+            border-radius: 50%; animation: spin 0.6s linear infinite;
+            margin-right: 6px; vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ---- COUNT PILL ---- */
+        .count-pill {
+            background: #f3f4f6; color: #6b7280;
+            font-size: 0.68rem; font-weight: 700;
+            padding: 1px 7px; border-radius: 9999px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+    <div class="topbar-left">
+        <a href="index.html" class="logo">Insta<span>doc</span></a>
+        <div class="breadcrumb">
+            <a href="index.html">Dashboard</a>
+            <span class="sep">/</span>
+            <a href="index.html#doctors">Doctor Workflows</a>
+            <span class="sep">/</span>
+            <span class="current">Assign Patients</span>
+        </div>
+    </div>
+    <a href="index.html" class="btn-back">
+        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+
+<!-- Page -->
+<div class="page">
+    <div class="page-header">
+        <h1><i class="fa-solid fa-user-plus" style="color:#2f8f46; margin-right:8px;"></i>Assign Patients to Doctors</h1>
+        <p>Select a doctor on the left, then assign patients from the right panel. No health data is shown here.</p>
+    </div>
+
+    <!-- Selected Doctor Banner -->
+    <div class="selected-doctor-banner" id="selected-banner">
+        <div class="sdb-avatar" id="banner-avatar">?</div>
+        <div class="sdb-info">
+            <div class="sdb-name" id="banner-name">—</div>
+            <div class="sdb-sub" id="banner-sub">Select a doctor to start assigning patients</div>
+        </div>
+        <span class="sdb-count" id="banner-count">0 assigned</span>
+    </div>
+
+    <!-- Two column layout -->
+    <div class="two-col">
+
+        <!-- LEFT: Doctors -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="fa-solid fa-user-doctor"></i> Doctors
+                </div>
+                <span class="count-pill" id="doctor-count-pill">—</span>
+            </div>
+            <div class="panel-search-wrap">
+                <input
+                    type="text"
+                    class="panel-search"
+                    id="doctor-search"
+                    placeholder="Search doctors..."
+                    oninput="filterDoctors()"
+                />
+            </div>
+            <div class="panel-list" id="doctor-list">
+                <div class="loading-row"><span class="spinner-sm"></span> Loading doctors...</div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Patients -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="fa-solid fa-users"></i> Patients
+                </div>
+                <span class="count-pill" id="patient-count-pill">—</span>
+            </div>
+            <div class="panel-search-wrap">
+                <input
+                    type="text"
+                    class="panel-search"
+                    id="patient-search"
+                    placeholder="Search patients..."
+                    oninput="filterPatients()"
+                />
+            </div>
+            <div class="panel-list" id="patient-list">
+                <div class="empty-state">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <p>Select a doctor first</p>
+                    <p class="hint">Patient assignment options will appear here</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+    const SB_URL = 'https://ioaqlcltvakuqqehkyor.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvYXFsY2x0dmFrdXFxZWhreW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNTk1MzksImV4cCI6MjA4MTczNTUzOX0._7ISJbfJzryBJWmtRuN72F-JZpYdvJxsltwwhombPtE';
+    const sb = window.supabase.createClient(SB_URL, SB_KEY);
+
+    // ---- State ----
+    let allDoctors    = [];
+    let allPatients   = [];
+    let assignments   = []; // { doctor_id, patient_id, id }
+    let selectedDoctor = null;
+    let adminUser     = null;
+
+    // ---- Boot ----
+    (async () => {
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) { window.location.href = 'index.html'; return; }
+        const { data: profile } = await sb.from('profiles').select('role, full_name').eq('id', session.user.id).single();
+        if (profile?.role !== 'admin') { window.location.href = 'index.html'; return; }
+        adminUser = session.user;
+
+        await Promise.all([loadDoctors(), loadPatients(), loadAllAssignments()]);
+
+        // Auto-select doctor if passed via URL param
+        const params = new URLSearchParams(window.location.search);
+        const preselectedId = params.get('doctor');
+        if (preselectedId) {
+            await selectDoctor(preselectedId);
+        }
+    })();
+
+    // ---- Load doctors ----
+    async function loadDoctors() {
+        const { data: profiles } = await sb.from('profiles')
+            .select('id, full_name, email, status')
+            .eq('role', 'doctor')
+            .is('deleted_at', null)
+            .order('full_name');
+
+        const { data: docProfiles } = await sb.from('doctor_profiles')
+            .select('id, specialty, is_verified');
+
+        const docMap = {};
+        (docProfiles || []).forEach(d => docMap[d.id] = d);
+
+        allDoctors = (profiles || []).map(p => ({
+            ...p,
+            specialty: docMap[p.id]?.specialty || 'General',
+            is_verified: !!docMap[p.id]?.is_verified
+        }));
+
+        document.getElementById('doctor-count-pill').textContent = allDoctors.length;
+        renderDoctors();
+    }
+
+    function renderDoctors() {
+        const list = document.getElementById('doctor-list');
+        const term = (document.getElementById('doctor-search')?.value || '').toLowerCase();
+
+        const filtered = allDoctors.filter(d =>
+            !term ||
+            (d.full_name || '').toLowerCase().includes(term) ||
+            (d.email || '').toLowerCase().includes(term) ||
+            (d.specialty || '').toLowerCase().includes(term)
+        );
+
+        if (!filtered.length) {
+            list.innerHTML = `<div class="empty-state">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <p>No doctors found</p>
+            </div>`;
+            return;
+        }
+
+        list.innerHTML = filtered.map(d => {
+            const initials = getInitials(d.full_name);
+            const isSelected = selectedDoctor?.id === d.id;
+            const assignedCount = assignments.filter(a => a.doctor_id === d.id).length;
+
+            return `
+                <div class="list-item ${isSelected ? 'selected' : ''}"
+                     onclick="selectDoctor('${d.id}')">
+                    <div class="avatar avatar-blue">${initials}</div>
+                    <div class="item-info">
+                        <div class="item-name">${esc(d.full_name || 'Doctor')}</div>
+                        <div class="item-sub">
+                            ${esc(d.specialty)}
+                            ${d.is_verified ? ' · <span style="color:#16a34a;">✓ Verified</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="item-action">
+                        ${assignedCount > 0
+                            ? `<span class="badge badge-green">${assignedCount} patient${assignedCount > 1 ? 's' : ''}</span>`
+                            : `<span class="badge badge-gray">0 patients</span>`
+                        }
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    function filterDoctors() { renderDoctors(); }
+
+    // ---- Select doctor ----
+    async function selectDoctor(doctorId) {
+        selectedDoctor = allDoctors.find(d => d.id === doctorId);
+        if (!selectedDoctor) return;
+
+        // Update banner
+        const banner = document.getElementById('selected-banner');
+        banner.classList.add('visible');
+        document.getElementById('banner-avatar').textContent = getInitials(selectedDoctor.full_name);
+        document.getElementById('banner-name').textContent = selectedDoctor.full_name || 'Doctor';
+        document.getElementById('banner-sub').textContent =
+            `${selectedDoctor.specialty} · ${selectedDoctor.email}`;
+        updateBannerCount();
+
+        renderDoctors();   // re-render to highlight selected
+        renderPatients();  // show patients panel
+    }
+
+    function updateBannerCount() {
+        if (!selectedDoctor) return;
+        const count = assignments.filter(a => a.doctor_id === selectedDoctor.id).length;
+        document.getElementById('banner-count').textContent =
+            `${count} patient${count !== 1 ? 's' : ''} assigned`;
+    }
+
+    // ---- Load patients ----
+    async function loadPatients() {
+        const { data } = await sb.from('profiles')
+            .select('id, full_name, email, status')
+            .eq('role', 'patient')
+            .is('deleted_at', null)
+            .order('full_name');
+
+        allPatients = data || [];
+        document.getElementById('patient-count-pill').textContent = allPatients.length;
+    }
+
+    function renderPatients() {
+        const list = document.getElementById('patient-list');
+
+        if (!selectedDoctor) {
+            list.innerHTML = `<div class="empty-state">
+                <i class="fa-solid fa-arrow-left"></i>
+                <p>Select a doctor first</p>
+                <p class="hint">Patient assignment options will appear here</p>
+            </div>`;
+            return;
+        }
+
+        const term = (document.getElementById('patient-search')?.value || '').toLowerCase();
+        const assignedIds = new Set(
+            assignments.filter(a => a.doctor_id === selectedDoctor.id).map(a => a.patient_id)
+        );
+
+        const filtered = allPatients.filter(p =>
+            !term ||
+            (p.full_name || '').toLowerCase().includes(term) ||
+            (p.email || '').toLowerCase().includes(term)
+        );
+
+        if (!filtered.length) {
+            list.innerHTML = `<div class="empty-state">
+                <i class="fa-solid fa-users"></i>
+                <p>No patients found</p>
+            </div>`;
+            return;
+        }
+
+        // Sort: assigned first, then unassigned
+        const sorted = [
+            ...filtered.filter(p => assignedIds.has(p.id)),
+            ...filtered.filter(p => !assignedIds.has(p.id)),
+        ];
+
+        list.innerHTML = sorted.map(p => {
+            const initials  = getInitials(p.full_name);
+            const isAssigned = assignedIds.has(p.id);
+            const assignment = assignments.find(a => a.doctor_id === selectedDoctor.id && a.patient_id === p.id);
+
+            return `
+                <div class="list-item ${isAssigned ? 'assigned-item' : ''}">
+                    <div class="avatar avatar-purple">${initials}</div>
+                    <div class="item-info">
+                        <div class="item-name">${esc(p.full_name || 'Patient')}</div>
+                        <div class="item-sub">${esc(p.email || '')}</div>
+                    </div>
+                    <div class="item-action">
+                        ${isAssigned
+                            ? `<button class="btn btn-unassign"
+                                       onclick="unassignPatient('${assignment?.id}', '${p.id}', '${esc(p.full_name)}')">
+                                   <i class="fa-solid fa-xmark"></i> Remove
+                               </button>`
+                            : `<button class="btn btn-assign"
+                                       onclick="assignPatient('${p.id}', '${esc(p.full_name)}')">
+                                   <i class="fa-solid fa-plus"></i> Assign
+                               </button>`
+                        }
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    function filterPatients() { renderPatients(); }
+
+    // ---- Load all assignments ----
+    async function loadAllAssignments() {
+        const { data } = await sb.from('doctor_patient_assignments')
+            .select('id, doctor_id, patient_id');
+        assignments = data || [];
+        renderDoctors();
+        updateBannerCount();
+    }
+
+    // ---- Assign ----
+    async function assignPatient(patientId, patientName) {
+        if (!selectedDoctor) return;
+
+        const btn = event.currentTarget;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-sm"></span>';
+
+        const { data, error } = await sb.from('doctor_patient_assignments')
+            .insert({
+                doctor_id: selectedDoctor.id,
+                patient_id: patientId,
+                assigned_by: adminUser.id,
+                assigned_at: new Date().toISOString(),
+            })
+            .select('id, doctor_id, patient_id')
+            .single();
+
+        if (error) {
+            showToast('Failed: ' + error.message, 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-plus"></i> Assign';
+            return;
+        }
+
+        assignments.push(data);
+        showToast(`${patientName} assigned to Dr. ${selectedDoctor.full_name}`, 'success');
+
+        // Log activity
+        await sb.from('platform_activity').insert({
+            module: 'doctors',
+            action: 'assigned_patient',
+            actor_id: adminUser.id,
+            target_user_id: selectedDoctor.id,
+            description: `Admin assigned ${patientName} to Dr. ${selectedDoctor.full_name}.`,
+            created_at: new Date().toISOString(),
+        });
+
+        renderPatients();
+        renderDoctors();
+        updateBannerCount();
+    }
+
+    // ---- Unassign ----
+    async function unassignPatient(assignmentId, patientId, patientName) {
+        if (!selectedDoctor || !assignmentId) return;
+
+        if (!confirm(`Remove ${patientName} from Dr. ${selectedDoctor.full_name}?`)) return;
+
+        const { error } = await sb.from('doctor_patient_assignments')
+            .delete()
+            .eq('id', assignmentId);
+
+        if (error) { showToast('Failed: ' + error.message, 'error'); return; }
+
+        assignments = assignments.filter(a => a.id !== assignmentId);
+        showToast(`${patientName} removed from Dr. ${selectedDoctor.full_name}`, 'info');
+
+        renderPatients();
+        renderDoctors();
+        updateBannerCount();
+    }
+
+    // ---- Helpers ----
+    function getInitials(name) {
+        if (!name) return '?';
+        return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    }
+
+    function esc(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+            .replace(/'/g,'&#039;');
+    }
+
+    function showToast(msg, type = 'success') {
+        const t = document.getElementById('toast');
+        const icons = { success: 'fa-circle-check', error: 'fa-circle-xmark', info: 'fa-circle-info' };
+        t.innerHTML = `<i class="fa-solid ${icons[type] || icons.success}"></i> ${msg}`;
+        t.className = `show ${type}`;
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+</script>
+</body>
+</html>

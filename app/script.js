@@ -537,9 +537,15 @@ async function loadDoctorDashboardData() {
     // --- Doctor Onboarding Banner ---
     updateDoctorOnboardingBanner(appts.length);
 
-    // --- Calculate Stats (Change 6) ---
-    const totalPatients = new Set(appts.map(a => a.user_id)).size;
-    
+    // --- Calculate Stats ---
+    // Total Patients: count from doctor_patient_assignments (source of truth)
+    // so it always matches what the doctor sees in My Patients tab
+    const { count: assignedPatientCount } = await supabaseClient
+        .from('doctor_patient_assignments')
+        .select('*', { count: 'exact', head: true })
+        .eq('doctor_id', docId);
+    const totalPatients = assignedPatientCount || 0;
+
     const todayLocalStr = new Date().toLocaleDateString();
     const todayAppts = appts.filter(a => new Date(a.appointment_date).toLocaleDateString() === todayLocalStr && (a.status === 'Confirmed' || a.status === 'confirmed')).length;
     
@@ -4067,6 +4073,95 @@ async function checkPendingInvitations() {
         badge.textContent = count;
         badge.style.display = 'inline';
     }
+}
+
+/* =====================================================
+   DOCTOR: MY PATIENTS TAB
+   Shows patients assigned via doctor_patient_assignments.
+   No health data is fetched or shown here.
+   ===================================================== */
+async function loadDoctorPatientsTab() {
+    const container = document.getElementById('doctor-patients-list');
+    if (!container || !currentUser) return;
+
+    container.innerHTML = '<div style="text-align:center;padding:2rem;color:#9ca3af;font-size:0.82rem;"><i class="fa-solid fa-spinner fa-spin" style="margin-right:6px;"></i>Loading patients...</div>';
+
+    // Get all assignments for this doctor
+    const { data: assignments, error } = await supabaseClient
+        .from('doctor_patient_assignments')
+        .select('id, patient_id, assigned_at')
+        .eq('doctor_id', currentUser.id)
+        .order('assigned_at', { ascending: false });
+
+    if (error) {
+        container.innerHTML = `<div style="text-align:center;padding:2rem;color:#dc2626;font-size:0.82rem;">
+            <i class="fa-solid fa-circle-xmark" style="margin-right:6px;"></i>Error: ${error.message}
+        </div>`;
+        return;
+    }
+
+    if (!assignments?.length) {
+        container.innerHTML = `
+            <div style="text-align:center;padding:3rem 1rem;color:#9ca3af;">
+                <i class="fa-solid fa-user-slash" style="font-size:2.5rem;margin-bottom:0.75rem;display:block;opacity:0.35;"></i>
+                <p style="font-size:0.9rem;font-weight:600;color:#374151;">No patients assigned yet</p>
+                <p style="font-size:0.78rem;margin-top:0.4rem;">Your hospital manager or admin will assign patients here.</p>
+            </div>`;
+        return;
+    }
+
+    // Fetch patient profiles — name + email only, no health data
+    const patientIds = assignments.map(a => a.patient_id);
+    const { data: profiles } = await supabaseClient
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', patientIds);
+
+    const profileMap = {};
+    (profiles || []).forEach(p => { profileMap[p.id] = p; });
+
+    container.innerHTML = assignments.map(a => {
+        const p = profileMap[a.patient_id];
+        const name    = p?.full_name || p?.email || 'Unknown Patient';
+        const email   = p?.email || '';
+        const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?';
+        const assignedDate = a.assigned_at
+            ? new Date(a.assigned_at).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+            : '—';
+
+        return `
+            <div style="display:flex;align-items:center;gap:1rem;padding:0.85rem 0;border-bottom:1px solid #f3f4f6;">
+                <div style="width:42px;height:42px;border-radius:50%;background:#dbeafe;
+                            display:flex;align-items:center;justify-content:center;
+                            font-weight:700;color:#2563eb;font-size:0.85rem;flex-shrink:0;">
+                    ${initials}
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;font-size:0.9rem;color:#1a1a2e;
+                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                        ${name}
+                    </div>
+                    <div style="font-size:0.75rem;color:#6b7280;">${email}</div>
+                    <div style="font-size:0.72rem;color:#9ca3af;margin-top:2px;">
+                        <i class="fa-regular fa-clock" style="margin-right:3px;"></i>Assigned ${assignedDate}
+                    </div>
+                </div>
+                <button onclick="switchView('patient-profile'); loadPatientProfile('${a.patient_id}')"
+                        style="padding:6px 14px;background:#f0fdf4;color:#16a34a;
+                               border:1px solid #bbf7d0;border-radius:7px;white-space:nowrap;
+                               font-size:0.78rem;font-weight:600;cursor:pointer;font-family:'Poppins',sans-serif;">
+                    <i class="fa-solid fa-chart-line" style="margin-right:4px;"></i>View
+                </button>
+            </div>`;
+    }).join('');
+}
+
+function searchPatients() {
+    const term = (document.getElementById('patient-search')?.value || '').toLowerCase();
+    const rows = document.querySelectorAll('#doctor-patients-list > div[style]');
+    rows.forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+    });
 }
 
 // Helper — mirrors admin's escapeHtml

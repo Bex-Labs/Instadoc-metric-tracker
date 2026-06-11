@@ -435,18 +435,25 @@ function bindUI() {
     state.assignments = [];
 
     const patientList = $("patientList");
-    if (patientList)
-      patientList.textContent = "Select a doctor to view assigned patients.";
+    if (patientList) {
+      patientList.innerHTML = `
+        <div style="text-align:center; padding:2.5rem 1rem; color:#9ca3af;">
+          <i class="fa-solid fa-hand-pointer" style="font-size:1.8rem; margin-bottom:0.6rem; display:block; opacity:0.3;"></i>
+          <p style="font-size:0.82rem;">Select a doctor to view their patients</p>
+        </div>`;
+    }
 
-    $("openAssignPatientBtn").disabled = true;
-    $("unassignAllBtn").disabled = true;
+    // Hide unassign all button on refresh
+    const unassignBtn = $("unassignAllBtn");
+    if (unassignBtn) unassignBtn.style.display = 'none';
+
+    // Hide count pill
+    const pill = $("assigned-count-pill");
+    if (pill) pill.style.display = 'none';
 
     await loadDoctors();
   });
   $("doctorSearch")?.addEventListener("input", () => filterDoctors());
-  $("openAssignPatientBtn")?.addEventListener("click", () =>
-    openAssignPatientModal(),
-  );
   $("unassignAllBtn")?.addEventListener("click", () => unassignAllFromDoctor());
 
   // Assign patient modal
@@ -2270,7 +2277,10 @@ function renderDoctorList(doctors) {
       </div>
       <div class="right">
         <button class="btn ${verifyBtnClass}" type="button" onclick="AdminApp.toggleVerifyDoctor('${d.id}', ${d.is_verified})">${verifyBtnText}</button>
-        <button class="btn btn-view select-doc-btn" type="button">Select</button>
+        <button class="btn btn-view select-doc-btn" type="button"
+                onclick="window.location.href='assign-patients.html?doctor=${d.id}'">
+            Assign Patients
+        </button>
       </div>
     `;
 
@@ -2320,15 +2330,14 @@ async function selectDoctor(doctor) {
   state.selectedDoctorName = doctor.full_name || "Doctor";
   state.selectedDoctorEmail = doctor.email || "";
 
-  $("openAssignPatientBtn").disabled = false;
-  $("unassignAllBtn").disabled = false;
-
   await loadAssignmentsForDoctor(doctor.id);
 }
 
 async function loadAssignmentsForDoctor(doctorId) {
   const list = $("patientList");
-  list.textContent = "Loading assignments...";
+  list.innerHTML = `<div style="text-align:center;padding:1.5rem;color:#9ca3af;font-size:0.82rem;">
+    <i class="fa-solid fa-spinner fa-spin" style="margin-right:6px;"></i>Loading...
+  </div>`;
 
   const { data, error } = await supabaseClient
     .from("doctor_patient_assignments")
@@ -2337,32 +2346,50 @@ async function loadAssignmentsForDoctor(doctorId) {
     .order("assigned_at", { ascending: false });
 
   if (error) {
-    list.textContent = "Error loading assigned patients";
+    list.innerHTML = `<div style="padding:1rem;color:#dc2626;font-size:0.82rem;">
+      <i class="fa-solid fa-circle-xmark" style="margin-right:5px;"></i>Error: ${escapeHtml(error.message)}
+    </div>`;
     return;
   }
 
   state.assignments = data || [];
 
-  // Resolve patient profiles
-  const patientIds = state.assignments.map((a) => a.patient_id);
-  if (!patientIds.length) {
-    list.textContent = "No patients assigned. Use “Assign Patient”.";
+  // Update count pill
+  const pill = $("assigned-count-pill");
+  if (pill) {
+    pill.textContent = `${state.assignments.length} patient${state.assignments.length !== 1 ? 's' : ''}`;
+    pill.style.display = state.assignments.length > 0 ? "inline" : "none";
+  }
+
+  // Show/hide Unassign All button based on whether there are assignments
+  const unassignAllBtn = $("unassignAllBtn");
+  if (unassignAllBtn) {
+    unassignAllBtn.style.display = state.assignments.length > 0 ? "flex" : "none";
+  }
+
+  if (!state.assignments.length) {
+    list.innerHTML = `
+      <div style="text-align:center;padding:2.5rem 1rem;color:#9ca3af;">
+        <i class="fa-solid fa-user-slash" style="font-size:1.8rem;margin-bottom:0.6rem;display:block;opacity:0.35;"></i>
+        <p style="font-size:0.82rem;font-weight:500;color:#374151;">No patients assigned yet</p>
+        <p style="font-size:0.75rem;margin-top:3px;">Click <strong>Assign Patients</strong> next to this doctor to get started.</p>
+      </div>`;
     return;
   }
 
+  const patientIds = state.assignments.map((a) => a.patient_id);
   const { data: patients, error: pe } = await supabaseClient
     .from("profiles")
     .select("id, full_name, email, status, deleted_at")
     .in("id", patientIds);
 
   if (pe) {
-    list.textContent = "Error resolving patient profiles";
+    list.innerHTML = `<div style="padding:1rem;color:#dc2626;font-size:0.82rem;">Error resolving patients.</div>`;
     return;
   }
 
   const patientMap = {};
   (patients || []).forEach((p) => (patientMap[p.id] = p));
-
   renderAssignedPatients(patientMap);
 }
 
@@ -2371,43 +2398,61 @@ function renderAssignedPatients(patientMap) {
   list.innerHTML = "";
 
   const assignments = state.assignments;
-
-  if (!assignments.length) {
-    list.textContent = "No patients assigned. Use “Assign Patient”.";
-    return;
-  }
+  if (!assignments.length) return;
 
   assignments.forEach((a) => {
     const p = patientMap[a.patient_id];
-    const displayName = p?.full_name || p?.email || a.patient_id;
-    const status = p ? normalizeUserStatus(p) : "unknown";
+    const displayName = p?.full_name || p?.email || "Unknown Patient";
+    const email = p?.email || "";
+    const initials = displayName.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase() || "?";
+    const assignedDate = a.assigned_at
+      ? new Date(a.assigned_at).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })
+      : "—";
 
     const item = document.createElement("div");
-    item.className = "list-item";
+    item.style.cssText = "display:flex;align-items:center;gap:0.75rem;padding:0.7rem 0.85rem;border-bottom:1px solid #f3f4f6;transition:background 0.12s;";
+    item.onmouseover = () => item.style.background = "#f9fafb";
+    item.onmouseout  = () => item.style.background = "";
+
     item.innerHTML = `
-      <div class="meta">
-        <div class="title">${escapeHtml(displayName)}</div>
-        <div class="sub">${escapeHtml(p?.email || "")} • ${escapeHtml(status)} • Assigned ${escapeHtml(formatDateTime(a.assigned_at))}</div>
+      <div style="width:36px;height:36px;border-radius:50%;background:#ede9fe;
+                  display:flex;align-items:center;justify-content:center;
+                  font-weight:700;color:#7c3aed;font-size:0.78rem;flex-shrink:0;">
+        ${escapeHtml(initials)}
       </div>
-      <div class="right">
-        <button class="btn btn-inactive" type="button">Unassign</button>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:0.84rem;color:#1a1a2e;
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${escapeHtml(displayName)}
+        </div>
+        <div style="font-size:0.72rem;color:#9ca3af;">
+          ${escapeHtml(email)}
+          <span style="margin:0 4px;color:#d1d5db;">&middot;</span>
+          <i class="fa-regular fa-clock" style="font-size:0.65rem;margin-right:3px;"></i>${assignedDate}
+        </div>
       </div>
+      <button type="button"
+        style="flex-shrink:0;padding:4px 11px;background:#fff;color:#dc2626;
+               border:1.5px solid #fca5a5;border-radius:7px;font-size:0.75rem;
+               font-weight:600;cursor:pointer;font-family:inherit;
+               display:flex;align-items:center;gap:4px;"
+        onmouseover="this.style.background='#fef2f2'"
+        onmouseout="this.style.background='#fff'">
+        <i class="fa-solid fa-xmark"></i> Remove
+      </button>
     `;
 
-    item
-      .querySelector("button")
+    item.querySelector("button")
       ?.addEventListener("click", () => unassignPatient(a.id, a.patient_id));
     list.appendChild(item);
   });
 }
 
 function openAssignPatientModal() {
-  if (!state.selectedDoctorId) {
-    alert("Select a doctor first.");
-    return;
-  }
-  show($("assignPatientModal"));
-  loadPatientPicker();
+  const doctorId = state.selectedDoctorId;
+  window.location.href = doctorId
+    ? `assign-patients.html?doctor=${doctorId}`
+    : "assign-patients.html";
 }
 
 function closeAssignPatientModal() {
@@ -2950,6 +2995,18 @@ async function loadHospitals() {
     let doctorCounts = {}, patientCounts = {}, managerNames = {};
 
     if (ids.length) {
+        // Count active doctors from hospital_doctor_memberships (the source of truth)
+        const { data: memberships } = await supabaseClient
+            .from('hospital_doctor_memberships')
+            .select('hospital_id, status')
+            .in('hospital_id', ids)
+            .eq('status', 'active');
+
+        (memberships || []).forEach(m => {
+            doctorCounts[m.hospital_id] = (doctorCounts[m.hospital_id] || 0) + 1;
+        });
+
+        // Count patients from profiles.hospital_id (patients are still assigned this way)
         const { data: profiles } = await supabaseClient
             .from('profiles')
             .select('hospital_id, role, full_name, id')
@@ -2957,7 +3014,6 @@ async function loadHospitals() {
             .is('deleted_at', null);
 
         (profiles || []).forEach(p => {
-            if (p.role === 'doctor') doctorCounts[p.hospital_id] = (doctorCounts[p.hospital_id] || 0) + 1;
             if (p.role === 'patient') patientCounts[p.hospital_id] = (patientCounts[p.hospital_id] || 0) + 1;
         });
 
@@ -2965,7 +3021,17 @@ async function loadHospitals() {
         for (const h of state.allHospitals) {
             if (h.manager_id) {
                 const mgr = (profiles || []).find(p => p.id === h.manager_id);
-                managerNames[h.id] = mgr ? mgr.full_name : 'Unknown';
+                if (!mgr) {
+                    // Manager may not have hospital_id set yet — fetch directly
+                    const { data: mgrProfile } = await supabaseClient
+                        .from('profiles')
+                        .select('full_name')
+                        .eq('id', h.manager_id)
+                        .single();
+                    managerNames[h.id] = mgrProfile?.full_name || 'Unknown';
+                } else {
+                    managerNames[h.id] = mgr.full_name;
+                }
             }
         }
     }
