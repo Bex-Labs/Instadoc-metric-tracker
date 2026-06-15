@@ -2258,36 +2258,57 @@ function renderDoctorList(doctors) {
   doctors.forEach((d) => {
     const item = document.createElement("div");
     item.className = "list-item";
+    item.style.cursor = "pointer";
     const status = normalizeUserStatus(d);
+    const isSelected = state.selectedDoctorId === d.id;
+    if (isSelected) item.style.background = "#f0fdf4";
 
-    // Verification UI Logic
     const verifiedBadge = d.is_verified
       ? `<span class="badge badge-active" style="font-size:10px; margin-left:8px;">Verified</span>`
       : `<span class="badge badge-suspended" style="font-size:10px; margin-left:8px;">Pending</span>`;
 
-    const verifyBtnText = d.is_verified ? "Revoke" : "Verify";
+    const verifyBtnText  = d.is_verified ? "Revoke" : "Verify";
     const verifyBtnClass = d.is_verified ? "btn-inactive" : "btn-activate";
 
     item.innerHTML = `
-      <div class="meta">
+      <div class="meta" style="flex:1;">
         <div class="title" style="display:flex; align-items:center;">
             ${escapeHtml(d.full_name || "Doctor")} ${verifiedBadge}
         </div>
         <div class="sub">${escapeHtml(d.email || "")} • ${escapeHtml(status)}</div>
       </div>
       <div class="right">
-        <button class="btn ${verifyBtnClass}" type="button" onclick="AdminApp.toggleVerifyDoctor('${d.id}', ${d.is_verified})">${verifyBtnText}</button>
-        <button class="btn btn-view select-doc-btn" type="button"
-                onclick="window.location.href='assign-patients.html?doctor=${d.id}'">
-            Assign Patients
+        <button class="btn ${verifyBtnClass}" type="button" id="verify-btn-${d.id}">${verifyBtnText}</button>
+        <button class="btn btn-activate add-patients-btn" type="button" id="add-btn-${d.id}"
+                style="display:flex; align-items:center; gap:5px;">
+            <i class="fa-solid fa-user-plus"></i> Add Patients
         </button>
       </div>
     `;
 
-    item
-      .querySelector(".select-doc-btn")
-      ?.addEventListener("click", () => selectDoctor(d));
-      
+    // Clicking the row (but not buttons) selects the doctor and loads patients on the right
+    item.addEventListener("click", (e) => {
+      if (e.target.closest("button")) return;
+      selectDoctor(d);
+      // Highlight selected row
+      document.querySelectorAll("#doctorList .list-item").forEach(el => el.style.background = "");
+      item.style.background = "#f0fdf4";
+    });
+
+    // Verify/Revoke button
+    item.querySelector(`#verify-btn-${d.id}`)
+      ?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        AdminApp.toggleVerifyDoctor(d.id, d.is_verified);
+      });
+
+    // Add Patients button → navigates to dedicated page
+    item.querySelector(`#add-btn-${d.id}`)
+      ?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        window.location.href = `assign-patients.html?doctor=${d.id}`;
+      });
+
     container.appendChild(item);
   });
 }
@@ -2372,7 +2393,7 @@ async function loadAssignmentsForDoctor(doctorId) {
       <div style="text-align:center;padding:2.5rem 1rem;color:#9ca3af;">
         <i class="fa-solid fa-user-slash" style="font-size:1.8rem;margin-bottom:0.6rem;display:block;opacity:0.35;"></i>
         <p style="font-size:0.82rem;font-weight:500;color:#374151;">No patients assigned yet</p>
-        <p style="font-size:0.75rem;margin-top:3px;">Click <strong>Assign Patients</strong> next to this doctor to get started.</p>
+        <p style="font-size:0.75rem;margin-top:3px;">Click <strong>Add Patients</strong> next to this doctor to get started.</p>
       </div>`;
     return;
   }

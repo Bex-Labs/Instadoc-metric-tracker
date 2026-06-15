@@ -514,11 +514,25 @@ async function openInviteExistingModal() {
     document.getElementById('existing-doctor-picker').innerHTML = '<p style="padding:12px; color:#9ca3af; font-size:0.82rem;">Loading...</p>';
     openModal('invite-existing-modal');
 
-    // Load all verified doctors NOT already in this hospital
-    const { data: allVerified } = await sb.from('doctor_profiles')
-        .select('id, full_name, specialty, is_verified')
-        .eq('is_verified', true);
+    // Load ALL doctors from profiles (not just verified ones from doctor_profiles)
+    // so doctors who haven't completed their profile still appear
+    const { data: allDoctorProfiles } = await sb
+        .from('profiles')
+        .select('id, full_name, email, status')
+        .eq('role', 'doctor')
+        .is('deleted_at', null)
+        .order('full_name');
 
+    // Fetch specialty + verification separately
+    const doctorIds = (allDoctorProfiles || []).map(d => d.id);
+    const { data: docProfs } = doctorIds.length
+        ? await sb.from('doctor_profiles').select('id, specialty, is_verified').in('id', doctorIds)
+        : { data: [] };
+
+    const docProfMap = {};
+    (docProfs || []).forEach(d => docProfMap[d.id] = d);
+
+    // Get existing memberships for this hospital
     const { data: existing } = await sb.from('hospital_doctor_memberships')
         .select('doctor_id, status')
         .eq('hospital_id', currentHospital.id);
@@ -526,35 +540,81 @@ async function openInviteExistingModal() {
     const existingMap = {};
     (existing || []).forEach(m => existingMap[m.doctor_id] = m.status);
 
-    existingDoctorPickerList = (allVerified || []).map(d => ({ ...d, existingStatus: existingMap[d.id] || null }));
+    existingDoctorPickerList = (allDoctorProfiles || []).map(d => ({
+        ...d,
+        specialty: docProfMap[d.id]?.specialty || 'General',
+        is_verified: !!docProfMap[d.id]?.is_verified,
+        existingStatus: existingMap[d.id] || null
+    }));
+
     renderExistingDoctorPicker();
 }
-
-function filterExistingDoctorPicker() { renderExistingDoctorPicker(); }
 
 function renderExistingDoctorPicker() {
     const term = (document.getElementById('existing-doc-search')?.value || '').toLowerCase();
     const list = existingDoctorPickerList.filter(d =>
-        !term || (d.full_name || '').toLowerCase().includes(term) || (d.specialty || '').toLowerCase().includes(term)
+        !term ||
+        (d.full_name || '').toLowerCase().includes(term) ||
+        (d.specialty || '').toLowerCase().includes(term) ||
+        (d.email || '').toLowerCase().includes(term)
     );
     const container = document.getElementById('existing-doctor-picker');
-    if (!list.length) { container.innerHTML = '<p style="padding:12px; color:#9ca3af; font-size:0.82rem;">No doctors found.</p>'; return; }
+
+    if (!list.length) {
+        container.innerHTML = `
+            <div style="text-align:center; padding:2rem 1rem; color:#9ca3af;">
+                <i class="fa-solid fa-magnifying-glass" style="font-size:1.5rem; margin-bottom:0.5rem; display:block; opacity:0.4;"></i>
+                <p style="font-size:0.82rem;">No doctors found.</p>
+            </div>`;
+        return;
+    }
 
     container.innerHTML = list.map(d => {
-        let action = '';
-        if (d.existingStatus === 'active') action = '<span class="badge badge-green">Member</span>';
-        else if (d.existingStatus === 'pending') action = '<span class="badge badge-yellow">Invited</span>';
-        else action = `<button class="btn btn-primary" style="font-size:0.75rem; padding:4px 12px;" onclick="sendExistingInvite('${d.id}', '${esc(d.full_name || 'Doctor')}')">Invite</button>`;
+        const initials = (d.full_name || 'D').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+        const verifiedBadge = d.is_verified
+            ? '<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;background:#dbeafe;color:#1d4ed8;border-radius:9999px;font-size:0.62rem;font-weight:700;"><i class="fa-solid fa-shield-halved"></i> Verified</span>'
+            : '<span style="padding:1px 6px;background:#f3f4f6;color:#9ca3af;border-radius:9999px;font-size:0.62rem;font-weight:700;">Unverified</span>';
 
-        return `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.65rem 0.85rem; border-bottom:1px solid #f3f4f6;">
-            <div>
-                <div style="font-weight:600; font-size:0.88rem;">${esc(d.full_name || 'Doctor')}</div>
-                <div style="font-size:0.75rem; color:#9ca3af;">${esc(d.specialty || 'General')}</div>
-            </div>
-            ${action}
-        </div>`;
+        let action = '';
+        if (d.existingStatus === 'active') {
+            action = '<span style="padding:4px 10px;background:#dcfce7;color:#15803d;border-radius:9999px;font-size:0.72rem;font-weight:700;white-space:nowrap;"><i class="fa-solid fa-check" style="margin-right:3px;"></i>Member</span>';
+        } else if (d.existingStatus === 'pending') {
+            action = '<span style="padding:4px 10px;background:#fef9c3;color:#ca8a04;border-radius:9999px;font-size:0.72rem;font-weight:700;white-space:nowrap;"><i class="fa-solid fa-clock" style="margin-right:3px;"></i>Invited</span>';
+        } else {
+            action = `<button class="btn btn-primary" style="font-size:0.75rem; padding:5px 14px; white-space:nowrap;
+                        display:inline-flex; align-items:center; gap:4px;"
+                        onclick="sendExistingInvite('${d.id}', '${esc(d.full_name || 'Doctor')}')">
+                        <i class="fa-solid fa-paper-plane"></i> Invite
+                      </button>`;
+        }
+
+        return `
+            <div style="display:flex; align-items:center; gap:0.75rem; padding:0.75rem 0.85rem;
+                        border-bottom:1px solid #f3f4f6; transition:background 0.12s;"
+                 onmouseover="this.style.background='#f9fafb'"
+                 onmouseout="this.style.background=''">
+                <div style="width:36px; height:36px; border-radius:50%; background:#dbeafe;
+                            display:flex; align-items:center; justify-content:center;
+                            font-weight:700; color:#2563eb; font-size:0.78rem; flex-shrink:0;">
+                    ${initials}
+                </div>
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                        <span style="font-weight:600; font-size:0.85rem; color:#1a1a2e;">
+                            ${esc(d.full_name || 'Doctor')}
+                        </span>
+                        ${verifiedBadge}
+                    </div>
+                    <div style="font-size:0.72rem; color:#6b7280; margin-top:1px;">
+                        ${esc(d.specialty || 'General')}
+                    </div>
+                </div>
+                <div style="flex-shrink:0;">${action}</div>
+            </div>`;
     }).join('');
 }
+
+function filterExistingDoctorPicker() { renderExistingDoctorPicker(); }
 
 async function sendExistingInvite(doctorId, doctorName) {
     const { error } = await sb.from('hospital_doctor_memberships').insert({
@@ -709,21 +769,24 @@ function filterPatients() { renderPatients(); }
 
 /* ---- Assign Patient to Doctor Modal ---- */
 async function openAssignPatientToDoctorModal(patientId, patientName) {
-    // Only active doctors in this hospital can be assigned
-    const activeDoctors = allDoctors.filter(d => d.membership_status === 'active');
+    // Show all doctors in this hospital — active AND pending
+    // so manager can set up assignments before doctor accepts invite
+    const hospitalDoctors = allDoctors.filter(d =>
+        d.membership_status === 'active' || d.membership_status === 'pending'
+    );
 
     document.getElementById('assign-patient-modal-title').textContent = `Assign Doctor to ${patientName}`;
     document.getElementById('assign-patient-status').innerHTML = '';
 
     const pickerEl = document.getElementById('assign-doctor-picker');
 
-    if (!activeDoctors.length) {
-        pickerEl.innerHTML = '<p style="padding:12px; color:#9ca3af; font-size:0.82rem;">No active doctors in your hospital yet. Invite a doctor first.</p>';
+    if (!hospitalDoctors.length) {
+        pickerEl.innerHTML = '<p style="padding:12px; color:#9ca3af; font-size:0.82rem;">No doctors in your hospital yet. Invite a doctor first.</p>';
         openModal('assign-patient-to-doctor-modal');
         return;
     }
 
-    // Fetch existing assignments for this patient so we can show current state
+    // Fetch existing assignments for this patient
     const { data: existing } = await sb
         .from('doctor_patient_assignments')
         .select('doctor_id')
@@ -731,24 +794,49 @@ async function openAssignPatientToDoctorModal(patientId, patientName) {
 
     const assignedDoctorIds = new Set((existing || []).map(a => a.doctor_id));
 
-    pickerEl.innerHTML = activeDoctors.map(d => {
+    pickerEl.innerHTML = hospitalDoctors.map(d => {
         const isAssigned = assignedDoctorIds.has(d.id);
+        const initials = (d.full_name || 'D').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+        const statusBadge = d.membership_status === 'pending'
+            ? '<span style="font-size:0.65rem; color:#ca8a04; background:#fef9c3; padding:1px 6px; border-radius:9999px; font-weight:700; margin-left:4px;">Pending</span>'
+            : '';
+
         const actionBtn = isAssigned
-            ? `<span style="padding:4px 10px; background:#dcfce7; color:#15803d; border-radius:9999px; font-size:0.72rem; font-weight:700;">Assigned</span>`
+            ? `<span style="padding:4px 10px; background:#dcfce7; color:#15803d;
+                            border-radius:9999px; font-size:0.72rem; font-weight:700;
+                            white-space:nowrap;"><i class="fa-solid fa-check" style="margin-right:3px;"></i>Assigned</span>`
             : `<button onclick="assignPatientToDoctor('${patientId}', '${d.id}', '${esc(patientName)}', '${esc(d.full_name || 'Doctor')}')"
                       style="padding:5px 14px; background:#16a34a; color:#fff; border:none;
-                             border-radius:7px; font-size:0.78rem; font-weight:600; cursor:pointer;">
-                   Assign
+                             border-radius:7px; font-size:0.78rem; font-weight:600; cursor:pointer;
+                             white-space:nowrap; display:inline-flex; align-items:center; gap:4px;
+                             font-family:inherit;"
+                      onmouseover="this.style.opacity='0.85'"
+                      onmouseout="this.style.opacity='1'">
+                   <i class="fa-solid fa-plus"></i> Assign
                </button>`;
 
         return `
-            <div style="display:flex; justify-content:space-between; align-items:center;
-                        padding:0.65rem 0.85rem; border-bottom:1px solid #f3f4f6;">
-                <div>
-                    <div style="font-weight:600; font-size:0.88rem;">${esc(d.full_name || 'Doctor')}</div>
-                    <div style="font-size:0.75rem; color:#6b7280;">${esc(d.specialty || 'General')}</div>
+            <div style="display:flex; align-items:center; gap:0.75rem; padding:0.75rem 0.85rem;
+                        border-bottom:1px solid #f3f4f6; transition:background 0.12s;"
+                 onmouseover="this.style.background='#f9fafb'"
+                 onmouseout="this.style.background=''">
+                <div style="width:36px; height:36px; border-radius:50%; background:#dcfce7;
+                            display:flex; align-items:center; justify-content:center;
+                            font-weight:700; color:#16a34a; font-size:0.78rem; flex-shrink:0;">
+                    ${initials}
                 </div>
-                ${actionBtn}
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:3px; flex-wrap:wrap;">
+                        <span style="font-weight:600; font-size:0.85rem; color:#1a1a2e;">
+                            ${esc(d.full_name || 'Doctor')}
+                        </span>
+                        ${statusBadge}
+                    </div>
+                    <div style="font-size:0.72rem; color:#6b7280;">
+                        ${esc(d.specialty || 'General')}
+                    </div>
+                </div>
+                <div style="flex-shrink:0;">${actionBtn}</div>
             </div>`;
     }).join('');
 
