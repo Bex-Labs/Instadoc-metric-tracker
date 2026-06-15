@@ -504,7 +504,23 @@
                 <input type="text" id="invite-link-input" readonly />
                 <button class="btn btn-primary" onclick="copyInviteLink()">Copy</button>
             </div>
-            <p style="font-size:0.72rem; color:#9ca3af; margin-top:6px;">Link expires in 7 days.</p>
+            <div style="display:flex; gap:8px; margin-top:10px;">
+                <button
+                    id="share-invite-btn"
+                    onclick="shareInviteLink()"
+                    style="flex:1; padding:9px 14px; background:#2f8f46; color:#fff;
+                           border:none; border-radius:8px; font-size:0.82rem; font-weight:700;
+                           cursor:pointer; font-family:inherit; display:flex; align-items:center;
+                           justify-content:center; gap:6px;"
+                    onmouseover="this.style.opacity='0.88'"
+                    onmouseout="this.style.opacity='1'">
+                    <i class="fa-solid fa-envelope"></i> Share via Email
+                </button>
+            </div>
+            <p style="font-size:0.72rem; color:#9ca3af; margin-top:8px;">
+                <i class="fa-solid fa-circle-info" style="margin-right:3px;"></i>
+                "Share via Email" opens your email app with the link pre-filled. Link expires in 7 days.
+            </p>
         </div>
     </div>
 </div>

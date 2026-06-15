@@ -688,6 +688,11 @@ async function generateNewDoctorInvite() {
 
     document.getElementById('invite-link-input').value = link;
     document.getElementById('invite-new-link-box').style.display = 'block';
+
+    // Store email on share button for mailto link
+    const shareBtn = document.getElementById('share-invite-btn');
+    if (shareBtn) shareBtn.dataset.email = email;
+
     statusEl.innerHTML = `<span style="color:#16a34a;">✅ Link generated for <strong>${esc(email)}</strong>.</span>`;
     showToast('Invite link ready!', 'success');
 
@@ -698,6 +703,32 @@ function copyInviteLink() {
     const input = document.getElementById('invite-link-input');
     input.select();
     navigator.clipboard.writeText(input.value).then(() => showToast('Link copied!', 'success'));
+}
+
+function shareInviteLink() {
+    const link  = document.getElementById('invite-link-input').value;
+    const email = document.getElementById('share-invite-btn')?.dataset.email || '';
+    const hospitalName = currentHospital.name;
+    const managerName  = currentUser.profile.full_name || 'The Hospital Manager';
+
+    const subject = encodeURIComponent(`Invitation to join ${hospitalName} on Instadoc`);
+    const body = encodeURIComponent(
+`Hi,
+
+You have been invited to join ${hospitalName} as a doctor on Instadoc.
+
+Please click the link below to create your account and get started:
+
+${link}
+
+This link will expire in 7 days.
+
+Best regards,
+${managerName}
+${hospitalName}`
+    );
+
+    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
 }
 
 /* =====================================================
