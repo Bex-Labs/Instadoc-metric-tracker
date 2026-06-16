@@ -139,22 +139,35 @@ async function loadStats() {
         .eq('hospital_id', currentHospital.id)
         .gte('appointment_date', weekStart.toISOString());
 
-    // Pending invites
-    const { count: pendingCount } = await sb.from('hospital_doctor_memberships')
+    // Pending invites — combine hospital_doctor_memberships (pending)
+    // AND doctor_invites (unused, unexpired) for accurate total
+    const { count: pendingMemberships } = await sb.from('hospital_doctor_memberships')
         .select('*', { count: 'exact', head: true })
         .eq('hospital_id', currentHospital.id)
         .eq('status', 'pending');
 
+    const { count: pendingLinks } = await sb.from('doctor_invites')
+        .select('*', { count: 'exact', head: true })
+        .eq('hospital_id', currentHospital.id)
+        .is('used_at', null)
+        .gt('expires_at', new Date().toISOString());
+
+    const pendingCount = (pendingMemberships ?? 0) + (pendingLinks ?? 0);
+
     document.getElementById('stat-doctors').textContent      = docCount ?? 0;
     document.getElementById('stat-patients').textContent     = patCount ?? 0;
     document.getElementById('stat-appointments').textContent = apptCount ?? 0;
-    document.getElementById('stat-pending').textContent      = pendingCount ?? 0;
+    document.getElementById('stat-pending').textContent      = pendingCount;
 
-    // Nav badge
-    if (pendingCount > 0) {
-        const badge = document.getElementById('pending-badge');
-        badge.textContent = pendingCount;
-        badge.style.display = 'inline';
+    // Nav badge — show total pending, hide when zero
+    const badge = document.getElementById('pending-badge');
+    if (badge) {
+        if (pendingCount > 0) {
+            badge.textContent = pendingCount;
+            badge.style.display = 'inline';
+        } else {
+            badge.style.display = 'none';
+        }
     }
 
     // Overview appointments (last 5)
@@ -669,34 +682,51 @@ async function generateNewDoctorInvite() {
     const statusEl = document.getElementById('invite-new-status');
     statusEl.innerHTML = '<span style="color:#6b7280;">Generating...</span>';
 
-    const token = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    // Check if an unexpired invite already exists for this email + hospital
+    const { data: existing } = await sb.from('doctor_invites')
+        .select('token, expires_at')
+        .eq('hospital_id', currentHospital.id)
+        .eq('email', email)
+        .is('used_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .limit(1);
 
-    const { error } = await sb.from('doctor_invites').insert({
-        token,
-        hospital_id: currentHospital.id,
-        email,
-        invited_by: currentUser.id,
-        expires_at: expiresAt,
-        created_at: new Date().toISOString()
-    });
+    let link;
 
-    if (error) { statusEl.innerHTML = `<span style="color:#dc2626;">Failed: ${esc(error.message)}</span>`; return; }
+    if (existing?.length) {
+        // Reuse the existing unexpired token instead of creating a duplicate
+        const token = existing[0].token;
+        const base = window.location.href.replace(/\/manager\/.*$/, '/');
+        link = `${base}doctor-signup.html?token=${token}&hospital_id=${encodeURIComponent(currentHospital.id)}&hospital_name=${encodeURIComponent(currentHospital.name)}&email=${encodeURIComponent(email)}`;
+        statusEl.innerHTML = `<span style="color:#ca8a04;">⚠️ An active invite already exists for <strong>${esc(email)}</strong>. Showing existing link.</span>`;
+    } else {
+        const token = crypto.randomUUID();
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const base = window.location.href.replace(/\/manager\/.*$/, '/');
-    const link = `${base}doctor-signup.html?token=${token}&hospital_id=${encodeURIComponent(currentHospital.id)}&hospital_name=${encodeURIComponent(currentHospital.name)}&email=${encodeURIComponent(email)}`;
+        const { error } = await sb.from('doctor_invites').insert({
+            token,
+            hospital_id: currentHospital.id,
+            email,
+            invited_by: currentUser.id,
+            expires_at: expiresAt,
+            created_at: new Date().toISOString()
+        });
+
+        if (error) { statusEl.innerHTML = `<span style="color:#dc2626;">Failed: ${esc(error.message)}</span>`; return; }
+
+        const base = window.location.href.replace(/\/manager\/.*$/, '/');
+        link = `${base}doctor-signup.html?token=${token}&hospital_id=${encodeURIComponent(currentHospital.id)}&hospital_name=${encodeURIComponent(currentHospital.name)}&email=${encodeURIComponent(email)}`;
+        statusEl.innerHTML = `<span style="color:#16a34a;">✅ Link generated for <strong>${esc(email)}</strong>.</span>`;
+        showToast('Invite link ready!', 'success');
+        await loadInvitations();
+    }
 
     document.getElementById('invite-link-input').value = link;
     document.getElementById('invite-new-link-box').style.display = 'block';
 
-    // Store email on share button for mailto link
+    // Store email on share button
     const shareBtn = document.getElementById('share-invite-btn');
     if (shareBtn) shareBtn.dataset.email = email;
-
-    statusEl.innerHTML = `<span style="color:#16a34a;">✅ Link generated for <strong>${esc(email)}</strong>.</span>`;
-    showToast('Invite link ready!', 'success');
-
-    await loadInvitations();
 }
 
 function copyInviteLink() {
@@ -728,7 +758,11 @@ ${managerName}
 ${hospitalName}`
     );
 
-    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    // Open Gmail compose in a new tab with everything pre-filled
+    window.open(
+        `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email)}&su=${subject}&body=${body}`,
+        '_blank'
+    );
 }
 
 /* =====================================================
