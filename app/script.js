@@ -2543,77 +2543,75 @@ async function loadDoctorsForBooking() {
     const container = document.getElementById('doctor-list-container');
     container.innerHTML = '<div class="loading-cell text-sm">Loading doctors...</div>';
 
-    let doctors = [];
-
-    if (currentHospitalId) {
-        // Patient belongs to a hospital — show only doctors with active membership in that hospital
-        const { data: memberships, error } = await supabaseClient
-            .from('hospital_doctor_memberships')
+    try {
+        // Step 1: Get only this patient's assigned doctor IDs
+        const { data: assignments, error: aErr } = await supabaseClient
+            .from('doctor_patient_assignments')
             .select('doctor_id')
-            .eq('hospital_id', currentHospitalId)
-            .eq('status', 'active');
+            .eq('patient_id', currentUser.id);
 
-        if (error || !memberships || memberships.length === 0) {
-            container.innerHTML = '<p class="text-center-muted">No available doctors found for your hospital.</p>';
+        if (aErr) throw aErr;
+
+        if (!assignments || assignments.length === 0) {
+            container.innerHTML = '<p class="text-center-muted">No doctors assigned to you yet. Contact your hospital to get assigned.</p>';
             return;
         }
 
-        const doctorIds = memberships.map(m => m.doctor_id);
+        const doctorIds = assignments.map(a => a.doctor_id);
 
-        const { data: docProfiles, error: dpErr } = await supabaseClient
-            .from('doctor_profiles')
-            .select('*')
-            .eq('is_verified', true)
+        // Step 2: Get names from profiles (source of truth for full names)
+        const { data: profiles } = await supabaseClient
+            .from('profiles')
+            .select('id, full_name')
             .in('id', doctorIds);
 
-        doctors = docProfiles || [];
-    } else {
-        // Unaffiliated patient — show all verified independent doctors (no hospital membership)
-        const { data: allDocs } = await supabaseClient
+        // Step 3: Get specialty, online status and schedule from doctor_profiles
+        const { data: docProfiles } = await supabaseClient
             .from('doctor_profiles')
-            .select('*')
-            .eq('is_verified', true);
+            .select('id, specialty, is_online, schedule')
+            .in('id', doctorIds);
 
-        // Show doctors who have no hospital memberships at all (independent doctors)
-        const { data: allMemberships } = await supabaseClient
-            .from('hospital_doctor_memberships')
-            .select('doctor_id')
-            .eq('status', 'active');
+        const profileMap = {};
+        (profiles || []).forEach(p => profileMap[p.id] = p);
+        const docProfileMap = {};
+        (docProfiles || []).forEach(d => docProfileMap[d.id] = d);
 
-        const affiliatedIds = new Set((allMemberships || []).map(m => m.doctor_id));
-        doctors = (allDocs || []).filter(d => !affiliatedIds.has(d.id));
-    } 
-    
-    if (!doctors || doctors.length === 0) {
-        container.innerHTML = '<p class="text-center-muted">No available doctors found at this time.</p>';
-        return;
-    }
+        container.innerHTML = '';
+        doctorIds.forEach(docId => {
+            const profile   = profileMap[docId] || {};
+            const docProf   = docProfileMap[docId] || {};
+            const name      = profile.full_name || 'Doctor';
+            const specialty = docProf.specialty || 'General Practitioner';
+            const isOnline  = !!docProf.is_online;
+            const schedule  = docProf.schedule || null;
+            const safeSchedule = schedule ? encodeURIComponent(JSON.stringify(schedule)) : "";
 
-    container.innerHTML = '';
-    doctors.forEach(doc => {
-        const statusBadge = doc.is_online 
-            ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-bold">Online</span>'
-            : '<span class="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full font-bold">Offline</span>';
-        
-        const safeSchedule = doc.schedule ? encodeURIComponent(JSON.stringify(doc.schedule)) : "";
+            const statusBadge = isOnline
+                ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-bold">Online</span>'
+                : '<span class="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full font-bold">Offline</span>';
 
-        const card = `
-            <div class="card p-3 flex justify-between items-center cursor-pointer hover:shadow-md transition-all" onclick="openScheduleForm('${doc.id}', '${doc.full_name}', '${safeSchedule}')">
-                <div class="flex gap-3 items-center">
-                    <div class="doctor-avatar bg-gray-200 text-gray-600" style="width:40px;height:40px;font-size:0.9rem;">${getInitials(doc.full_name || 'Dr')}</div>
-                    <div>
-                        <h4 class="font-bold text-sm flex items-center gap-1">
-                            ${doc.full_name || 'Doctor'} 
-                            <i class="fa-solid fa-circle-check text-blue-500" title="Verified Practitioner"></i>
-                        </h4>
-                        <p class="text-xs text-gray-500">${doc.specialty || 'General'}</p>
+            const card = `
+                <div class="card p-3 flex justify-between items-center cursor-pointer hover:shadow-md transition-all"
+                     onclick="openScheduleForm('${docId}', '${name.replace(/'/g, "\\'")}', '${safeSchedule}')">
+                    <div class="flex gap-3 items-center">
+                        <div class="doctor-avatar bg-gray-200 text-gray-600" style="width:40px;height:40px;font-size:0.9rem;">${getInitials(name)}</div>
+                        <div>
+                            <h4 class="font-bold text-sm flex items-center gap-1">
+                                ${name}
+                                <i class="fa-solid fa-circle-check text-blue-500" title="Verified Practitioner"></i>
+                            </h4>
+                            <p class="text-xs text-gray-500">${specialty}</p>
+                        </div>
                     </div>
+                    ${statusBadge}
                 </div>
-                ${statusBadge}
-            </div>
-        `;
-        container.innerHTML += card;
-    });
+            `;
+            container.innerHTML += card;
+        });
+
+    } catch (err) {
+        container.innerHTML = `<p class="text-center-muted" style="color:#ef4444;">Error loading doctors: ${err.message}</p>`;
+    }
 }
 
 function openScheduleForm(docId, docName, encodedSchedule) {
@@ -3209,7 +3207,31 @@ function startVideoCall(appointmentId, callType = 'video', patientId = '', patie
             startAudioOnly: isAudioOnly,
             disableDeepLinking: true,
             prejoinPageEnabled: false,
-            toolbarButtons: activeButtons
+            prejoinConfig: { enabled: false },
+            lobby: { autoKnock: false, enableChat: false },
+            enableLobbyChat: false,
+            autoKnockLobby: false,
+            hideLobbyButton: true,
+            requireDisplayName: false,
+            enableWelcomePage: false,
+            enableClosePage: false,
+            disableThirdPartyRequests: true,
+            toolbarButtons: activeButtons,
+            // Bypass moderator requirement — anyone with the room name joins directly
+            enableUserRolesBasedOnToken: false,
+            disableModeratorIndicator: true,
+            startSilent: false
+        },
+        interfaceConfigOverwrite: {
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false,
+            SHOW_BRAND_WATERMARK: false,
+            DISPLAY_WELCOME_PAGE_CONTENT: false,
+            DISPLAY_WELCOME_PAGE_TOOLBAR_ADDITIONAL_CONTENT: false,
+            HIDE_INVITE_MORE_HEADER: true,
+            MOBILE_APP_PROMO: false,
+            NATIVE_APP_NAME: 'Instadoc',
+            PROVIDER_NAME: 'Instadoc'
         }
     };
 
