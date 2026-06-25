@@ -3263,7 +3263,7 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
         .subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
                 // Determine if caller (doctor) or receiver (patient) by role
-                const myRole = currentProfile ? currentProfile.role : 'patient';
+                const myRole = userRole || 'patient';
                 if (myRole === 'doctor') {
                     // Doctor initiates the offer
                     peerConnection.onicecandidate = ({ candidate }) => {
