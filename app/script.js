@@ -3164,7 +3164,27 @@ let camEnabled = true;
 const ICE_SERVERS = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        {
+            urls: 'turn:instadocapp.metered.live:80',
+            username: 'instadocapp',
+            credential: '3OmUSA7m5P4rflnZn9SlcddXxY127QWYrmdn8esw_TEUEIT_'
+        },
+        {
+            urls: 'turn:instadocapp.metered.live:80?transport=tcp',
+            username: 'instadocapp',
+            credential: '3OmUSA7m5P4rflnZn9SlcddXxY127QWYrmdn8esw_TEUEIT_'
+        },
+        {
+            urls: 'turn:instadocapp.metered.live:443',
+            username: 'instadocapp',
+            credential: '3OmUSA7m5P4rflnZn9SlcddXxY127QWYrmdn8esw_TEUEIT_'
+        },
+        {
+            urls: 'turns:instadocapp.metered.live:443?transport=tcp',
+            username: 'instadocapp',
+            credential: '3OmUSA7m5P4rflnZn9SlcddXxY127QWYrmdn8esw_TEUEIT_'
+        }
     ]
 };
 
