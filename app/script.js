@@ -3143,120 +3143,194 @@ async function updateAppointmentStatus(id, newStatus, patientId) {
     });
 }
 // --- VIDEO CALL FUNCTION (Jitsi) ---
-let jitsiApi = null; // Restoring the API variable we deleted!
+let jitsiApi = null; // Legacy — no longer used (WebRTC replaces Jitsi)
 
 // Global variables to hold call state
 let activeCallTranscript = "";
 let activeCallRecognition = null;
 let currentCallContext = {};
 
-function startVideoCall(appointmentId, callType = 'video', patientId = '', patientName = '') {
-    const modal = document.getElementById('video-modal');
-    if (modal) modal.classList.add('active');
-    
-    // Store context for post-call summary
+// ============================================================
+// WEBRTC VIDEO CALL — 100% FREE, NO THIRD PARTY, USES SUPABASE
+// ============================================================
+let localStream = null;
+let peerConnection = null;
+let callChannel = null;
+let callTimerInterval = null;
+let callSeconds = 0;
+let micEnabled = true;
+let camEnabled = true;
+
+const ICE_SERVERS = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+};
+
+async function startVideoCall(appointmentId, callType = 'video', patientId = '', patientName = '') {
     currentCallContext = { appointmentId, patientId, patientName };
     activeCallTranscript = "";
+    callSeconds = 0;
 
-    // 1. Initialize Background Transcription
+    const isAudioOnly = callType === 'audio';
+    const modal = document.getElementById('video-modal');
+    if (modal) modal.classList.add('active');
+
+    // Show/hide audio-only overlay
+    const audioOverlay = document.getElementById('audio-only-overlay');
+    const btnCam = document.getElementById('btn-toggle-cam');
+    if (isAudioOnly) {
+        if (audioOverlay) audioOverlay.style.display = 'flex';
+        if (btnCam) btnCam.style.opacity = '0.4';
+        const nameEl = document.getElementById('audio-call-name');
+        if (nameEl) nameEl.textContent = patientName || 'Audio Consultation';
+    } else {
+        if (audioOverlay) audioOverlay.style.display = 'none';
+    }
+
+    // 1. Get local media
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: !isAudioOnly,
+            audio: true
+        });
+        const localVideo = document.getElementById('local-video');
+        if (localVideo) localVideo.srcObject = localStream;
+    } catch (err) {
+        showToast('Camera/microphone access denied. Please allow and try again.', 'error');
+        closeVideoCall();
+        return;
+    }
+
+    // 2. Start speech transcription
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
         activeCallRecognition = new SpeechRecognition();
         activeCallRecognition.continuous = true;
         activeCallRecognition.interimResults = false;
-        
         activeCallRecognition.onresult = (event) => {
             for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    activeCallTranscript += event.results[i][0].transcript + " ";
-                }
+                if (event.results[i].isFinal) activeCallTranscript += event.results[i][0].transcript + ' ';
             }
         };
-        
-        // Restart automatically if it pauses during long silences
-        activeCallRecognition.onend = () => {
-            if (activeCallRecognition) activeCallRecognition.start();
-        };
-        
+        activeCallRecognition.onend = () => { if (activeCallRecognition) activeCallRecognition.start(); };
         activeCallRecognition.start();
     }
 
-    // 2. Standard Jitsi Initialization
-    const domain = "meet.jit.si";
-    const roomName = "InstadocSecureConsult-" + appointmentId;
-    const userName = (currentUser && currentUser.user_metadata && currentUser.user_metadata.full_name) ? currentUser.user_metadata.full_name : "Instadoc User";
-    const isAudioOnly = callType === 'audio';
+    // 3. Create WebRTC peer connection
+    peerConnection = new RTCPeerConnection(ICE_SERVERS);
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-    let activeButtons = [
-        'microphone', 'camera', 'desktop', 'fullscreen', 'hangup', 'chat', 
-        'settings', 'raisehand', 'videoquality', 'tileview', 'mute-everyone'
-    ];
-
-    if (isAudioOnly) {
-        activeButtons = activeButtons.filter(btn => !['camera', 'desktop', 'videoquality'].includes(btn));
-    }
-
-    const options = {
-        roomName: roomName,
-        width: "100%", 
-        height: "100%",
-        parentNode: document.querySelector('#jitsi-container'),
-        userInfo: { displayName: userName },
-        configOverwrite: {
-            startWithVideoMuted: isAudioOnly,
-            startAudioOnly: isAudioOnly,
-            disableDeepLinking: true,
-            prejoinPageEnabled: false,
-            prejoinConfig: { enabled: false },
-            lobby: { autoKnock: false, enableChat: false },
-            enableLobbyChat: false,
-            autoKnockLobby: false,
-            hideLobbyButton: true,
-            requireDisplayName: false,
-            enableWelcomePage: false,
-            enableClosePage: false,
-            disableThirdPartyRequests: true,
-            toolbarButtons: activeButtons,
-            // Bypass moderator requirement — anyone with the room name joins directly
-            enableUserRolesBasedOnToken: false,
-            disableModeratorIndicator: true,
-            startSilent: false
-        },
-        interfaceConfigOverwrite: {
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_WATERMARK_FOR_GUESTS: false,
-            SHOW_BRAND_WATERMARK: false,
-            DISPLAY_WELCOME_PAGE_CONTENT: false,
-            DISPLAY_WELCOME_PAGE_TOOLBAR_ADDITIONAL_CONTENT: false,
-            HIDE_INVITE_MORE_HEADER: true,
-            MOBILE_APP_PROMO: false,
-            NATIVE_APP_NAME: 'Instadoc',
-            PROVIDER_NAME: 'Instadoc'
-        }
+    // When remote stream arrives, show it
+    peerConnection.ontrack = (event) => {
+        const remoteVideo = document.getElementById('remote-video');
+        if (remoteVideo) remoteVideo.srcObject = event.streams[0];
+        const waiting = document.getElementById('waiting-overlay');
+        if (waiting) waiting.style.display = 'none';
+        const badge = document.getElementById('call-status-badge');
+        if (badge) { badge.textContent = 'Connected'; badge.style.background = '#16a34a'; }
+        // Start call timer
+        callTimerInterval = setInterval(() => {
+            callSeconds++;
+            const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+            const s = String(callSeconds % 60).padStart(2, '0');
+            const timerEl = document.getElementById('call-timer');
+            if (timerEl) timerEl.textContent = m + ':' + s;
+        }, 1000);
     };
 
-    if (jitsiApi) jitsiApi.dispose();
-    try {
-        jitsiApi = new JitsiMeetExternalAPI(domain, options);
-        jitsiApi.addEventListeners({ videoConferenceLeft: function () { closeVideoCall(); } });
-        showToast(`Connecting to secure ${callType} room...`, "success");
-    } catch (err) {
-        showToast("Failed to initialize call.", "error");
-        closeVideoCall();
+    // 4. Subscribe to Supabase signaling channel
+    const channelName = 'webrtc-' + appointmentId;
+    callChannel = supabaseClient.channel(channelName, { config: { broadcast: { self: false } } });
+
+    callChannel
+        .on('broadcast', { event: 'offer' }, async ({ payload }) => {
+            if (!peerConnection) return;
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            callChannel.send({ type: 'broadcast', event: 'answer', payload: { sdp: answer } });
+        })
+        .on('broadcast', { event: 'answer' }, async ({ payload }) => {
+            if (!peerConnection) return;
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+        })
+        .on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
+            if (!peerConnection) return;
+            try { await peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate)); } catch(e) {}
+        })
+        .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                // Determine if caller (doctor) or receiver (patient) by role
+                const myRole = currentProfile ? currentProfile.role : 'patient';
+                if (myRole === 'doctor') {
+                    // Doctor initiates the offer
+                    peerConnection.onicecandidate = ({ candidate }) => {
+                        if (candidate) {
+                            callChannel.send({ type: 'broadcast', event: 'ice-candidate', payload: { candidate } });
+                        }
+                    };
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
+                    callChannel.send({ type: 'broadcast', event: 'offer', payload: { sdp: offer } });
+                    showToast('Waiting for patient to join...', 'success');
+                } else {
+                    // Patient waits for offer, sends ICE candidates
+                    peerConnection.onicecandidate = ({ candidate }) => {
+                        if (candidate) {
+                            callChannel.send({ type: 'broadcast', event: 'ice-candidate', payload: { candidate } });
+                        }
+                    };
+                    showToast('Connecting to your doctor...', 'success');
+                }
+            }
+        });
+}
+
+function toggleMic() {
+    if (!localStream) return;
+    micEnabled = !micEnabled;
+    localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
+    const btn = document.getElementById('btn-toggle-mic');
+    if (btn) {
+        btn.style.background = micEnabled ? '#374151' : '#ef4444';
+        btn.innerHTML = micEnabled ? '<i class="fa-solid fa-microphone"></i>' : '<i class="fa-solid fa-microphone-slash"></i>';
+    }
+}
+
+function toggleCam() {
+    if (!localStream) return;
+    camEnabled = !camEnabled;
+    localStream.getVideoTracks().forEach(t => t.enabled = camEnabled);
+    const btn = document.getElementById('btn-toggle-cam');
+    if (btn) {
+        btn.style.background = camEnabled ? '#374151' : '#ef4444';
+        btn.innerHTML = camEnabled ? '<i class="fa-solid fa-video"></i>' : '<i class="fa-solid fa-video-slash"></i>';
     }
 }
 
 async function closeVideoCall() {
-    // 1. Clean up Jitsi connection securely
-    if (jitsiApi) {
-        jitsiApi.dispose();
-        jitsiApi = null;
-    }
+    // 1. Clean up WebRTC connection
+    if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+    if (peerConnection) { peerConnection.close(); peerConnection = null; }
+    if (callChannel) { supabaseClient.removeChannel(callChannel); callChannel = null; }
+    if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
+
+    // Reset video elements
+    const localVideo = document.getElementById('local-video');
+    const remoteVideo = document.getElementById('remote-video');
+    if (localVideo) localVideo.srcObject = null;
+    if (remoteVideo) remoteVideo.srcObject = null;
+
+    // Reset waiting overlay
+    const waiting = document.getElementById('waiting-overlay');
+    if (waiting) waiting.style.display = 'flex';
+    const badge = document.getElementById('call-status-badge');
+    if (badge) { badge.textContent = 'Connecting...'; badge.style.background = '#ef4444'; }
+
     const modal = document.getElementById('video-modal');
     if (modal) modal.classList.remove('active');
-    
-    const container = document.querySelector('#jitsi-container');
-    if (container) container.innerHTML = "";
 
     // 2. Handle Transcription & Seamless AI Handoff
     if (activeCallRecognition) {

@@ -1084,13 +1084,63 @@
         </div>
     </div>
 
-    <!-- Video Call Modal -->
+    <!-- Video Call Modal (WebRTC) -->
     <div class="modal-overlay" id="video-modal">
-        <div class="video-modal-content">
-            <button class="close-video" onclick="closeVideoCall()">End Call</button>
-            <div id="jitsi-container"></div>
+        <div class="video-modal-content" style="display:flex;flex-direction:column;height:100%;background:#1a1a2e;border-radius:12px;overflow:hidden;">
+            <!-- Header -->
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#0f0f1a;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <img src="../assets/logo.png" style="height:24px;" onerror="this.style.display='none'">
+                    <span style="color:#fff;font-weight:600;font-size:14px;">Instadoc Secure Consult</span>
+                    <span id="call-status-badge" style="font-size:11px;padding:2px 8px;border-radius:20px;background:#ef4444;color:#fff;">Connecting...</span>
+                </div>
+                <button onclick="closeVideoCall()" style="background:#ef4444;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-weight:600;cursor:pointer;">End Call</button>
+            </div>
+
+            <!-- Video Area -->
+            <div style="flex:1;position:relative;background:#000;overflow:hidden;">
+                <!-- Remote video (full screen) -->
+                <video id="remote-video" autoplay playsinline style="width:100%;height:100%;object-fit:cover;background:#111;"></video>
+                
+                <!-- Waiting overlay -->
+                <div id="waiting-overlay" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0f0f1a;gap:12px;">
+                    <div style="width:60px;height:60px;border:3px solid #16a34a;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>
+                    <p style="color:#fff;font-size:14px;" id="waiting-text">Waiting for the other person to join...</p>
+                </div>
+
+                <!-- Local video (picture-in-picture) -->
+                <video id="local-video" autoplay playsinline muted style="position:absolute;bottom:12px;right:12px;width:140px;height:100px;object-fit:cover;border-radius:8px;border:2px solid #16a34a;background:#222;"></video>
+
+                <!-- Audio only overlay -->
+                <div id="audio-only-overlay" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:#0f0f1a;flex-direction:column;gap:12px;">
+                    <div style="width:80px;height:80px;border-radius:50%;background:#16a34a;display:flex;align-items:center;justify-content:center;">
+                        <i class="fa-solid fa-phone" style="color:#fff;font-size:28px;"></i>
+                    </div>
+                    <p style="color:#fff;font-size:16px;font-weight:600;" id="audio-call-name">Audio Consultation</p>
+                    <p style="color:#aaa;font-size:13px;" id="call-timer">00:00</p>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div style="display:flex;justify-content:center;gap:16px;padding:14px;background:#0f0f1a;">
+                <button id="btn-toggle-mic" onclick="toggleMic()" title="Mute/Unmute"
+                    style="width:48px;height:48px;border-radius:50%;border:none;background:#374151;color:#fff;font-size:18px;cursor:pointer;">
+                    <i class="fa-solid fa-microphone"></i>
+                </button>
+                <button id="btn-toggle-cam" onclick="toggleCam()" title="Camera On/Off"
+                    style="width:48px;height:48px;border-radius:50%;border:none;background:#374151;color:#fff;font-size:18px;cursor:pointer;">
+                    <i class="fa-solid fa-video"></i>
+                </button>
+                <button onclick="closeVideoCall()"
+                    style="width:56px;height:56px;border-radius:50%;border:none;background:#ef4444;color:#fff;font-size:20px;cursor:pointer;">
+                    <i class="fa-solid fa-phone-slash"></i>
+                </button>
+            </div>
         </div>
     </div>
+    <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
 
     <div class="modal-overlay" id="reminders-modal"><div class="auth-modal"><button class="close-modal" onclick="closeModals()">&times;</button><h2 class="modal-title">Set Reminder</h2><p class="success-msg" id="remind-success"></p><form onsubmit="setReminder(event)"><div class="form-group"><label class="input-label">Time to measure:</label><input type="time" id="reminder-time" class="form-control" required></div><button type="submit" class="book-btn btn-full">Set Daily Alert</button></form></div></div>
 
