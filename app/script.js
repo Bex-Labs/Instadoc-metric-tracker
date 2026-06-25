@@ -3431,8 +3431,15 @@ function getNotifiedKey(time) {
     return `instadoc_notified_${today}_${time}`;
 }
 
+let notificationChannel = null; // Guard against duplicate channel subscriptions
+
 function startNotificationEngine() {
     if (notificationInterval) clearInterval(notificationInterval);
+    // Remove any existing realtime channel before creating a new one
+    if (notificationChannel) {
+        supabaseClient.removeChannel(notificationChannel);
+        notificationChannel = null;
+    }
 
     // Load appointment notifications from DB on startup
     loadInboxNotifications();
@@ -3468,20 +3475,17 @@ function startNotificationEngine() {
 
     // --- NEW: TRUE REAL-TIME SYNC ---
     if (currentUser) {
-        supabaseClient
-            .channel('public:notifications')
+        notificationChannel = supabaseClient
+            .channel('public:notifications:' + currentUser.id)
             .on('postgres_changes', { 
                 event: 'INSERT', 
                 schema: 'public', 
                 table: 'notifications',
                 filter: `user_id=eq.${currentUser.id}` 
             }, (payload) => {
-                // Instantly alert the user and update the UI when a doctor triggers an event
                 const newNotif = payload.new;
                 showToast(`🔔 ${newNotif.title}`, 'success');
                 updateNotificationBadge();
-                
-                // If the panel is open, append it silently
                 const panel = document.getElementById('notif-panel');
                 if (panel && panel.classList.contains('open')) {
                     loadInboxNotifications();
