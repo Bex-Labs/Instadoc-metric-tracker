@@ -3245,6 +3245,16 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
     callChannel = supabaseClient.channel(channelName, { config: { broadcast: { self: false } } });
 
     callChannel
+        .on('broadcast', { event: 'patient-ready' }, async () => {
+            // Patient just joined — re-send offer so they can connect
+            if (userRole === 'doctor' && peerConnection) {
+                try {
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
+                    callChannel.send({ type: 'broadcast', event: 'offer', payload: { sdp: offer } });
+                } catch(e) { console.warn('Re-offer failed:', e); }
+            }
+        })
         .on('broadcast', { event: 'offer' }, async ({ payload }) => {
             if (!peerConnection) return;
             await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
@@ -3276,12 +3286,14 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
                     callChannel.send({ type: 'broadcast', event: 'offer', payload: { sdp: offer } });
                     showToast('Waiting for patient to join...', 'success');
                 } else {
-                    // Patient waits for offer, sends ICE candidates
+                    // Patient waits for offer and sends ICE candidates
                     peerConnection.onicecandidate = ({ candidate }) => {
                         if (candidate) {
                             callChannel.send({ type: 'broadcast', event: 'ice-candidate', payload: { candidate } });
                         }
                     };
+                    // Notify doctor that patient is ready — doctor will re-send offer
+                    callChannel.send({ type: 'broadcast', event: 'patient-ready', payload: {} });
                     showToast('Connecting to your doctor...', 'success');
                 }
             }
@@ -3332,51 +3344,34 @@ async function closeVideoCall() {
     const modal = document.getElementById('video-modal');
     if (modal) modal.classList.remove('active');
 
-    // 2. Handle Transcription & Seamless AI Handoff
+    // 2. Handle Transcription & AI Handoff (doctors only)
     if (activeCallRecognition) {
-        // Prevent auto-restart loop before stopping
-        activeCallRecognition.onend = null; 
+        activeCallRecognition.onend = null;
         activeCallRecognition.stop();
         activeCallRecognition = null;
+    }
 
-        // Only summarize if meaningful audio was captured (>15 characters)
-        if (activeCallTranscript.trim().length > 15) {
-            
-            // UI Friction Reduction: Open notes modal immediately in a loading state
-            openNotesModal(
-                currentCallContext.appointmentId, 
-                currentCallContext.patientId, 
-                currentCallContext.patientName, 
-                "🤖 Analyzing consultation audio... Generating smart summary..."
-            );
+    // Only open notes modal for doctors — patients don't have this UI
+    if (userRole !== 'doctor') return;
 
-            // Lock the save button while AI processes to prevent premature saves
-            const btn = document.getElementById('notes-btn');
-            if (btn) { 
-                btn.disabled = true; 
-                btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing AI Summary...'; 
-                btn.style.opacity = '0.7';
-            }
-
-            // Call the AI Summarization Engine
-            const aiSummary = await generateAISummary(activeCallTranscript);
-            
-            // Update the modal text seamlessly
-            const textArea = document.getElementById('notes-content');
-            if (textArea) textArea.value = aiSummary;
-
-            // Unlock the button for doctor review
-            if (btn) { 
-                btn.disabled = false; 
-                btn.textContent = "Save Notes"; 
-                btn.style.opacity = '1';
-            }
-            showToast("Smart Summary generated successfully.", "success");
-
-        } else {
-            // Audio was too short/empty; open standard blank notes
-            openNotesModal(currentCallContext.appointmentId, currentCallContext.patientId, currentCallContext.patientName, "");
+    if (activeCallTranscript.trim().length > 15) {
+        openNotesModal(
+            currentCallContext.appointmentId,
+            currentCallContext.patientId,
+            currentCallContext.patientName,
+            "🤖 Analyzing consultation audio... Generating smart summary..."
+        );
+        const btn = document.getElementById('notes-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing AI Summary...';
+            btn.style.opacity = '0.7';
         }
+        const aiSummary = await generateAISummary(activeCallTranscript);
+        const textArea = document.getElementById('notes-content');
+        if (textArea) textArea.value = aiSummary;
+        if (btn) { btn.disabled = false; btn.textContent = "Save Notes"; btn.style.opacity = '1'; }
+        showToast("Smart Summary generated successfully.", "success");
     } else {
         openNotesModal(currentCallContext.appointmentId, currentCallContext.patientId, currentCallContext.patientName, "");
     }
