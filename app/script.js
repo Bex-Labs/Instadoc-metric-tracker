@@ -3161,32 +3161,26 @@ let callSeconds = 0;
 let micEnabled = true;
 let camEnabled = true;
 
-const ICE_SERVERS = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        {
-            urls: 'turn:instadocapp.metered.live:80',
-            username: 'instadocapp',
-            credential: '3OmUSA7m5P4rflnZn9SlcddXxY127QWYrmdn8esw_TEUEIT_'
-        },
-        {
-            urls: 'turn:instadocapp.metered.live:80?transport=tcp',
-            username: 'instadocapp',
-            credential: '3OmUSA7m5P4rflnZn9SlcddXxY127QWYrmdn8esw_TEUEIT_'
-        },
-        {
-            urls: 'turn:instadocapp.metered.live:443',
-            username: 'instadocapp',
-            credential: '3OmUSA7m5P4rflnZn9SlcddXxY127QWYrmdn8esw_TEUEIT_'
-        },
-        {
-            urls: 'turns:instadocapp.metered.live:443?transport=tcp',
-            username: 'instadocapp',
-            credential: '3OmUSA7m5P4rflnZn9SlcddXxY127QWYrmdn8esw_TEUEIT_'
+// TURN credentials fetched dynamically from Metered
+let ICE_SERVERS = { iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+]};
+
+async function loadIceServers() {
+    try {
+        const res = await fetch(
+            'https://instadocapp.metered.live/api/v1/turn/credentials?apiKey=7VWyy16Hf9Twy0hQqc-s3IXKgd-GaKwJrzKdgqkVTHWXgwP6'
+        );
+        const servers = await res.json();
+        if (Array.isArray(servers) && servers.length > 0) {
+            ICE_SERVERS = { iceServers: servers };
+            console.log('TURN servers loaded:', servers.length, 'servers');
         }
-    ]
-};
+    } catch(e) {
+        console.warn('Could not load TURN servers, using STUN only:', e.message);
+    }
+}
 
 async function startVideoCall(appointmentId, callType = 'video', patientId = '', patientName = '') {
     currentCallContext = { appointmentId, patientId, patientName };
@@ -3238,7 +3232,8 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
         activeCallRecognition.start();
     }
 
-    // 3. Create WebRTC peer connection
+    // 3. Create WebRTC peer connection (load fresh TURN credentials first)
+    await loadIceServers();
     peerConnection = new RTCPeerConnection(ICE_SERVERS);
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
