@@ -1040,33 +1040,38 @@ body.dark-mode .booked-slot-badge {
 
 /* ── Welcome Banner (first-time user) ─────────────────────────────── */
 .welcome-banner {
-    display: flex;
-    align-items: flex-start;
-    gap: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
     background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
     border: 1.5px solid #bbf7d0;
     border-radius: 16px;
-    padding: 1.5rem 1.75rem;
+    padding: 0.65rem 1.1rem;
+    width: auto;
+    max-width: 100%;
 }
 .welcome-banner-icon {
     flex-shrink: 0;
-    width: 48px; height: 48px;
+    width: 36px; height: 36px;
     background: #22c55e;
-    border-radius: 12px;
+    border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
-    color: #fff; font-size: 1.35rem;
+    color: #fff; font-size: 1rem;
 }
-.welcome-banner-body { flex: 1; }
+.welcome-banner-body { flex: 1; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .welcome-banner-title {
-    font-size: 1rem; font-weight: 700;
-    color: #14532d; margin: 0 0 .35rem;
+    font-size: 0.85rem; font-weight: 700;
+    color: #14532d; margin: 0; white-space: nowrap;
 }
-.welcome-banner-sub {
-    font-size: 0.875rem; color: #166534;
-    margin: 0 0 1rem; line-height: 1.5;
-}
+.welcome-banner-sub { display: none; }
 .welcome-banner-actions {
-    display: flex; flex-wrap: wrap; gap: .65rem;
+    display: flex; flex-wrap: wrap; gap: .5rem;
+}
+.welcome-banner-actions .btn-action {
+    width: auto;
+    padding: 0.45rem 1rem;
+    font-size: 0.8rem;
+    border-radius: 8px;
 }
 
 /* ── Appointment card empty state ──────────────────────────────────── */
