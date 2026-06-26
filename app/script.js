@@ -4,6 +4,7 @@ var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 var supabaseClient;
 var currentUser = null;
+var isPasswordRecovery = false; // Guard: blocks SIGNED_IN from routing to dashboard during password reset
 var currentHospitalId = null; // Tenant scope — loaded from user's profile on login
 var myChart = null; 
 var doctorCharts = {};
@@ -79,10 +80,19 @@ if (supabaseClient) {
 
         // US-3: Password Recovery Handling
         if (event === 'PASSWORD_RECOVERY') {
+            isPasswordRecovery = true; // Block SIGNED_IN from routing to dashboard
             document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
             const updateModal = document.getElementById('update-password-modal');
             if (updateModal) updateModal.classList.add('active');
             return; // Stop further routing logic
+        }
+
+        // Block dashboard routing during password reset flow
+        if (isPasswordRecovery && (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED')) {
+            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+            const updateModal = document.getElementById('update-password-modal');
+            if (updateModal) updateModal.classList.add('active');
+            return;
         }
 
         if (session && session.user) {
@@ -459,7 +469,7 @@ document.getElementById('reset-form').addEventListener('submit', async (e) => {
     btn.textContent = "Sending...";
     
     const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.href, 
+        redirectTo: window.location.origin + '/app/index.html', 
     });
 
     if (error) {
@@ -495,6 +505,7 @@ document.getElementById('update-pass-form').addEventListener('submit', async (e)
     } else {
         document.getElementById('update-pass-success').textContent = "Password updated successfully!";
         document.getElementById('update-pass-success').style.display = 'block';
+        isPasswordRecovery = false; // Clear the guard
         setTimeout(() => {
             closeModals();
             window.location.hash = ''; 
@@ -2352,24 +2363,6 @@ function deleteMyAccount() {
 
 // --- DOCTOR LOGIC ---
 
-async function toggleDoctorStatus(el) {
-    if(!currentUser) return;
-    const isChecked = el.classList.toggle('checked');
-    const statusText = document.getElementById('doctor-status-text');
-    
-    statusText.textContent = isChecked ? "Online" : "Offline";
-    statusText.className = isChecked ? "text-xs ml-2 text-green-500" : "text-xs ml-2 text-gray-500";
-
-   const { error } = await supabaseClient.from('doctor_profiles').upsert({
-        id: currentUser.id,
-        schedule: schedule,
-        full_name: fullName
-    });
-    
-    if(!error) showToast("Settings & Schedule Saved!", "success");
-    else showToast("Error: " + error.message, "error");
-}
-
 const defaultSchedule = {
     "Mon": { active: true, start: "09:00", end: "17:00" },
     "Tue": { active: true, start: "09:00", end: "17:00" },
@@ -2474,7 +2467,17 @@ async function saveDoctorSettings() {
         showToast("Professional Profile & Schedule Saved!", "success");
         currentUser = data.user; 
         loadDoctorStatus(); // Refreshes the UI header
-        updateAvatarUI(currentUser.user_metadata?.avatar_url); 
+        updateAvatarUI(currentUser.user_metadata?.avatar_url);
+
+        // --- LOG PROFILE UPDATE TO platform_activity ---
+        await supabaseClient.from('platform_activity').insert({
+            actor_id: currentUser.id,
+            target_user_id: currentUser.id,
+            module: 'doctors',
+            action: 'updated',
+            description: `Doctor updated their professional profile`,
+            created_at: new Date().toISOString()
+        }); 
     }
 }
 
@@ -2521,18 +2524,6 @@ async function loadDoctorStatus() {
             }
         }
         // -------------------------------------
-
-        const toggle = document.getElementById('doctor-status-toggle');
-        const statusText = document.getElementById('doctor-status-text');
-        if(data.is_online) {
-            toggle.classList.add('checked');
-            statusText.textContent = "Online";
-            statusText.className = "text-xs ml-2 text-green-500";
-        } else {
-            toggle.classList.remove('checked');
-            statusText.textContent = "Offline";
-            statusText.className = "text-xs ml-2 text-gray-500";
-        }
         renderScheduleGrid(data.schedule);
     } else {
         renderScheduleGrid(defaultSchedule);
@@ -2544,7 +2535,7 @@ async function loadDoctorsForBooking() {
     container.innerHTML = '<div class="loading-cell text-sm">Loading doctors...</div>';
 
     try {
-        // Step 1: Get only this patient's assigned doctor IDs
+        // Step 1: Check if patient has explicitly assigned doctors
         const { data: assignments, error: aErr } = await supabaseClient
             .from('doctor_patient_assignments')
             .select('doctor_id')
@@ -2552,12 +2543,45 @@ async function loadDoctorsForBooking() {
 
         if (aErr) throw aErr;
 
-        if (!assignments || assignments.length === 0) {
-            container.innerHTML = '<p class="text-center-muted">No doctors assigned to you yet. Contact your hospital to get assigned.</p>';
-            return;
-        }
+        let doctorIds = [];
+        let isInstadocHospital = false;
 
-        const doctorIds = assignments.map(a => a.doctor_id);
+        if (assignments && assignments.length > 0) {
+            // Patient has assigned doctors — use those (hospital-specific flow)
+            doctorIds = assignments.map(a => a.doctor_id);
+        } else {
+            // No assigned doctors — patient is in Instadoc Hospital
+            // Show ALL doctors who are members of the default Instadoc Hospital
+            isInstadocHospital = true;
+
+            // Get Instadoc Hospital id
+            const { data: defaultHospital, error: hErr } = await supabaseClient
+                .from('hospitals')
+                .select('id')
+                .eq('is_default', true)
+                .single();
+
+            if (hErr || !defaultHospital) {
+                container.innerHTML = '<p class="text-center-muted">No doctors available at this time.</p>';
+                return;
+            }
+
+            // Get all active doctor memberships in Instadoc Hospital
+            const { data: memberships, error: mErr } = await supabaseClient
+                .from('hospital_doctor_memberships')
+                .select('doctor_id')
+                .eq('hospital_id', defaultHospital.id)
+                .eq('status', 'active');
+
+            if (mErr) throw mErr;
+
+            if (!memberships || memberships.length === 0) {
+                container.innerHTML = '<p class="text-center-muted">No doctors are currently available in Instadoc Hospital.</p>';
+                return;
+            }
+
+            doctorIds = memberships.map(m => m.doctor_id);
+        }
 
         // Step 2: Get names from profiles (source of truth for full names)
         const { data: profiles } = await supabaseClient
@@ -2577,6 +2601,16 @@ async function loadDoctorsForBooking() {
         (docProfiles || []).forEach(d => docProfileMap[d.id] = d);
 
         container.innerHTML = '';
+
+        if (isInstadocHospital) {
+            container.innerHTML = `
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 4px;margin-bottom:8px;border-bottom:1px solid #e5e7eb;">
+                    <i class="fa-solid fa-hospital" style="color:#3b82f6;font-size:0.85rem;"></i>
+                    <span style="font-size:0.8rem;color:#6b7280;font-weight:600;">Instadoc Hospital — Book with any available doctor</span>
+                </div>
+            `;
+        }
+
         doctorIds.forEach(docId => {
             const profile   = profileMap[docId] || {};
             const docProf   = docProfileMap[docId] || {};
@@ -2614,90 +2648,180 @@ async function loadDoctorsForBooking() {
     }
 }
 
+// ============================================================
+// FULL PAGE BOOKING — Day selector + 30-min slot grid
+// ============================================================
+
 function openScheduleForm(docId, docName, encodedSchedule) {
-    closeModals(); 
+    closeModals();
     document.getElementById('schedule-appointment-modal').classList.add('active');
-    document.getElementById('schedule-doc-name').textContent = "With " + docName;
+    document.getElementById('schedule-doc-name').textContent = 'With ' + docName;
     document.getElementById('schedule-doc-id').value = docId;
-    
-    if(encodedSchedule) {
-        document.getElementById('schedule-doc-json').value = decodeURIComponent(encodedSchedule);
-    } else {
-        document.getElementById('schedule-doc-json').value = ""; 
-    }
-    
-    document.getElementById('schedule-date').value = "";
-    document.getElementById('schedule-time').value = "";
-    document.getElementById('schedule-time').disabled = true;
+    document.getElementById('schedule-doc-json').value = encodedSchedule ? decodeURIComponent(encodedSchedule) : '';
+    document.getElementById('schedule-date').value = '';
+    document.getElementById('schedule-time').value = '';
     document.getElementById('schedule-error').style.display = 'none';
     document.getElementById('schedule-success').style.display = 'none';
-    document.getElementById('schedule-time-hint').style.display = 'none';
+
+    // Reset steps
+    document.getElementById('booking-slots-section').style.display = 'none';
+    document.getElementById('booking-details-section').style.display = 'none';
+
+    renderBookingDaysGrid(docId, encodedSchedule ? decodeURIComponent(encodedSchedule) : null);
 }
 
-function validateDoctorSchedule() {
-    const dateInput = document.getElementById('schedule-date');
-    const timeInput = document.getElementById('schedule-time');
-    const hintText = document.getElementById('schedule-time-hint');
-    const scheduleJson = document.getElementById('schedule-doc-json').value;
+function renderBookingDaysGrid(docId, scheduleJson) {
+    const grid = document.getElementById('booking-days-grid');
+    const noSchedule = document.getElementById('booking-no-schedule');
+    grid.innerHTML = '';
 
-    if (!dateInput.value) return;
+    const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    let schedule = null;
 
-    const date = new Date(dateInput.value);
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const dayName = days[date.getDay()];
+    try { schedule = scheduleJson ? JSON.parse(scheduleJson) : null; } catch(e) {}
 
-    let isAvailable = false;
-    let start = "09:00";
-    let end = "17:00";
+    if (!schedule) {
+        noSchedule.style.display = 'block';
+        return;
+    }
+    noSchedule.style.display = 'none';
 
-    if (scheduleJson) {
-        const schedule = JSON.parse(scheduleJson);
-        const dayConfig = schedule[dayName];
-        
-        if (dayConfig && dayConfig.active) {
-            isAvailable = true;
-            start = dayConfig.start;
-            end = dayConfig.end;
+    // Find the next 7 days and map to day names
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    // Build upcoming dates for each weekday (next occurrence)
+    const dayMap = { Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6, Sun:0 };
+
+    dayLabels.forEach(day => {
+        const config = schedule[day];
+        const isActive = config && config.active && config.start && config.end;
+
+        // Find next date for this day
+        const targetDow = dayMap[day];
+        const diff = (targetDow - today.getDay() + 7) % 7 || 7;
+        const nextDate = new Date(today);
+        nextDate.setDate(today.getDate() + diff);
+        const dateStr = nextDate.toISOString().split('T')[0];
+        const dateLabel = nextDate.toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.cssText = `
+            display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:10px;
+            border:2px solid ${isActive ? '#d1fae5' : '#f3f4f6'};
+            background:${isActive ? '#f0fdf4' : '#f9fafb'};
+            color:${isActive ? '#1a3c34' : '#9ca3af'};
+            cursor:${isActive ? 'pointer' : 'not-allowed'};
+            font-size:0.7rem;font-weight:700;transition:all 0.15s;
+        `;
+        btn.innerHTML = `
+            <span style="font-size:0.65rem;margin-bottom:2px;">${day}</span>
+            <span style="font-size:0.7rem;font-weight:600;color:${isActive ? '#2ecc71' : '#d1d5db'};">${dateLabel}</span>
+            ${isActive ? `<span style="font-size:0.6rem;color:#6b7280;margin-top:2px;">${config.start}–${config.end}</span>` : '<span style="font-size:0.6rem;color:#d1d5db;">Off</span>'}
+        `;
+
+        if (isActive) {
+            btn.addEventListener('click', () => {
+                // Highlight selected day
+                grid.querySelectorAll('button').forEach(b => {
+                    b.style.background = '#f0fdf4';
+                    b.style.borderColor = '#d1fae5';
+                });
+                btn.style.background = '#2ecc71';
+                btn.style.borderColor = '#2ecc71';
+                btn.style.color = '#fff';
+                btn.querySelectorAll('span').forEach(s => s.style.color = '#fff');
+
+                document.getElementById('schedule-date').value = dateStr;
+                renderBookingTimeSlots(docId, dateStr, config.start, config.end, day);
+            });
         }
-    } else {
-        if (dayName !== "Sat" && dayName !== "Sun") isAvailable = true;
+
+        grid.appendChild(btn);
+    });
+}
+
+async function renderBookingTimeSlots(docId, dateStr, start, end, dayName) {
+    const section = document.getElementById('booking-slots-section');
+    const grid = document.getElementById('booking-slots-grid');
+    const label = document.getElementById('booking-selected-day-label');
+    const hint = document.getElementById('booking-slots-hint');
+    const detailsSection = document.getElementById('booking-details-section');
+
+    section.style.display = 'block';
+    detailsSection.style.display = 'none';
+    document.getElementById('schedule-time').value = '';
+    hint.style.display = 'none';
+
+    const dateObj = new Date(dateStr);
+    label.textContent = `${dayName}, ${dateObj.toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })} — Available ${start} to ${end}`;
+
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#9ca3af;font-size:0.8rem;padding:12px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading slots...</div>';
+
+    // Fetch already booked slots
+    const bookedSlots = await fetchDoctorBookedSlots(docId, dateStr);
+
+    // Generate 30-min slots
+    const slots = generate30MinSlots(start, end);
+
+    if (slots.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#ef4444;font-size:0.8rem;padding:12px;">No available slots for this day.</div>';
+        return;
     }
 
-    if (isAvailable) {
-        timeInput.disabled = false;
-        timeInput.min = start;
-        timeInput.max = end;
-        hintText.style.display = 'none';
-        hintText.textContent = "";
-    } else {
-        timeInput.disabled = true;
-        timeInput.value = "";
-        hintText.style.display = 'block';
-        hintText.textContent = `Doctor is not available on ${dayName}s.`;
-    }
+    grid.innerHTML = '';
+    slots.forEach(slot => {
+        const isBooked = bookedSlots.includes(slot);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.cssText = `
+            padding:8px 4px;border-radius:8px;font-size:0.75rem;font-weight:600;text-align:center;
+            border:1.5px solid ${isBooked ? '#fecaca' : '#d1fae5'};
+            background:${isBooked ? '#fef2f2' : '#f0fdf4'};
+            color:${isBooked ? '#9ca3af' : '#1a3c34'};
+            cursor:${isBooked ? 'not-allowed' : 'pointer'};
+            transition:all 0.15s;
+        `;
+        btn.textContent = slot;
+        if (isBooked) {
+            btn.title = 'Already booked';
+            btn.disabled = true;
+        } else {
+            btn.addEventListener('click', () => {
+                grid.querySelectorAll('button').forEach(b => {
+                    if (!b.disabled) {
+                        b.style.background = '#f0fdf4';
+                        b.style.borderColor = '#d1fae5';
+                        b.style.color = '#1a3c34';
+                    }
+                });
+                btn.style.background = '#2ecc71';
+                btn.style.borderColor = '#2ecc71';
+                btn.style.color = '#fff';
 
-    // Fetch and show booked slots for this doctor on this day
-    const docId = document.getElementById('schedule-doc-id').value;
-    if (docId && isAvailable) {
-        const bookedContainer = document.getElementById('booked-slots-container');
-        const bookedList = document.getElementById('booked-slots-list');
-        bookedList.innerHTML = '<span style="font-size:0.7rem;color:#9ca3af;"><i class="fa-solid fa-spinner fa-spin"></i> Checking availability...</span>';
-        bookedContainer.style.display = 'block';
+                document.getElementById('schedule-time').value = slot + ':00';
+                document.getElementById('booking-details-section').style.display = 'block';
+                document.getElementById('booking-details-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+        }
+        grid.appendChild(btn);
+    });
+}
 
-        fetchDoctorBookedSlots(docId, dateInput.value).then(slots => {
-            if (slots.length === 0) {
-                bookedContainer.style.display = 'none';
-            } else {
-                bookedList.innerHTML = slots.map(t => 
-                    `<span class="booked-slot-badge"><i class="fa-solid fa-ban" style="font-size:0.6rem;"></i> ${t}</span>`
-                ).join('');
-                bookedContainer.style.display = 'block';
-            }
-        });
-    } else {
-        const bookedContainer = document.getElementById('booked-slots-container');
-        if (bookedContainer) bookedContainer.style.display = 'none';
+function generate30MinSlots(start, end) {
+    const slots = [];
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    let cur = sh * 60 + sm;
+    const endMin = eh * 60 + em;
+    while (cur < endMin) {
+        const h = Math.floor(cur / 60);
+        const m = cur % 60;
+        slots.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+        cur += 30;
     }
+    return slots;
 }
 
 // 4. Submit Appointment (Saves to DB)
@@ -2712,7 +2836,16 @@ document.getElementById('schedule-form').addEventListener('submit', async (e) =>
     const methodEl = document.getElementById('schedule-method');
     const method = methodEl ? methodEl.value : 'In-Person'; 
     
-    const patientName = (currentUser.user_metadata && currentUser.user_metadata.full_name) || "Patient";
+    // Get patient name — check user_metadata first, then profiles table as fallback
+    let patientName = (currentUser.user_metadata && currentUser.user_metadata.full_name) || '';
+    if (!patientName) {
+        const { data: profileData } = await supabaseClient
+            .from('profiles')
+            .select('full_name')
+            .eq('id', currentUser.id)
+            .single();
+        patientName = profileData?.full_name || currentUser.email?.split('@')[0] || 'Patient';
+    }
 
     // FIX 2 & 3: Combine Method and Reason (e.g. "Audio Consultation • General Checkup")
     const combinedType = `${method} • ${type}`;
@@ -3097,6 +3230,17 @@ async function confirmCancellation(apptId) {
         showToast("Error cancelling appointment: " + error.message, "error");
     } else {
         showToast(`Appointment cancelled: ${reason}`, "success");
+
+        // --- LOG CANCELLATION TO platform_activity ---
+        await supabaseClient.from('platform_activity').insert({
+            actor_id: currentUser.id,
+            target_user_id: null,
+            module: 'appointments',
+            action: 'cancelled',
+            description: `Doctor cancelled appointment. Reason: ${reason}`,
+            created_at: new Date().toISOString()
+        });
+
         await loadDoctorAppointmentsTab();
         await loadDoctorDashboardData();
     }
@@ -3137,6 +3281,16 @@ async function updateAppointmentStatus(id, newStatus, patientId) {
                 });
             }
             
+            // --- LOG DOCTOR ACTIVITY TO platform_activity ---
+            await supabaseClient.from('platform_activity').insert({
+                actor_id: currentUser.id,
+                target_user_id: patientId || null,
+                module: 'appointments',
+                action: newStatus.toLowerCase(),
+                description: `Doctor marked appointment as ${newStatus}`,
+                created_at: new Date().toISOString()
+            });
+
             await loadDoctorAppointmentsTab(); 
             await loadDoctorDashboardData(); 
         }
@@ -3814,9 +3968,10 @@ async function fetchDoctorBookedSlots(doctorId, dateStr) {
         .lte('appointment_date', end);
 
     if (error || !data) return [];
+    // Return as HH:MM (24hr) to match slot buttons
     return data.map(a => {
         const d = new Date(a.appointment_date);
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+        return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     });
 }
 

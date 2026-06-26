@@ -76,9 +76,7 @@
                             </ul>
                         </nav>
 
-                        <div class="nurse-section">
-                            <img src="assets/IMG-20260306-WA0030.png" onerror="this.src='https://placehold.co/300x400/1a1c23/FFF?text=Nurse+Image'" alt="Nurse" class="nurse-img">
-                        </div>
+
                     </div>
                 </aside>
             </div>
@@ -507,11 +505,7 @@
                                 <h1 class="text-2xl font-bold text-gray-800">Dashboard</h1>
                                 <p class="text-gray-500 text-sm" id="doc-welcome-greeting">Welcome back!</p>
                             </div>
-                            <div class="toggle-item border-none p-0">
-                                <span class="text-xs font-bold mr-2 text-gray-500">Status:</span>
-                                <div class="toggle-switch" id="doctor-status-toggle" onclick="toggleDoctorStatus(this)"><div class="toggle-thumb"></div></div>
-                                <span class="text-xs ml-2" id="doctor-status-text">Offline</span>
-                            </div>
+
                         </div>
 
                         <!-- Stats Cards -->
@@ -987,66 +981,96 @@
     </div>
 
     <!-- Scheduling Form -->
-    <div class="modal-overlay" id="schedule-appointment-modal">
-        <div class="auth-modal">
-            <button class="close-modal" onclick="closeModals()">&times;</button>
-            <h2 class="modal-title">Schedule Appointment</h2>
-            <p class="text-sm text-gray-500 text-center mb-4" id="schedule-doc-name">With Dr. Name</p>
-            <p class="error-msg" id="schedule-error"></p>
-            <p class="success-msg" id="schedule-success"></p>
+    <!-- FULL PAGE BOOKING VIEW -->
+    <div class="modal-overlay" id="schedule-appointment-modal" style="align-items:flex-start;overflow-y:auto;padding:20px 0;">
+        <div style="background:#fff;border-radius:16px;width:100%;max-width:620px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
             
-            <form id="schedule-form">
-                <input type="hidden" id="schedule-doc-id">
-                <input type="hidden" id="schedule-doc-json">
-                
-                <div class="form-group">
-                    <label class="input-label">Select Date</label>
-                    <input type="date" id="schedule-date" class="form-control" required onchange="validateDoctorSchedule()">
+            <!-- Header -->
+            <div style="background:linear-gradient(135deg,#1a3c34,#2ecc71);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                    <h2 style="color:#fff;font-size:1.1rem;font-weight:700;margin:0;">Book Appointment</h2>
+                    <p style="color:rgba(255,255,255,0.8);font-size:0.8rem;margin:4px 0 0;" id="schedule-doc-name">With Dr. Name</p>
                 </div>
-                
-                <div class="form-group">
-                    <label class="input-label">Select Time</label>
-                    <input type="time" id="schedule-time" class="form-control" disabled required>
-                    <p class="text-xs text-red-500 mt-1" id="schedule-time-hint" style="display:none;"></p>
-                    <p class="text-xs text-gray-400 mt-1" style="font-style:italic;"><i class="fa-solid fa-clock" style="color:#9ca3af;margin-right:3px;"></i>Appointments must be at least 1 hour apart from existing bookings.</p>
-                    <div id="booked-slots-container" style="display:none; margin-top:8px;">
-                        <p class="text-xs text-gray-500 mb-1"><i class="fa-solid fa-circle-info mr-1 text-yellow-500"></i>Already booked on this day:</p>
-                        <div id="booked-slots-list" class="booked-slots-list"></div>
+                <button onclick="closeModals()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>
+            </div>
+
+            <div style="padding:24px;">
+                <p class="error-msg" id="schedule-error"></p>
+                <p class="success-msg" id="schedule-success"></p>
+
+                <form id="schedule-form">
+                    <input type="hidden" id="schedule-doc-id">
+                    <input type="hidden" id="schedule-doc-json">
+                    <input type="hidden" id="schedule-date">
+                    <input type="hidden" id="schedule-time">
+
+                    <!-- STEP 1: Availability -->
+                    <div style="margin-bottom:20px;">
+                        <p style="font-size:0.75rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">
+                            <i class="fa-solid fa-calendar-days" style="color:#2ecc71;margin-right:6px;"></i>Step 1 — Select a Day
+                        </p>
+                        <div id="booking-days-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">
+                            <!-- Populated by JS -->
+                        </div>
+                        <p id="booking-no-schedule" style="display:none;font-size:0.8rem;color:#ef4444;margin-top:8px;">
+                            <i class="fa-solid fa-triangle-exclamation"></i> This doctor hasn't set their availability yet.
+                        </p>
                     </div>
-                </div>
 
-                <div class="form-group">
-                    <label class="input-label">Visit Method</label>
-                   <label class="input-label">Visit Method</label>
-                    <select id="schedule-method" class="form-control bg-white">
-                        <option value="In-Person">In-Person Visit</option>
-                        <option value="Video Call">Video Consultation</option>
-                        <option value="Audio Call">Audio Consultation</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label class="input-label">Reason for Visit</label>
-                    <select id="schedule-type" class="form-control bg-white">
-                        <option value="General Checkup">General Checkup</option>
-                        <option value="Follow-up">Follow-up</option>
-                        <option value="Lab Review">Lab Review</option>
-                        <option value="Urgent Issue">Urgent Issue</option>
-                    </select>
-                </div>
-
-                <div class="form-group" style="margin-top:0.5rem;">
-                    <div style="display:flex;align-items:flex-start;gap:0.75rem;padding:0.75rem;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
-                        <input type="checkbox" id="share-records-consent" style="width:18px;height:18px;accent-color:#2ecc71;cursor:pointer;margin-top:2px;">
-                        <label for="share-records-consent" style="font-size:0.8rem;color:#374151;cursor:pointer;margin:0;line-height:1.5;">
-                            <strong>Share my health records with this doctor</strong><br>
-                            <span style="color:#6b7280;">Your logged vitals (BP, weight, glucose, BMI) will be visible to this doctor for this consultation. You may revoke access at any time from Settings.</span>
-                        </label>
+                    <!-- STEP 2: Time Slots -->
+                    <div id="booking-slots-section" style="display:none;margin-bottom:20px;">
+                        <p style="font-size:0.75rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">
+                            <i class="fa-solid fa-clock" style="color:#2ecc71;margin-right:6px;"></i>Step 2 — Select a Time Slot
+                        </p>
+                        <p id="booking-selected-day-label" style="font-size:0.8rem;color:#374151;margin-bottom:10px;"></p>
+                        <div id="booking-slots-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                            <!-- Populated by JS -->
+                        </div>
+                        <p id="booking-slots-hint" style="display:none;font-size:0.78rem;color:#ef4444;margin-top:8px;"></p>
                     </div>
-                </div>
 
-                <button type="submit" class="book-btn btn-full">Confirm Booking</button>
-            </form>
+                    <!-- STEP 3: Details -->
+                    <div id="booking-details-section" style="display:none;">
+                        <p style="font-size:0.75rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;">
+                            <i class="fa-solid fa-notes-medical" style="color:#2ecc71;margin-right:6px;"></i>Step 3 — Appointment Details
+                        </p>
+
+                        <div class="form-group">
+                            <label class="input-label">Visit Method</label>
+                            <select id="schedule-method" class="form-control bg-white">
+                                <option value="In-Person">In-Person Visit</option>
+                                <option value="Video Call">Video Consultation</option>
+                                <option value="Audio Call">Audio Consultation</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="input-label">Reason for Visit</label>
+                            <select id="schedule-type" class="form-control bg-white">
+                                <option value="General Checkup">General Checkup</option>
+                                <option value="Follow-up">Follow-up</option>
+                                <option value="Lab Review">Lab Review</option>
+                                <option value="Urgent Issue">Urgent Issue</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-top:0.5rem;">
+                            <div style="display:flex;align-items:flex-start;gap:0.75rem;padding:0.75rem;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
+                                <input type="checkbox" id="share-records-consent" style="width:18px;height:18px;accent-color:#2ecc71;cursor:pointer;margin-top:2px;">
+                                <label for="share-records-consent" style="font-size:0.8rem;color:#374151;cursor:pointer;margin:0;line-height:1.5;">
+                                    <strong>Share my health records with this doctor</strong><br>
+                                    <span style="color:#6b7280;">Your logged vitals (BP, weight, glucose, BMI) will be visible to this doctor for this consultation.</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="book-btn btn-full" style="margin-top:16px;">
+                            <i class="fa-solid fa-calendar-check" style="margin-right:6px;"></i>Confirm Booking
+                        </button>
+                    </div>
+
+                </form>
+            </div>
         </div>
     </div>
 

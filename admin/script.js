@@ -2224,10 +2224,24 @@ async function loadDoctors() {
   const verifiedMap = {};
   (docProfs || []).forEach(dp => verifiedMap[dp.id] = dp.is_verified);
 
-  // 3. Map the verification status to the main array
+  // 3. Fetch hospital memberships for all doctors
+  const doctorIds = (data || []).map(d => d.id);
+  const { data: memberships } = await supabaseClient
+    .from("hospital_doctor_memberships")
+    .select("doctor_id, hospitals(name, is_default)")
+    .in("doctor_id", doctorIds)
+    .eq("status", "active");
+
+  const hospitalMap = {};
+  (memberships || []).forEach(m => {
+    hospitalMap[m.doctor_id] = m.hospitals?.name || "Instadoc Hospital";
+  });
+
+  // 4. Map verification status and hospital to the main array
   state.allDoctors = (data || []).filter((d) => !d.deleted_at).map(d => ({
     ...d,
-    is_verified: !!verifiedMap[d.id] // defaults to false if no record exists yet
+    is_verified: !!verifiedMap[d.id],
+    hospital_name: hospitalMap[d.id] || "Instadoc Hospital"
   }));
 
   filterDoctors();
@@ -2270,12 +2284,20 @@ function renderDoctorList(doctors) {
     const verifyBtnText  = d.is_verified ? "Revoke" : "Verify";
     const verifyBtnClass = d.is_verified ? "btn-inactive" : "btn-activate";
 
+    const isDefaultHospital = d.hospital_name === "Instadoc Hospital";
+    const hospitalBadge = isDefaultHospital
+      ? `<span style="font-size:10px;padding:2px 7px;border-radius:9999px;background:#dbeafe;color:#1d4ed8;font-weight:600;white-space:nowrap;">Instadoc Hospital</span>`
+      : `<span style="font-size:10px;padding:2px 7px;border-radius:9999px;background:#f0fdf4;color:#16a34a;font-weight:600;white-space:nowrap;">${escapeHtml(d.hospital_name)}</span>`;
+
     item.innerHTML = `
       <div class="meta" style="flex:1;">
-        <div class="title" style="display:flex; align-items:center;">
+        <div class="title" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
             ${escapeHtml(d.full_name || "Doctor")} ${verifiedBadge}
         </div>
-        <div class="sub">${escapeHtml(d.email || "")} • ${escapeHtml(status)}</div>
+        <div class="sub" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:3px;">
+          <span>${escapeHtml(d.email || "")} • ${escapeHtml(status)}</span>
+          ${hospitalBadge}
+        </div>
       </div>
       <div class="right">
         <button class="btn ${verifyBtnClass}" type="button" id="verify-btn-${d.id}">${verifyBtnText}</button>
@@ -2909,15 +2931,37 @@ async function loadDoctorActivity() {
          return;
     }
 
-    // 2. Fetch ONLY activity where the actor is a doctor AND the action is NOT administrative
-    const { data, error } = await supabaseClient
-        .from('platform_activity') 
+    // 2. Fetch activity where a doctor is involved (as actor OR as target)
+    // actor_id = doctor did something; target_user_id = admin acted on this doctor
+    const { data: asActor } = await supabaseClient
+        .from('platform_activity')
         .select('*')
-        .in('actor_id', docIds) 
-        .neq('module', 'users')     // EXPLICITLY BLOCKS USER CREATION/DELETION LOGS
-        .neq('module', 'tickets')   // EXPLICITLY BLOCKS TICKET LOGS
+        .in('actor_id', docIds)
+        .neq('module', 'users')
+        .neq('module', 'tickets')
         .order('created_at', { ascending: false })
         .limit(100);
+
+    const { data: asTarget } = await supabaseClient
+        .from('platform_activity')
+        .select('*')
+        .in('target_user_id', docIds)
+        .neq('module', 'users')
+        .neq('module', 'tickets')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+    // Merge, deduplicate by id, sort newest first
+    const seen = new Set();
+    const merged = [...(asActor || []), ...(asTarget || [])].filter(row => {
+        if (seen.has(row.id)) return false;
+        seen.add(row.id);
+        return true;
+    }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 100);
+
+    const data = merged;
+    const error = null;
+
 
     if (error) {
         tbody.innerHTML = `<tr><td colspan="4" style="color:#dc2626; text-align:center; padding: 1rem;">Error loading telemetry: ${error.message}</td></tr>`;
