@@ -2972,6 +2972,44 @@ async function loadDoctorActivity() {
     renderDoctorActivity(allDoctorActivity);
 }
 
+// Map raw DB action values to human-readable labels
+function formatActivityAction(action, description) {
+    // Use description first if it's meaningful
+    if (description && description.length > 3 && !description.includes('****')) {
+        return description;
+    }
+    const map = {
+        'assigned_patient':   'Patient assigned to doctor',
+        'unassigned_patient': 'Patient removed from doctor',
+        'updated':            'Doctor profile updated',
+        'suspended':          'Doctor account suspended',
+        'activated':          'Doctor account activated',
+        'verified':           'Doctor verified by admin',
+        'revoked':            'Doctor verification revoked',
+        'confirmed':          'Appointment confirmed',
+        'completed':          'Appointment completed',
+        'cancelled':          'Appointment cancelled',
+        'declined':           'Appointment declined',
+        'created':            'New record created',
+        'deleted':            'Record deleted',
+        'login':              'Doctor logged in',
+    };
+    return map[action?.toLowerCase()] || action || 'Activity logged';
+}
+
+function getActivityBadge(action) {
+    const a = (action || '').toLowerCase();
+    if (['confirmed', 'activated', 'verified', 'assigned_patient'].includes(a))
+        return { label: 'Success', style: 'background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;' };
+    if (['cancelled', 'declined', 'suspended', 'unassigned_patient'].includes(a))
+        return { label: 'Alert', style: 'background:#fef2f2;color:#dc2626;border:1px solid #fecaca;' };
+    if (['completed'].includes(a))
+        return { label: 'Completed', style: 'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;' };
+    if (['updated', 'revoked'].includes(a))
+        return { label: 'Updated', style: 'background:#fffbeb;color:#b45309;border:1px solid #fde68a;' };
+    return { label: 'Logged', style: 'background:#f3f4f6;color:#4b5563;border:1px solid #e5e7eb;' };
+}
+
 function renderDoctorActivity(data) {
     const tbody = document.getElementById('admin-doctor-activity-body');
     if (!tbody) return;
@@ -2982,34 +3020,43 @@ function renderDoctorActivity(data) {
         return;
     }
 
+    // Build a name lookup from allDoctors
+    const nameMap = {};
+    (state.allDoctors || []).forEach(d => {
+        nameMap[d.id] = d.full_name || d.email || 'Unknown Doctor';
+    });
+
     data.forEach(act => {
-        const dateStr = new Date(act.created_at).toLocaleString();
-        
-        // 🔒 APPLY THE STRICT PRIVACY MASKING HERE
-        // Maps dynamically based on how your activity table defines the user/actor
-        const rawId = act.user_id || act.actor_id || act.email || 'System';
-        const safeActor = maskPII(rawId);
-        
-        const rawAction = act.action || act.details || act.event_type || 'Workflow Event';
-        const safeDetails = maskPII(rawAction);
-        
-        // Intelligent Badge Coloring
-        let badgeStyle = 'background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb;';
-        const actionLower = safeDetails.toLowerCase();
-        
-        if (actionLower.includes('complet')) badgeStyle = 'background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;';
-        else if (actionLower.includes('cancel') || actionLower.includes('decline')) badgeStyle = 'background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;';
-        else if (actionLower.includes('record') || actionLower.includes('access')) badgeStyle = 'background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff;';
-        else if (actionLower.includes('confirm') || actionLower.includes('login')) badgeStyle = 'background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;';
+        const dateStr = new Date(act.created_at).toLocaleString('en-GB', {
+            day: '2-digit', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+
+        // Doctor name — prefer actor_id lookup, fallback to target
+        const doctorId = act.actor_id || act.target_user_id;
+        const doctorName = nameMap[doctorId] || 'Unknown Doctor';
+
+        // Human-readable action
+        const actionText = formatActivityAction(act.action, act.description);
+
+        // Badge
+        const badge = getActivityBadge(act.action);
 
         tbody.innerHTML += `
             <tr style="border-bottom: 1px solid #f3f4f6; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='transparent'">
-                <td style="padding: 0.75rem; color: #6b7280; font-size: 0.8rem;">${dateStr}</td>
-                <td style="padding: 0.75rem; font-family: monospace; font-size: 0.8rem; color: #374151;">${safeActor}</td>
-                <td style="padding: 0.75rem; color: #1f2937;">${safeDetails}</td>
+                <td style="padding: 0.75rem; color: #6b7280; font-size: 0.8rem; white-space:nowrap;">${dateStr}</td>
+                <td style="padding: 0.75rem; font-size: 0.85rem; font-weight: 600; color: #374151;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="width:28px;height:28px;border-radius:50%;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;flex-shrink:0;">
+                            ${doctorName.charAt(0).toUpperCase()}
+                        </div>
+                        ${escapeHtml(doctorName)}
+                    </div>
+                </td>
+                <td style="padding: 0.75rem; color: #1f2937; font-size: 0.85rem;">${escapeHtml(actionText)}</td>
                 <td style="padding: 0.75rem;">
-                    <span style="padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; ${badgeStyle}">
-                        ${act.action_type || 'Logged'}
+                    <span style="padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; white-space:nowrap; ${badge.style}">
+                        ${badge.label}
                     </span>
                 </td>
             </tr>
