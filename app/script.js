@@ -3161,25 +3161,28 @@ let callSeconds = 0;
 let micEnabled = true;
 let camEnabled = true;
 
-// TURN credentials fetched dynamically from Metered
+// ICE Servers — STUN + multiple free public TURN servers for cross-network calls
 let ICE_SERVERS = { iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    {
+        urls: [
+            'turn:openrelay.metered.ca:80',
+            'turn:openrelay.metered.ca:443',
+            'turn:openrelay.metered.ca:443?transport=tcp',
+            'turns:openrelay.metered.ca:443'
+        ],
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+    }
 ]};
 
 async function loadIceServers() {
-    try {
-        const res = await fetch(
-            'https://instadocapp.metered.live/api/v1/turn/credentials?apiKey=7VWyy16Hf9Twy0hQqc-s3IXKgd-GaKwJrzKdgqkVTHWXgwP6'
-        );
-        const servers = await res.json();
-        if (Array.isArray(servers) && servers.length > 0) {
-            ICE_SERVERS = { iceServers: servers };
-            console.log('TURN servers loaded:', servers.length, 'servers');
-        }
-    } catch(e) {
-        console.warn('Could not load TURN servers, using STUN only:', e.message);
-    }
+    // Already loaded above — nothing to do
+    console.log('ICE servers ready:', ICE_SERVERS.iceServers.length, 'servers');
 }
 
 async function startVideoCall(appointmentId, callType = 'video', patientId = '', patientName = '') {
