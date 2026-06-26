@@ -3278,28 +3278,47 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
         });
     }
 
+    // Track negotiation state to prevent duplicate offer/answer
+    let isNegotiating = false;
+
+    async function sendOffer() {
+        if (isNegotiating || !peerConnection) return;
+        isNegotiating = true;
+        try {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            await waitForIceGathering(peerConnection);
+            callChannel.send({ type: 'broadcast', event: 'offer', payload: { sdp: peerConnection.localDescription } });
+        } catch(e) {
+            console.warn('sendOffer failed:', e);
+            isNegotiating = false;
+        }
+    }
+
     callChannel
         .on('broadcast', { event: 'patient-ready' }, async () => {
-            if (userRole === 'doctor' && peerConnection) {
-                try {
-                    const offer = await peerConnection.createOffer();
-                    await peerConnection.setLocalDescription(offer);
-                    await waitForIceGathering(peerConnection);
-                    callChannel.send({ type: 'broadcast', event: 'offer', payload: { sdp: peerConnection.localDescription } });
-                } catch(e) { console.warn('Re-offer failed:', e); }
+            // Patient joined — doctor sends fresh offer only if not already negotiating
+            if (userRole === 'doctor' && peerConnection && !isNegotiating) {
+                isNegotiating = false; // reset so sendOffer can proceed
+                await sendOffer();
             }
         })
         .on('broadcast', { event: 'offer' }, async ({ payload }) => {
-            if (!peerConnection) return;
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            await waitForIceGathering(peerConnection);
-            callChannel.send({ type: 'broadcast', event: 'answer', payload: { sdp: peerConnection.localDescription } });
+            if (!peerConnection || userRole === 'doctor') return;
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                await waitForIceGathering(peerConnection);
+                callChannel.send({ type: 'broadcast', event: 'answer', payload: { sdp: peerConnection.localDescription } });
+            } catch(e) { console.warn('answer failed:', e); }
         })
         .on('broadcast', { event: 'answer' }, async ({ payload }) => {
-            if (!peerConnection) return;
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+            if (!peerConnection || peerConnection.signalingState !== 'have-local-offer') return;
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                isNegotiating = false;
+            } catch(e) { console.warn('setRemoteDescription answer failed:', e); }
         })
         .on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
             if (!peerConnection) return;
@@ -3310,20 +3329,13 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
                 const myRole = userRole || 'patient';
                 if (myRole === 'doctor') {
                     peerConnection.onicecandidate = ({ candidate }) => {
-                        if (candidate) {
-                            callChannel.send({ type: 'broadcast', event: 'ice-candidate', payload: { candidate } });
-                        }
+                        if (candidate) callChannel.send({ type: 'broadcast', event: 'ice-candidate', payload: { candidate } });
                     };
-                    const offer = await peerConnection.createOffer();
-                    await peerConnection.setLocalDescription(offer);
-                    await waitForIceGathering(peerConnection);
-                    callChannel.send({ type: 'broadcast', event: 'offer', payload: { sdp: peerConnection.localDescription } });
+                    await sendOffer();
                     showToast('Waiting for patient to join...', 'success');
                 } else {
                     peerConnection.onicecandidate = ({ candidate }) => {
-                        if (candidate) {
-                            callChannel.send({ type: 'broadcast', event: 'ice-candidate', payload: { candidate } });
-                        }
+                        if (candidate) callChannel.send({ type: 'broadcast', event: 'ice-candidate', payload: { candidate } });
                     };
                     callChannel.send({ type: 'broadcast', event: 'patient-ready', payload: {} });
                     showToast('Connecting to your doctor...', 'success');
