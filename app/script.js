@@ -3240,10 +3240,33 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
     peerConnection = new RTCPeerConnection(ICE_SERVERS);
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
+    // Log ICE connection state changes for debugging
+    peerConnection.oniceconnectionstatechange = () => {
+        const state = peerConnection.iceConnectionState;
+        console.log('ICE connection state:', state);
+        const badge = document.getElementById('call-status-badge');
+        if (state === 'checking') { if(badge) { badge.textContent = 'Connecting...'; badge.style.background = '#f59e0b'; } }
+        if (state === 'connected' || state === 'completed') { if(badge) { badge.textContent = 'Connected'; badge.style.background = '#16a34a'; } }
+        if (state === 'failed') { 
+            if(badge) { badge.textContent = 'Failed'; badge.style.background = '#ef4444'; }
+            showToast('Connection failed — retrying...', 'error');
+            peerConnection.restartIce();
+        }
+        if (state === 'disconnected') { if(badge) { badge.textContent = 'Reconnecting...'; badge.style.background = '#f59e0b'; } }
+    };
+
+    peerConnection.onicecandidateerror = (e) => {
+        console.warn('ICE candidate error:', e.errorCode, e.errorText, e.url);
+    };
+
     // When remote stream arrives, show it
     peerConnection.ontrack = (event) => {
+        console.log('Remote track received:', event.track.kind);
         const remoteVideo = document.getElementById('remote-video');
-        if (remoteVideo) remoteVideo.srcObject = event.streams[0];
+        if (remoteVideo) {
+            remoteVideo.srcObject = event.streams[0];
+            remoteVideo.play().catch(e => console.warn('Remote video play failed:', e));
+        }
         const waiting = document.getElementById('waiting-overlay');
         if (waiting) waiting.style.display = 'none';
         const badge = document.getElementById('call-status-badge');
