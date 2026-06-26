@@ -3262,14 +3262,30 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
     const channelName = 'webrtc-' + appointmentId;
     callChannel = supabaseClient.channel(channelName, { config: { broadcast: { self: false } } });
 
+    // Helper: wait for ICE gathering to complete so TURN candidates are included
+    function waitForIceGathering(pc) {
+        return new Promise(resolve => {
+            if (pc.iceGatheringState === 'complete') return resolve();
+            const check = () => {
+                if (pc.iceGatheringState === 'complete') {
+                    pc.removeEventListener('icegatheringstatechange', check);
+                    resolve();
+                }
+            };
+            pc.addEventListener('icegatheringstatechange', check);
+            // Fallback timeout — proceed after 4 seconds even if not complete
+            setTimeout(resolve, 4000);
+        });
+    }
+
     callChannel
         .on('broadcast', { event: 'patient-ready' }, async () => {
-            // Patient just joined — re-send offer so they can connect
             if (userRole === 'doctor' && peerConnection) {
                 try {
                     const offer = await peerConnection.createOffer();
                     await peerConnection.setLocalDescription(offer);
-                    callChannel.send({ type: 'broadcast', event: 'offer', payload: { sdp: offer } });
+                    await waitForIceGathering(peerConnection);
+                    callChannel.send({ type: 'broadcast', event: 'offer', payload: { sdp: peerConnection.localDescription } });
                 } catch(e) { console.warn('Re-offer failed:', e); }
             }
         })
@@ -3278,7 +3294,8 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
             await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
-            callChannel.send({ type: 'broadcast', event: 'answer', payload: { sdp: answer } });
+            await waitForIceGathering(peerConnection);
+            callChannel.send({ type: 'broadcast', event: 'answer', payload: { sdp: peerConnection.localDescription } });
         })
         .on('broadcast', { event: 'answer' }, async ({ payload }) => {
             if (!peerConnection) return;
@@ -3290,10 +3307,8 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
         })
         .subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
-                // Determine if caller (doctor) or receiver (patient) by role
                 const myRole = userRole || 'patient';
                 if (myRole === 'doctor') {
-                    // Doctor initiates the offer
                     peerConnection.onicecandidate = ({ candidate }) => {
                         if (candidate) {
                             callChannel.send({ type: 'broadcast', event: 'ice-candidate', payload: { candidate } });
@@ -3301,16 +3316,15 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
                     };
                     const offer = await peerConnection.createOffer();
                     await peerConnection.setLocalDescription(offer);
-                    callChannel.send({ type: 'broadcast', event: 'offer', payload: { sdp: offer } });
+                    await waitForIceGathering(peerConnection);
+                    callChannel.send({ type: 'broadcast', event: 'offer', payload: { sdp: peerConnection.localDescription } });
                     showToast('Waiting for patient to join...', 'success');
                 } else {
-                    // Patient waits for offer and sends ICE candidates
                     peerConnection.onicecandidate = ({ candidate }) => {
                         if (candidate) {
                             callChannel.send({ type: 'broadcast', event: 'ice-candidate', payload: { candidate } });
                         }
                     };
-                    // Notify doctor that patient is ready — doctor will re-send offer
                     callChannel.send({ type: 'broadcast', event: 'patient-ready', payload: {} });
                     showToast('Connecting to your doctor...', 'success');
                 }
