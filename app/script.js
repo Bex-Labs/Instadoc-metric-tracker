@@ -2546,27 +2546,26 @@ async function loadDoctorsForBooking() {
         let doctorIds = [];
         let isInstadocHospital = false;
 
-        if (assignments && assignments.length > 0) {
-            // Patient has assigned doctors — use those (hospital-specific flow)
-            doctorIds = assignments.map(a => a.doctor_id);
-        } else {
-            // No assigned doctors — patient is in Instadoc Hospital
-            // Show ALL doctors who are members of the default Instadoc Hospital
+        // Check if this patient is in Instadoc Hospital (default hospital)
+        const { data: patientProfile } = await supabaseClient
+            .from('profiles')
+            .select('hospital_id')
+            .eq('id', currentUser.id)
+            .single();
+
+        const { data: defaultHospital } = await supabaseClient
+            .from('hospitals')
+            .select('id')
+            .eq('is_default', true)
+            .single();
+
+        const isInInstadocHospital = defaultHospital && 
+            patientProfile?.hospital_id === defaultHospital.id;
+
+        if (isInInstadocHospital) {
+            // Instadoc Hospital patient — always show ALL doctors in Instadoc Hospital
             isInstadocHospital = true;
 
-            // Get Instadoc Hospital id
-            const { data: defaultHospital, error: hErr } = await supabaseClient
-                .from('hospitals')
-                .select('id')
-                .eq('is_default', true)
-                .single();
-
-            if (hErr || !defaultHospital) {
-                container.innerHTML = '<p class="text-center-muted">No doctors available at this time.</p>';
-                return;
-            }
-
-            // Get all active doctor memberships in Instadoc Hospital
             const { data: memberships, error: mErr } = await supabaseClient
                 .from('hospital_doctor_memberships')
                 .select('doctor_id')
@@ -2581,6 +2580,12 @@ async function loadDoctorsForBooking() {
             }
 
             doctorIds = memberships.map(m => m.doctor_id);
+        } else if (assignments && assignments.length > 0) {
+            // Hospital-specific patient — show only assigned doctors
+            doctorIds = assignments.map(a => a.doctor_id);
+        } else {
+            container.innerHTML = '<p class="text-center-muted">No doctors assigned to you yet.</p>';
+            return;
         }
 
         // Step 2: Get names from profiles (source of truth for full names)
@@ -2651,6 +2656,17 @@ async function loadDoctorsForBooking() {
 // ============================================================
 // FULL PAGE BOOKING — Day selector + 30-min slot grid
 // ============================================================
+
+// Helper: fetch schedule then open booking form (used from My Doctor page)
+async function openScheduleFormForDoctor(docId, docName) {
+    const { data: docProf } = await supabaseClient
+        .from('doctor_profiles')
+        .select('schedule')
+        .eq('id', docId)
+        .single();
+    const encodedSchedule = docProf?.schedule ? encodeURIComponent(JSON.stringify(docProf.schedule)) : '';
+    openScheduleForm(docId, docName, encodedSchedule);
+}
 
 function openScheduleForm(docId, docName, encodedSchedule) {
     closeModals();
@@ -3262,6 +3278,24 @@ async function updateAppointmentStatus(id, newStatus, patientId) {
             showToast("Update Failed: Check your RLS policies.", "error");
         } else {
             showToast(`Appointment marked as ${newStatus}`, "success");
+
+            // --- AUTO-ASSIGN PATIENT TO DOCTOR ON CONFIRMATION ---
+            if (patientId && (newStatus === 'Confirmed' || newStatus === 'confirmed')) {
+                const { data: existingAssignment } = await supabaseClient
+                    .from('doctor_patient_assignments')
+                    .select('id')
+                    .eq('doctor_id', currentUser.id)
+                    .eq('patient_id', patientId)
+                    .single();
+
+                if (!existingAssignment) {
+                    await supabaseClient.from('doctor_patient_assignments').insert({
+                        doctor_id: currentUser.id,
+                        patient_id: patientId,
+                        assigned_at: new Date().toISOString()
+                    });
+                }
+            }
             
             // --- NEW: PUSH NOTIFICATION TO PATIENT ---
             if (patientId) {
@@ -4312,7 +4346,7 @@ async function viewPatientRecords(patientId, patientName) {
         html += renderSection(
             'Blood Glucose', 'fa-droplet',
             gData.data,
-            item => `${item.glucose} ${item.unit || 'mg/dL'}`
+            item => `${item.level} ${item.unit || 'mg/dL'}`
         );
 
         modalBody.innerHTML = html;
@@ -4499,22 +4533,123 @@ async function loadMyDoctorView() {
 
         if (aErr) throw aErr;
 
-        if (!assignments?.length) {
+        // Check if patient belongs to Instadoc Hospital
+        const { data: patientProf } = await supabaseClient
+            .from('profiles')
+            .select('hospital_id')
+            .eq('id', currentUser.id)
+            .single();
+
+        const { data: defaultHospital } = await supabaseClient
+            .from('hospitals')
+            .select('id, name')
+            .eq('is_default', true)
+            .single();
+
+        const isInInstadocHospital = defaultHospital &&
+            patientProf?.hospital_id === defaultHospital.id;
+
+        if (isInInstadocHospital) {
+            // Always show all Instadoc Hospital doctors regardless of assignment
+            const { data: memberships } = await supabaseClient
+                .from('hospital_doctor_memberships')
+                .select('doctor_id')
+                .eq('hospital_id', defaultHospital.id)
+                .eq('status', 'active');
+
+            const instadocDoctorIds = (memberships || []).map(m => m.doctor_id);
+
+            if (!instadocDoctorIds.length) {
+                container.innerHTML = `<div style="text-align:center;padding:3rem;color:#9ca3af;">No doctors available in Instadoc Hospital yet.</div>`;
+                return;
+            }
+
+            // Fetch profiles and doctor_profiles for Instadoc doctors
+            const [{ data: iProfiles }, { data: iDocProfiles }] = await Promise.all([
+                supabaseClient.from('profiles').select('id, full_name, email').in('id', instadocDoctorIds),
+                supabaseClient.from('doctor_profiles').select('id, specialty, is_verified, is_online, schedule').in('id', instadocDoctorIds)
+            ]);
+
+            const profileMap = {};
+            (iProfiles || []).forEach(p => profileMap[p.id] = p);
+            const docProfileMap = {};
+            (iDocProfiles || []).forEach(d => docProfileMap[d.id] = d);
+
+            // Banner
             container.innerHTML = `
-                <div style="text-align:center; padding:4rem 1.5rem; color:#9ca3af;">
-                    <i class="fa-solid fa-user-doctor" style="font-size:3rem; margin-bottom:1rem; display:block; opacity:0.25;"></i>
-                    <h3 style="font-size:1rem; font-weight:700; color:#374151; margin-bottom:0.5rem;">No Doctor Assigned Yet</h3>
-                    <p style="font-size:0.85rem; max-width:320px; margin:0 auto; line-height:1.6;">
-                        Your hospital or care team will assign a doctor to you soon.
-                        In the meantime, you can still book an appointment.
-                    </p>
-                    <button onclick="openModal('booking')"
-                        style="margin-top:1.5rem; padding:10px 24px; background:#2f8f46; color:#fff;
-                               border:none; border-radius:10px; font-size:0.85rem; font-weight:600;
-                               cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fa-regular fa-calendar-plus"></i> Book Appointment
-                    </button>
-                </div>`;
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+                            background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+                            margin-bottom:1.25rem;">
+                    <i class="fa-solid fa-hospital" style="color:#3b82f6;font-size:1rem;"></i>
+                    <div>
+                        <div style="font-size:0.82rem;font-weight:700;color:#1d4ed8;">Instadoc Hospital Doctors</div>
+                        <div style="font-size:0.75rem;color:#6b7280;">You're not assigned to a specific doctor — you can book with any doctor below.</div>
+                    </div>
+                </div>
+                ${instadocDoctorIds.map(docId => {
+                    const profile  = profileMap[docId] || {};
+                    const docProf  = docProfileMap[docId] || {};
+                    const name     = profile.full_name || 'Doctor';
+                    const specialty = docProf.specialty || 'General Practitioner';
+                    const isVerified = !!docProf.is_verified;
+                    const schedule = docProf.schedule || {};
+                    const initials = name.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase() || 'DR';
+                    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+                    const schedulePills = days.map(day => {
+                        const active = schedule[day]?.active;
+                        return `<span style="padding:3px 9px;border-radius:9999px;font-size:0.68rem;font-weight:600;
+                            background:${active ? '#dcfce7' : '#f3f4f6'};
+                            color:${active ? '#15803d' : '#9ca3af'};
+                            border:1px solid ${active ? '#bbf7d0' : '#e5e7eb'};">${day}</span>`;
+                    }).join('');
+
+                    const safeDocId = docId.replace(/'/g, "\\'");
+                    const safeName = name.replace(/'/g, "\\'");
+
+                    return `
+                    <div class="card" style="padding:1.25rem;margin-bottom:1.25rem;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+                        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
+                            <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#2f8f46,#16a34a);
+                                        display:flex;align-items:center;justify-content:center;
+                                        font-weight:800;color:#fff;font-size:1rem;flex-shrink:0;">
+                                ${initials}
+                            </div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                    <h2 style="font-size:0.95rem;font-weight:800;color:#1a1a2e;margin:0;">Dr. ${name}</h2>
+                                    ${isVerified ? '<span style="padding:2px 8px;background:#dbeafe;color:#1d4ed8;border-radius:9999px;font-size:0.65rem;font-weight:700;"><i class=\"fa-solid fa-shield-halved\"></i> Verified</span>' : ''}
+                                </div>
+                                <div style="font-size:0.8rem;color:#6b7280;margin-top:2px;">${specialty}</div>
+                                <div style="font-size:0.7rem;color:#9ca3af;margin-top:2px;">
+                                    <i class="fa-solid fa-hospital" style="font-size:0.65rem;"></i> Instadoc Hospital
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-bottom:1rem;">
+                            <div style="font-size:0.7rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.4rem;">
+                                <i class="fa-regular fa-clock" style="margin-right:4px;"></i> Weekly Availability
+                            </div>
+                            <div style="display:flex;flex-wrap:wrap;gap:4px;">${schedulePills}</div>
+                        </div>
+                        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+                            <button onclick="openScheduleFormForDoctor('${safeDocId}', '${safeName}')"
+                                style="flex:1;min-width:120px;padding:9px 14px;background:#2f8f46;color:#fff;
+                                       border:none;border-radius:10px;font-size:0.8rem;font-weight:700;
+                                       cursor:pointer;font-family:inherit;display:flex;align-items:center;
+                                       justify-content:center;gap:6px;">
+                                <i class="fa-regular fa-calendar-plus"></i> Book
+                            </button>
+                            <button onclick="openSendMessageModal('${safeDocId}', '${safeName}')"
+                                style="flex:1;min-width:120px;padding:9px 14px;background:#fff;color:#2f8f46;
+                                       border:2px solid #2f8f46;border-radius:10px;font-size:0.8rem;font-weight:700;
+                                       cursor:pointer;font-family:inherit;display:flex;align-items:center;
+                                       justify-content:center;gap:6px;">
+                                <i class="fa-regular fa-paper-plane"></i> Message
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('')}
+            `;
             return;
         }
 
@@ -4866,6 +5001,29 @@ async function loadDoctorPatientsTab() {
     }).join('');
 }
 
+// Load a single patient's basic profile in the doctor view
+function loadPatientProfile(patientId) {
+    // Currently a stub — patient profile view not yet built
+    // For now, open patient records modal which has their health data
+    const assignments = document.querySelectorAll('#doctor-patients-list > div');
+    assignments.forEach(row => {
+        if (row.innerHTML.includes(patientId)) {
+            const name = row.querySelector('div[style*="font-weight:600"]')?.textContent?.trim() || 'Patient';
+            viewPatientRecords(patientId, name);
+        }
+    });
+}
+
+// Mask PII (UUIDs, emails) for privacy in activity logs
+function maskPII(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
+            m => m.substring(0, 8) + '-****-****-****-************')
+        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
+            m => m[0] + '***@' + m.split('@')[1]);
+}
+
 function searchPatients() {
     const term = (document.getElementById('patient-search')?.value || '').toLowerCase();
     const rows = document.querySelectorAll('#doctor-patients-list > div[style]');
@@ -4878,6 +5036,14 @@ function searchPatients() {
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Masks a full name for privacy — e.g. "Sunday Abefe" → "Sunday A."
+function maskName(name) {
+    if (!name || typeof name !== 'string') return 'Someone';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0][0].toUpperCase() + '.';
+    return parts[0] + ' ' + parts[1][0].toUpperCase() + '.';
 }
 
 // Helper — mirrors admin's timeAgo
