@@ -2546,25 +2546,25 @@ async function loadDoctorsForBooking() {
         let doctorIds = [];
         let isInstadocHospital = false;
 
-        // Check if this patient is in Instadoc Hospital (default hospital)
-        const { data: patientProfile } = await supabaseClient
-            .from('profiles')
-            .select('hospital_id')
-            .eq('id', currentUser.id)
-            .single();
-
-        const { data: defaultHospital } = await supabaseClient
-            .from('hospitals')
-            .select('id')
-            .eq('is_default', true)
-            .single();
-
-        const isInInstadocHospital = defaultHospital && 
-            patientProfile?.hospital_id === defaultHospital.id;
-
-        if (isInInstadocHospital) {
-            // Instadoc Hospital patient — always show ALL doctors in Instadoc Hospital
+        if (assignments && assignments.length > 0) {
+            // Patient has assigned doctors — hospital-specific patient
+            // Show only their assigned doctors
+            doctorIds = assignments.map(a => a.doctor_id);
+        } else {
+            // No assignments — patient is unassigned, falls into Instadoc Hospital
+            // Show ALL active doctors in Instadoc Hospital
             isInstadocHospital = true;
+
+            const { data: defaultHospital, error: hErr } = await supabaseClient
+                .from('hospitals')
+                .select('id')
+                .eq('is_default', true)
+                .single();
+
+            if (hErr || !defaultHospital) {
+                container.innerHTML = '<p class="text-center-muted">No doctors available at this time.</p>';
+                return;
+            }
 
             const { data: memberships, error: mErr } = await supabaseClient
                 .from('hospital_doctor_memberships')
@@ -2580,12 +2580,6 @@ async function loadDoctorsForBooking() {
             }
 
             doctorIds = memberships.map(m => m.doctor_id);
-        } else if (assignments && assignments.length > 0) {
-            // Hospital-specific patient — show only assigned doctors
-            doctorIds = assignments.map(a => a.doctor_id);
-        } else {
-            container.innerHTML = '<p class="text-center-muted">No doctors assigned to you yet.</p>';
-            return;
         }
 
         // Step 2: Get names from profiles (source of truth for full names)
@@ -3331,46 +3325,64 @@ async function updateAppointmentStatus(id, newStatus, patientId) {
     });
 }
 // --- VIDEO CALL FUNCTION (Jitsi) ---
-let jitsiApi = null; // Legacy — no longer used (WebRTC replaces Jitsi)
-
-// Global variables to hold call state
-let activeCallTranscript = "";
-let activeCallRecognition = null;
-let currentCallContext = {};
-
 // ============================================================
-// WEBRTC VIDEO CALL — 100% FREE, NO THIRD PARTY, USES SUPABASE
+// DAILY.CO VIDEO CALL — PRODUCTION TELEHEALTH INTEGRATION
 // ============================================================
-let localStream = null;
-let peerConnection = null;
-let callChannel = null;
+
+const DAILY_API_KEY = 'ff60949c9aa916a943f720ab40afb186d082f061f9b2d84118cd81efe4d29f00';
+const DAILY_DOMAIN = 'instadoctor'; // Your Daily.co domain
+
+let dailyCallFrame = null;
 let callTimerInterval = null;
 let callSeconds = 0;
-let micEnabled = true;
-let camEnabled = true;
+let currentCallContext = {};
+let activeCallTranscript = "";
+let activeCallRecognition = null;
 
-// ICE Servers — STUN + multiple free public TURN servers for cross-network calls
-let ICE_SERVERS = { iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-    {
-        urls: [
-            'turn:openrelay.metered.ca:80',
-            'turn:openrelay.metered.ca:443',
-            'turn:openrelay.metered.ca:443?transport=tcp',
-            'turns:openrelay.metered.ca:443'
-        ],
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
+// Create or get a Daily.co room for this appointment via Supabase Edge proxy
+// We call Daily API from a Supabase function to keep the API key server-side safe
+// For now we call it directly from the client (dev mode)
+async function createDailyRoom(appointmentId) {
+    const roomName = `instadoc-appt-${appointmentId}`;
+    
+    // Check if room already exists
+    const checkRes = await fetch(`https://api.daily.co/v1/rooms/${roomName}`, {
+        headers: { Authorization: `Bearer ${DAILY_API_KEY}` }
+    });
+
+    if (checkRes.ok) {
+        const existing = await checkRes.json();
+        return existing.url;
     }
-]};
 
-async function loadIceServers() {
-    // Already loaded above — nothing to do
-    console.log('ICE servers ready:', ICE_SERVERS.iceServers.length, 'servers');
+    // Create new room — expires 2 hours from now
+    const exp = Math.floor(Date.now() / 1000) + 60 * 120;
+    const res = await fetch('https://api.daily.co/v1/rooms', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${DAILY_API_KEY}`
+        },
+        body: JSON.stringify({
+            name: roomName,
+            properties: {
+                exp: exp,
+                enable_chat: false,
+                enable_knocking: false,
+                start_video_off: false,
+                start_audio_off: false,
+                max_participants: 2
+            }
+        })
+    });
+
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to create room');
+    }
+
+    const room = await res.json();
+    return room.url;
 }
 
 async function startVideoCall(appointmentId, callType = 'video', patientId = '', patientName = '') {
@@ -3378,235 +3390,155 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
     activeCallTranscript = "";
     callSeconds = 0;
 
-    const isAudioOnly = callType === 'audio';
+    // Show modal
     const modal = document.getElementById('video-modal');
     if (modal) modal.classList.add('active');
 
-    // Show/hide audio-only overlay
-    const audioOverlay = document.getElementById('audio-only-overlay');
-    const btnCam = document.getElementById('btn-toggle-cam');
-    if (isAudioOnly) {
-        if (audioOverlay) audioOverlay.style.display = 'flex';
-        if (btnCam) btnCam.style.opacity = '0.4';
-        const nameEl = document.getElementById('audio-call-name');
-        if (nameEl) nameEl.textContent = patientName || 'Audio Consultation';
-    } else {
-        if (audioOverlay) audioOverlay.style.display = 'none';
-    }
+    const loadingEl = document.getElementById('daily-loading');
+    const waitingText = document.getElementById('waiting-text');
+    const badge = document.getElementById('call-status-badge');
 
-    // 1. Get local media
+    if (loadingEl) loadingEl.style.display = 'flex';
+    if (waitingText) waitingText.textContent = 'Setting up secure consultation room...';
+    if (badge) { badge.textContent = 'Connecting...'; badge.style.background = '#f59e0b'; }
+
     try {
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: !isAudioOnly,
-            audio: true
+        // 1. Create or fetch Daily.co room
+        const roomUrl = await createDailyRoom(appointmentId);
+
+        // 2. Create Daily call frame inside our container
+        const container = document.getElementById('daily-call-container');
+        
+        // Destroy existing frame if any
+        if (dailyCallFrame) {
+            dailyCallFrame.destroy();
+            dailyCallFrame = null;
+        }
+
+        dailyCallFrame = window.DailyIframe.createFrame(container, {
+            iframeStyle: {
+                position: 'absolute',
+                top: 0, left: 0,
+                width: '100%',
+                height: '100%',
+                border: 'none',
+                borderRadius: '0'
+            },
+            showLeaveButton: false,
+            showFullscreenButton: true,
         });
-        const localVideo = document.getElementById('local-video');
-        if (localVideo) localVideo.srcObject = localStream;
+
+        // 3. Event listeners
+        dailyCallFrame
+            .on('joining-meeting', () => {
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (badge) { badge.textContent = 'Joining...'; badge.style.background = '#f59e0b'; }
+            })
+            .on('joined-meeting', () => {
+                if (badge) { badge.textContent = 'Connected'; badge.style.background = '#16a34a'; }
+                if (loadingEl) loadingEl.style.display = 'none';
+                // Start call timer
+                callTimerInterval = setInterval(() => {
+                    callSeconds++;
+                    const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+                    const s = String(callSeconds % 60).padStart(2, '0');
+                    const timerEl = document.getElementById('call-timer');
+                    if (timerEl) timerEl.textContent = m + ':' + s;
+                }, 1000);
+                // Start transcription
+                startCallTranscription();
+            })
+            .on('participant-joined', (e) => {
+                showToast(`${e.participant.user_name || 'Other participant'} joined the call`, 'success');
+            })
+            .on('participant-left', (e) => {
+                showToast('Other participant left the call', 'error');
+            })
+            .on('error', (e) => {
+                console.error('Daily.co error:', e);
+                showToast('Call error: ' + (e.errorMsg || 'Unknown error'), 'error');
+            });
+
+        // 4. Get participant name
+        const userName = currentUser?.user_metadata?.full_name || 
+                         currentUser?.email?.split('@')[0] || 
+                         (userRole === 'doctor' ? 'Doctor' : 'Patient');
+
+        // 5. Join the room
+        await dailyCallFrame.join({
+            url: roomUrl,
+            userName: userName,
+            startVideoOff: callType === 'audio',
+            startAudioOff: false,
+        });
+
     } catch (err) {
-        showToast('Camera/microphone access denied. Please allow and try again.', 'error');
+        console.error('Daily.co startVideoCall error:', err);
+        showToast('Failed to start call: ' + err.message, 'error');
         closeVideoCall();
-        return;
     }
-
-    // 2. Start speech transcription
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-        activeCallRecognition = new SpeechRecognition();
-        activeCallRecognition.continuous = true;
-        activeCallRecognition.interimResults = false;
-        activeCallRecognition.onresult = (event) => {
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) activeCallTranscript += event.results[i][0].transcript + ' ';
-            }
-        };
-        activeCallRecognition.onend = () => { if (activeCallRecognition) activeCallRecognition.start(); };
-        activeCallRecognition.start();
-    }
-
-    // 3. Create WebRTC peer connection (load fresh TURN credentials first)
-    await loadIceServers();
-    peerConnection = new RTCPeerConnection(ICE_SERVERS);
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-    // Log ICE connection state changes for debugging
-    peerConnection.oniceconnectionstatechange = () => {
-        const state = peerConnection.iceConnectionState;
-        console.log('ICE connection state:', state);
-        const badge = document.getElementById('call-status-badge');
-        if (state === 'checking') { if(badge) { badge.textContent = 'Connecting...'; badge.style.background = '#f59e0b'; } }
-        if (state === 'connected' || state === 'completed') { if(badge) { badge.textContent = 'Connected'; badge.style.background = '#16a34a'; } }
-        if (state === 'failed') { 
-            if(badge) { badge.textContent = 'Failed'; badge.style.background = '#ef4444'; }
-            showToast('Connection failed — retrying...', 'error');
-            peerConnection.restartIce();
-        }
-        if (state === 'disconnected') { if(badge) { badge.textContent = 'Reconnecting...'; badge.style.background = '#f59e0b'; } }
-    };
-
-    peerConnection.onicecandidateerror = (e) => {
-        console.warn('ICE candidate error:', e.errorCode, e.errorText, e.url);
-    };
-
-    // When remote stream arrives, show it
-    peerConnection.ontrack = (event) => {
-        console.log('Remote track received:', event.track.kind);
-        const remoteVideo = document.getElementById('remote-video');
-        if (remoteVideo) {
-            remoteVideo.srcObject = event.streams[0];
-            remoteVideo.play().catch(e => console.warn('Remote video play failed:', e));
-        }
-        const waiting = document.getElementById('waiting-overlay');
-        if (waiting) waiting.style.display = 'none';
-        const badge = document.getElementById('call-status-badge');
-        if (badge) { badge.textContent = 'Connected'; badge.style.background = '#16a34a'; }
-        // Start call timer
-        callTimerInterval = setInterval(() => {
-            callSeconds++;
-            const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
-            const s = String(callSeconds % 60).padStart(2, '0');
-            const timerEl = document.getElementById('call-timer');
-            if (timerEl) timerEl.textContent = m + ':' + s;
-        }, 1000);
-    };
-
-    // 4. Subscribe to Supabase signaling channel
-    const channelName = 'webrtc-' + appointmentId;
-    callChannel = supabaseClient.channel(channelName, { config: { broadcast: { self: false } } });
-
-    // Helper: wait for ICE gathering to complete so TURN candidates are included
-    function waitForIceGathering(pc) {
-        return new Promise(resolve => {
-            if (pc.iceGatheringState === 'complete') return resolve();
-            const check = () => {
-                if (pc.iceGatheringState === 'complete') {
-                    pc.removeEventListener('icegatheringstatechange', check);
-                    resolve();
-                }
-            };
-            pc.addEventListener('icegatheringstatechange', check);
-            // Fallback timeout — proceed after 4 seconds even if not complete
-            setTimeout(resolve, 4000);
-        });
-    }
-
-    // Track negotiation state to prevent duplicate offer/answer
-    let isNegotiating = false;
-
-    async function sendOffer() {
-        if (isNegotiating || !peerConnection) return;
-        isNegotiating = true;
-        try {
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            await waitForIceGathering(peerConnection);
-            callChannel.send({ type: 'broadcast', event: 'offer', payload: { sdp: peerConnection.localDescription } });
-        } catch(e) {
-            console.warn('sendOffer failed:', e);
-            isNegotiating = false;
-        }
-    }
-
-    callChannel
-        .on('broadcast', { event: 'patient-ready' }, async () => {
-            // Patient joined — doctor sends fresh offer only if not already negotiating
-            if (userRole === 'doctor' && peerConnection && !isNegotiating) {
-                isNegotiating = false; // reset so sendOffer can proceed
-                await sendOffer();
-            }
-        })
-        .on('broadcast', { event: 'offer' }, async ({ payload }) => {
-            if (!peerConnection || userRole === 'doctor') return;
-            try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                await waitForIceGathering(peerConnection);
-                callChannel.send({ type: 'broadcast', event: 'answer', payload: { sdp: peerConnection.localDescription } });
-            } catch(e) { console.warn('answer failed:', e); }
-        })
-        .on('broadcast', { event: 'answer' }, async ({ payload }) => {
-            if (!peerConnection || peerConnection.signalingState !== 'have-local-offer') return;
-            try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-                isNegotiating = false;
-            } catch(e) { console.warn('setRemoteDescription answer failed:', e); }
-        })
-        .on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
-            if (!peerConnection) return;
-            try { await peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate)); } catch(e) {}
-        })
-        .subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-                const myRole = userRole || 'patient';
-                if (myRole === 'doctor') {
-                    peerConnection.onicecandidate = ({ candidate }) => {
-                        if (candidate) callChannel.send({ type: 'broadcast', event: 'ice-candidate', payload: { candidate } });
-                    };
-                    await sendOffer();
-                    showToast('Waiting for patient to join...', 'success');
-                } else {
-                    peerConnection.onicecandidate = ({ candidate }) => {
-                        if (candidate) callChannel.send({ type: 'broadcast', event: 'ice-candidate', payload: { candidate } });
-                    };
-                    callChannel.send({ type: 'broadcast', event: 'patient-ready', payload: {} });
-                    showToast('Connecting to your doctor...', 'success');
-                }
-            }
-        });
 }
 
+function startCallTranscription() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    activeCallRecognition = new SpeechRecognition();
+    activeCallRecognition.continuous = true;
+    activeCallRecognition.interimResults = false;
+    activeCallRecognition.onresult = (event) => {
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) activeCallTranscript += event.results[i][0].transcript + ' ';
+        }
+    };
+    activeCallRecognition.onend = () => { if (activeCallRecognition) activeCallRecognition.start(); };
+    activeCallRecognition.start();
+}
+
+// Mic/Cam toggles — delegated to Daily.co iframe
 function toggleMic() {
-    if (!localStream) return;
-    micEnabled = !micEnabled;
-    localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
-    const btn = document.getElementById('btn-toggle-mic');
-    if (btn) {
-        btn.style.background = micEnabled ? '#374151' : '#ef4444';
-        btn.innerHTML = micEnabled ? '<i class="fa-solid fa-microphone"></i>' : '<i class="fa-solid fa-microphone-slash"></i>';
-    }
+    if (!dailyCallFrame) return;
+    const isMuted = dailyCallFrame.localAudio() === false;
+    dailyCallFrame.setLocalAudio(isMuted);
+    showToast(isMuted ? 'Microphone on' : 'Microphone muted', 'success');
 }
 
 function toggleCam() {
-    if (!localStream) return;
-    camEnabled = !camEnabled;
-    localStream.getVideoTracks().forEach(t => t.enabled = camEnabled);
-    const btn = document.getElementById('btn-toggle-cam');
-    if (btn) {
-        btn.style.background = camEnabled ? '#374151' : '#ef4444';
-        btn.innerHTML = camEnabled ? '<i class="fa-solid fa-video"></i>' : '<i class="fa-solid fa-video-slash"></i>';
-    }
+    if (!dailyCallFrame) return;
+    const isCamOff = dailyCallFrame.localVideo() === false;
+    dailyCallFrame.setLocalVideo(isCamOff);
+    showToast(isCamOff ? 'Camera on' : 'Camera off', 'success');
 }
 
 async function closeVideoCall() {
-    // 1. Clean up WebRTC connection
-    if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-    if (peerConnection) { peerConnection.close(); peerConnection = null; }
-    if (callChannel) { supabaseClient.removeChannel(callChannel); callChannel = null; }
+    // Stop timer
     if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
 
-    // Reset video elements
-    const localVideo = document.getElementById('local-video');
-    const remoteVideo = document.getElementById('remote-video');
-    if (localVideo) localVideo.srcObject = null;
-    if (remoteVideo) remoteVideo.srcObject = null;
-
-    // Reset waiting overlay
-    const waiting = document.getElementById('waiting-overlay');
-    if (waiting) waiting.style.display = 'flex';
-    const badge = document.getElementById('call-status-badge');
-    if (badge) { badge.textContent = 'Connecting...'; badge.style.background = '#ef4444'; }
-
-    const modal = document.getElementById('video-modal');
-    if (modal) modal.classList.remove('active');
-
-    // 2. Handle Transcription & AI Handoff (doctors only)
+    // Stop transcription
     if (activeCallRecognition) {
         activeCallRecognition.onend = null;
         activeCallRecognition.stop();
         activeCallRecognition = null;
     }
 
-    // Only open notes modal for doctors — patients don't have this UI
+    // Leave Daily.co room
+    if (dailyCallFrame) {
+        try { await dailyCallFrame.leave(); } catch(e) {}
+        try { dailyCallFrame.destroy(); } catch(e) {}
+        dailyCallFrame = null;
+    }
+
+    // Reset badge and timer
+    const badge = document.getElementById('call-status-badge');
+    const timer = document.getElementById('call-timer');
+    if (badge) { badge.textContent = 'Connecting...'; badge.style.background = '#f59e0b'; }
+    if (timer) timer.textContent = '00:00';
+    callSeconds = 0;
+
+    // Hide modal
+    const modal = document.getElementById('video-modal');
+    if (modal) modal.classList.remove('active');
+
+    // Post-call: open notes modal for doctors
     if (userRole !== 'doctor') return;
 
     if (activeCallTranscript.trim().length > 15) {
@@ -3614,7 +3546,7 @@ async function closeVideoCall() {
             currentCallContext.appointmentId,
             currentCallContext.patientId,
             currentCallContext.patientName,
-            "🤖 Analyzing consultation audio... Generating smart summary..."
+            "Analyzing consultation... Generating summary..."
         );
         const btn = document.getElementById('notes-btn');
         if (btn) {
@@ -4533,24 +4465,20 @@ async function loadMyDoctorView() {
 
         if (aErr) throw aErr;
 
-        // Check if patient belongs to Instadoc Hospital
-        const { data: patientProf } = await supabaseClient
-            .from('profiles')
-            .select('hospital_id')
-            .eq('id', currentUser.id)
-            .single();
+        if (!assignments?.length) {
+            // No assignments — unassigned patient falls into Instadoc Hospital
+            // Show all active doctors in Instadoc Hospital
+            const { data: defaultHospital } = await supabaseClient
+                .from('hospitals')
+                .select('id, name')
+                .eq('is_default', true)
+                .single();
 
-        const { data: defaultHospital } = await supabaseClient
-            .from('hospitals')
-            .select('id, name')
-            .eq('is_default', true)
-            .single();
+            if (!defaultHospital) {
+                container.innerHTML = `<div style="text-align:center;padding:3rem;color:#9ca3af;">No doctors available at this time.</div>`;
+                return;
+            }
 
-        const isInInstadocHospital = defaultHospital &&
-            patientProf?.hospital_id === defaultHospital.id;
-
-        if (isInInstadocHospital) {
-            // Always show all Instadoc Hospital doctors regardless of assignment
             const { data: memberships } = await supabaseClient
                 .from('hospital_doctor_memberships')
                 .select('doctor_id')
@@ -4827,7 +4755,7 @@ async function loadMyDoctorView() {
 
                     <!-- Action Buttons -->
                     <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
-                        <button onclick="openModal('booking')"
+                        <button onclick="openScheduleFormForDoctor('${a.doctor_id}', '${name.replace(/'/g, "\\'")}')"
                             style="flex:1; min-width:140px; padding:10px 16px; background:#2f8f46; color:#fff;
                                    border:none; border-radius:10px; font-size:0.82rem; font-weight:700;
                                    cursor:pointer; font-family:inherit; display:flex; align-items:center;

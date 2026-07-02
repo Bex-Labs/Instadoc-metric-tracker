@@ -454,6 +454,22 @@ function bindUI() {
     await loadDoctors();
   });
   $("doctorSearch")?.addEventListener("input", () => filterDoctors());
+
+  // Inject hospital filter dropdown next to doctor search if not already there
+  setTimeout(() => {
+    const searchEl = $("doctorSearch");
+    if (searchEl && !$("doctorHospitalFilter")) {
+      const wrapper = searchEl.parentElement;
+      const select = document.createElement("select");
+      select.id = "doctorHospitalFilter";
+      select.style.cssText = "margin-left:8px;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:0.85rem;color:#374151;background:#fff;cursor:pointer;min-width:160px;";
+      select.innerHTML = `<option value="all">All Hospitals</option>`;
+      select.addEventListener("change", () => filterDoctors());
+      wrapper.style.display = "flex";
+      wrapper.style.alignItems = "center";
+      wrapper.appendChild(select);
+    }
+  }, 500);
   $("unassignAllBtn")?.addEventListener("click", () => unassignAllFromDoctor());
 
   // Assign patient modal
@@ -2245,11 +2261,26 @@ async function loadDoctors() {
   }));
 
   filterDoctors();
+
+  // Populate hospital filter dropdown with unique hospital names
+  const filterEl = $("doctorHospitalFilter");
+  if (filterEl) {
+    const hospitals = [...new Set(state.allDoctors.map(d => d.hospital_name).filter(Boolean))].sort();
+    const currentVal = filterEl.value;
+    filterEl.innerHTML = `<option value="all">All Hospitals</option>` +
+      hospitals.map(h => {
+        const val = h === "Instadoc Hospital" ? "instadoc" : h;
+        return `<option value="${val}">${h}</option>`;
+      }).join('');
+    filterEl.value = currentVal;
+  }
 }
 
 function filterDoctors() {
   const term = $("doctorSearch")?.value?.trim().toLowerCase() || "";
+  const hospitalFilter = $("doctorHospitalFilter")?.value || "all";
   let list = [...state.allDoctors];
+
   if (term) {
     list = list.filter(
       (d) =>
@@ -2257,6 +2288,15 @@ function filterDoctors() {
         (d.email || "").toLowerCase().includes(term),
     );
   }
+
+  if (hospitalFilter !== "all") {
+    if (hospitalFilter === "instadoc") {
+      list = list.filter(d => d.hospital_name === "Instadoc Hospital");
+    } else {
+      list = list.filter(d => d.hospital_name === hospitalFilter);
+    }
+  }
+
   renderDoctorList(list);
 }
 

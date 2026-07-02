@@ -364,13 +364,30 @@
         const { data: docProfiles } = await sb.from('doctor_profiles')
             .select('id, specialty, is_verified');
 
+        // Fetch hospital memberships
+        const { data: memberships } = await sb.from('hospital_doctor_memberships')
+            .select('doctor_id, hospitals(name, is_default)')
+            .eq('status', 'active');
+
         const docMap = {};
         (docProfiles || []).forEach(d => docMap[d.id] = d);
+
+        const hospitalMap = {};
+        (memberships || []).forEach(m => {
+            if (!hospitalMap[m.doctor_id]) {
+                hospitalMap[m.doctor_id] = {
+                    name: m.hospitals?.name || 'Instadoc Hospital',
+                    is_default: !!m.hospitals?.is_default
+                };
+            }
+        });
 
         allDoctors = (profiles || []).map(p => ({
             ...p,
             specialty: docMap[p.id]?.specialty || 'General',
-            is_verified: !!docMap[p.id]?.is_verified
+            is_verified: !!docMap[p.id]?.is_verified,
+            hospital_name: hospitalMap[p.id]?.name || 'Instadoc Hospital',
+            is_default_hospital: hospitalMap[p.id]?.is_default ?? true
         }));
 
         document.getElementById('doctor-count-pill').textContent = allDoctors.length;
@@ -410,6 +427,13 @@
                         <div class="item-sub">
                             ${esc(d.specialty)}
                             ${d.is_verified ? ' · <span style="color:#16a34a;">✓ Verified</span>' : ''}
+                        </div>
+                        <div style="margin-top:3px;">
+                            <span style="font-size:0.68rem;padding:2px 8px;border-radius:9999px;font-weight:600;
+                                background:${d.is_default_hospital ? '#dbeafe' : '#dcfce7'};
+                                color:${d.is_default_hospital ? '#1d4ed8' : '#15803d'};">
+                                ${esc(d.hospital_name)}
+                            </span>
                         </div>
                     </div>
                     <div class="item-action">
@@ -461,6 +485,17 @@
         document.getElementById('patient-count-pill').textContent = allPatients.length;
     }
 
+    // Helper: get all doctors a patient is assigned to
+    function getPatientDoctorNames(patientId) {
+        const doctorIds = assignments
+            .filter(a => a.patient_id === patientId)
+            .map(a => a.doctor_id);
+        if (!doctorIds.length) return null;
+        return doctorIds
+            .map(id => allDoctors.find(d => d.id === id)?.full_name || 'Doctor')
+            .join(', ');
+    }
+
     function renderPatients() {
         const list = document.getElementById('patient-list');
 
@@ -509,6 +544,12 @@
                     <div class="item-info">
                         <div class="item-name">${esc(p.full_name || 'Patient')}</div>
                         <div class="item-sub">${esc(p.email || '')}</div>
+                        <div style="margin-top:3px;">
+                            ${isAssigned
+                                ? `<span style="font-size:0.68rem;padding:2px 8px;border-radius:9999px;font-weight:600;background:#dcfce7;color:#15803d;">✓ Assigned</span>`
+                                : `<span style="font-size:0.68rem;padding:2px 8px;border-radius:9999px;font-weight:600;background:#f3f4f6;color:#6b7280;">Unassigned</span>`
+                            }
+                        </div>
                     </div>
                     <div class="item-action">
                         ${isAssigned
