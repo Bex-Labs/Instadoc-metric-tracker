@@ -960,6 +960,7 @@ async function editUser(userId) {
           <select id="edit_role" ${isSelf ? "disabled" : ""} required>
             <option value="patient" ${u.role === "patient" ? "selected" : ""}>Patient</option>
             <option value="doctor" ${u.role === "doctor" ? "selected" : ""}>Doctor</option>
+            <option value="hospital_manager" ${u.role === "hospital_manager" ? "selected" : ""}>Manager</option>
             <option value="admin" ${u.role === "admin" ? "selected" : ""}>Admin</option>
           </select>
         </div>
