@@ -1,0 +1,37 @@
+---
+deployment:
+  tasks:
+    # ↓↓↓ Replace "yourusername" with your actual cPanel username
+    # (top-right of the cPanel dashboard, or Account Information).
+    - export DEPLOYPATH=/home/instadoc/public_html/
+    - /bin/mkdir -p $DEPLOYPATH
+
+    # Top-level HTML pages
+    - /bin/cp index.html $DEPLOYPATH
+    - /bin/cp about.html $DEPLOYPATH
+    - /bin/cp contact.html $DEPLOYPATH
+    - /bin/cp services.html $DEPLOYPATH
+    - /bin/cp services_healthcare_providers.html $DEPLOYPATH
+    - /bin/cp services_org_industry.html $DEPLOYPATH
+    - /bin/cp services_patients.html $DEPLOYPATH
+    - /bin/cp doctor-signup.html $DEPLOYPATH
+    - /bin/cp Performance_Metrics.html $DEPLOYPATH
+    - /bin/cp Real_time_analytics_services.html $DEPLOYPATH
+    - /bin/cp predictive_analytics.html $DEPLOYPATH
+    - /bin/cp resource_optimization.html $DEPLOYPATH
+
+    # Top-level stylesheet and images referenced by those pages
+    - /bin/cp style.css $DEPLOYPATH
+    - /bin/cp INN.png $DEPLOYPATH
+    - /bin/cp "INN 2.png" $DEPLOYPATH
+    - /bin/cp top-view-tensiometer-checking-blood-pressure_bw.jpg $DEPLOYPATH
+
+    # App sections (each is self-contained with its own assets/vendor folders)
+    - /bin/cp -R app $DEPLOYPATH
+    - /bin/cp -R admin $DEPLOYPATH
+    - /bin/cp -R manager $DEPLOYPATH
+
+    # Deliberately NOT deployed: .git, .github, .vscode, tests/,
+    # playwright.config.js, package.json/package-lock.json,
+    # download-vendor.ps1, README.md, DEPLOYMENT.md — these are
+    # development-only and have no place in the public web root.
