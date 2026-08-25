@@ -2690,7 +2690,7 @@ function renderBookingDaysGrid(docId, scheduleJson) {
     const noSchedule = document.getElementById('booking-no-schedule');
     grid.innerHTML = '';
 
-    const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const dowToLabel = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     let schedule = null;
 
     try { schedule = scheduleJson ? JSON.parse(scheduleJson) : null; } catch(e) {}
@@ -2701,37 +2701,39 @@ function renderBookingDaysGrid(docId, scheduleJson) {
     }
     noSchedule.style.display = 'none';
 
-    // Find the next 7 days and map to day names
     const today = new Date();
-    today.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
 
-    // Build upcoming dates for each weekday (next occurrence)
-    const dayMap = { Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6, Sun:0 };
+    // Build the next 7 CALENDAR days, starting from today (offset 0..6),
+    // in sequential order. Each date's weekday determines which schedule
+    // config applies — this replaces the old "next occurrence of each
+    // fixed weekday label" approach, which scrambled the order and
+    // always skipped today (0 offset was wrongly treated as "no match"
+    // and bumped a full week ahead).
+    for (let offset = 0; offset < 7; offset++) {
+        const nextDate = new Date(today);
+        nextDate.setDate(today.getDate() + offset);
 
-    dayLabels.forEach(day => {
+        const day = dowToLabel[nextDate.getDay()];
         const config = schedule[day];
         const isActive = config && config.active && config.start && config.end;
 
-        // Find next date for this day
-        const targetDow = dayMap[day];
-        const diff = (targetDow - today.getDay() + 7) % 7 || 7;
-        const nextDate = new Date(today);
-        nextDate.setDate(today.getDate() + diff);
         const dateStr = nextDate.toISOString().split('T')[0];
-        const dateLabel = nextDate.toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+        const dateLabel = nextDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        const isToday = offset === 0;
 
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.style.cssText = `
             display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:10px;
-            border:2px solid ${isActive ? '#d1fae5' : '#f3f4f6'};
+            border:2px solid ${isActive ? (isToday ? '#2ecc71' : '#d1fae5') : '#f3f4f6'};
             background:${isActive ? '#f0fdf4' : '#f9fafb'};
             color:${isActive ? '#1a3c34' : '#9ca3af'};
             cursor:${isActive ? 'pointer' : 'not-allowed'};
             font-size:0.7rem;font-weight:700;transition:all 0.15s;
         `;
         btn.innerHTML = `
-            <span style="font-size:0.65rem;margin-bottom:2px;">${day}</span>
+            <span style="font-size:0.65rem;margin-bottom:2px;">${isToday ? 'Today' : day}</span>
             <span style="font-size:0.7rem;font-weight:600;color:${isActive ? '#2ecc71' : '#d1d5db'};">${dateLabel}</span>
             ${isActive ? `<span style="font-size:0.6rem;color:#6b7280;margin-top:2px;">${config.start}–${config.end}</span>` : '<span style="font-size:0.6rem;color:#d1d5db;">Off</span>'}
         `;
@@ -2749,12 +2751,12 @@ function renderBookingDaysGrid(docId, scheduleJson) {
                 btn.querySelectorAll('span').forEach(s => s.style.color = '#fff');
 
                 document.getElementById('schedule-date').value = dateStr;
-                renderBookingTimeSlots(docId, dateStr, config.start, config.end, day);
+                renderBookingTimeSlots(docId, dateStr, config.start, config.end, isToday ? 'Today' : day);
             });
         }
 
         grid.appendChild(btn);
-    });
+    }
 }
 
 async function renderBookingTimeSlots(docId, dateStr, start, end, dayName) {
@@ -2778,7 +2780,21 @@ async function renderBookingTimeSlots(docId, dateStr, start, end, dayName) {
     const bookedSlots = await fetchDoctorBookedSlots(docId, dateStr);
 
     // Generate 30-min slots
-    const slots = generate30MinSlots(start, end);
+    let slots = generate30MinSlots(start, end);
+
+    // If the selected day is today, drop slots that have already passed
+    // (with a small buffer so a slot starting in the next couple of
+    // minutes isn't offered as bookable).
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (dateStr === todayStr) {
+        const now = new Date();
+        const bufferMinutes = 10;
+        const cutoff = now.getHours() * 60 + now.getMinutes() + bufferMinutes;
+        slots = slots.filter(slot => {
+            const [sh, sm] = slot.split(':').map(Number);
+            return (sh * 60 + sm) > cutoff;
+        });
+    }
 
     if (slots.length === 0) {
         grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#ef4444;font-size:0.8rem;padding:12px;">No available slots for this day.</div>';
