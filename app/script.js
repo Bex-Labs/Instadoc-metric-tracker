@@ -2682,73 +2682,104 @@ function openScheduleForm(docId, docName, encodedSchedule) {
     document.getElementById('booking-slots-section').style.display = 'none';
     document.getElementById('booking-details-section').style.display = 'none';
 
-    renderBookingDaysGrid(docId, encodedSchedule ? decodeURIComponent(encodedSchedule) : null);
+    // Reset calendar to the current month whenever the modal (re)opens
+    const now = new Date();
+    bookingCalState.docId = docId;
+    bookingCalState.schedule = null;
+    try {
+        bookingCalState.schedule = encodedSchedule ? JSON.parse(decodeURIComponent(encodedSchedule)) : null;
+    } catch (e) {}
+    bookingCalState.viewYear = now.getFullYear();
+    bookingCalState.viewMonth = now.getMonth();
+
+    renderBookingDaysGrid();
 }
 
-function renderBookingDaysGrid(docId, scheduleJson) {
+// Tracks which month the booking calendar is currently showing, plus the
+// doctor/schedule it's rendering for. Reset in openScheduleForm() above.
+const bookingCalState = { docId: null, schedule: null, viewYear: null, viewMonth: null };
+
+function renderBookingDaysGrid() {
     const grid = document.getElementById('booking-days-grid');
     const noSchedule = document.getElementById('booking-no-schedule');
+    const monthLabel = document.getElementById('booking-cal-month-label');
+    const prevBtn = document.getElementById('booking-cal-prev');
+    const nextBtn = document.getElementById('booking-cal-next');
     grid.innerHTML = '';
 
+    const { docId, schedule, viewYear, viewMonth } = bookingCalState;
     const dowToLabel = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    let schedule = null;
-
-    try { schedule = scheduleJson ? JSON.parse(scheduleJson) : null; } catch(e) {}
 
     if (!schedule) {
         noSchedule.style.display = 'block';
+        monthLabel.textContent = '';
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
         return;
     }
     noSchedule.style.display = 'none';
+    prevBtn.style.display = '';
+    nextBtn.style.display = '';
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Build the next 7 CALENDAR days, starting from today (offset 0..6),
-    // in sequential order. Each date's weekday determines which schedule
-    // config applies — this replaces the old "next occurrence of each
-    // fixed weekday label" approach, which scrambled the order and
-    // always skipped today (0 offset was wrongly treated as "no match"
-    // and bumped a full week ahead).
-    for (let offset = 0; offset < 7; offset++) {
-        const nextDate = new Date(today);
-        nextDate.setDate(today.getDate() + offset);
+    const viewDate = new Date(viewYear, viewMonth, 1);
+    monthLabel.textContent = viewDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 
-        const day = dowToLabel[nextDate.getDay()];
+    // Don't allow navigating to a month entirely before the current one.
+    const isCurrentMonth = viewYear === today.getFullYear() && viewMonth === today.getMonth();
+    prevBtn.disabled = isCurrentMonth;
+    prevBtn.style.opacity = isCurrentMonth ? '0.35' : '1';
+    prevBtn.style.cursor = isCurrentMonth ? 'not-allowed' : 'pointer';
+
+    const firstOfMonth = new Date(viewYear, viewMonth, 1);
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    // JS getDay(): 0=Sun..6=Sat. We display Mon-first columns, so shift.
+    const firstWeekday = (firstOfMonth.getDay() + 6) % 7; // 0=Mon..6=Sun
+
+    // Leading blanks so day 1 lands in the correct weekday column
+    for (let i = 0; i < firstWeekday; i++) {
+        const blank = document.createElement('div');
+        grid.appendChild(blank);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const cellDate = new Date(viewYear, viewMonth, d);
+        const isPast = cellDate < today;
+        const isToday = cellDate.getTime() === today.getTime();
+        const day = dowToLabel[cellDate.getDay()];
         const config = schedule[day];
-        const isActive = config && config.active && config.start && config.end;
-
-        const dateStr = nextDate.toISOString().split('T')[0];
-        const dateLabel = nextDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-        const isToday = offset === 0;
+        const isActive = !isPast && config && config.active && config.start && config.end;
+        const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
         const btn = document.createElement('button');
         btn.type = 'button';
+        btn.disabled = !isActive;
         btn.style.cssText = `
-            display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:10px;
-            border:2px solid ${isActive ? (isToday ? '#2ecc71' : '#d1fae5') : '#f3f4f6'};
-            background:${isActive ? '#f0fdf4' : '#f9fafb'};
-            color:${isActive ? '#1a3c34' : '#9ca3af'};
+            display:flex;flex-direction:column;align-items:center;justify-content:center;
+            padding:6px 2px;min-height:40px;border-radius:8px;
+            border:2px solid ${isActive ? (isToday ? '#2ecc71' : '#d1fae5') : 'transparent'};
+            background:${isPast ? 'transparent' : (isActive ? '#f0fdf4' : '#f9fafb')};
+            color:${isPast ? '#d1d5db' : (isActive ? '#1a3c34' : '#9ca3af')};
             cursor:${isActive ? 'pointer' : 'not-allowed'};
-            font-size:0.7rem;font-weight:700;transition:all 0.15s;
+            font-size:0.75rem;font-weight:700;transition:all 0.15s;
         `;
         btn.innerHTML = `
-            <span style="font-size:0.65rem;margin-bottom:2px;">${isToday ? 'Today' : day}</span>
-            <span style="font-size:0.7rem;font-weight:600;color:${isActive ? '#2ecc71' : '#d1d5db'};">${dateLabel}</span>
-            ${isActive ? `<span style="font-size:0.6rem;color:#6b7280;margin-top:2px;">${config.start}–${config.end}</span>` : '<span style="font-size:0.6rem;color:#d1d5db;">Off</span>'}
+            <span>${d}</span>
+            ${isToday ? '<span style="font-size:0.55rem;font-weight:600;color:#2ecc71;">Today</span>' : ''}
         `;
 
         if (isActive) {
             btn.addEventListener('click', () => {
-                // Highlight selected day
                 grid.querySelectorAll('button').forEach(b => {
-                    b.style.background = '#f0fdf4';
-                    b.style.borderColor = '#d1fae5';
+                    if (!b.disabled) {
+                        b.style.background = '#f0fdf4';
+                        b.style.color = '#1a3c34';
+                    }
                 });
                 btn.style.background = '#2ecc71';
-                btn.style.borderColor = '#2ecc71';
                 btn.style.color = '#fff';
-                btn.querySelectorAll('span').forEach(s => s.style.color = '#fff');
 
                 document.getElementById('schedule-date').value = dateStr;
                 renderBookingTimeSlots(docId, dateStr, config.start, config.end, isToday ? 'Today' : day);
@@ -2758,6 +2789,30 @@ function renderBookingDaysGrid(docId, scheduleJson) {
         grid.appendChild(btn);
     }
 }
+
+document.getElementById('booking-cal-prev')?.addEventListener('click', () => {
+    if (bookingCalState.viewMonth === null) return;
+    bookingCalState.viewMonth -= 1;
+    if (bookingCalState.viewMonth < 0) {
+        bookingCalState.viewMonth = 11;
+        bookingCalState.viewYear -= 1;
+    }
+    document.getElementById('booking-slots-section').style.display = 'none';
+    document.getElementById('booking-details-section').style.display = 'none';
+    renderBookingDaysGrid();
+});
+
+document.getElementById('booking-cal-next')?.addEventListener('click', () => {
+    if (bookingCalState.viewMonth === null) return;
+    bookingCalState.viewMonth += 1;
+    if (bookingCalState.viewMonth > 11) {
+        bookingCalState.viewMonth = 0;
+        bookingCalState.viewYear += 1;
+    }
+    document.getElementById('booking-slots-section').style.display = 'none';
+    document.getElementById('booking-details-section').style.display = 'none';
+    renderBookingDaysGrid();
+});
 
 async function renderBookingTimeSlots(docId, dateStr, start, end, dayName) {
     const section = document.getElementById('booking-slots-section');

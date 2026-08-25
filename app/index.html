@@ -1011,6 +1011,29 @@
                         <p style="font-size:0.75rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">
                             <i class="fa-solid fa-calendar-days" style="color:#2ecc71;margin-right:6px;"></i>Step 1 — Select a Day
                         </p>
+
+                        <!-- Month navigation -->
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                            <button type="button" id="booking-cal-prev" style="background:#f3f4f6;border:none;width:30px;height:30px;border-radius:8px;cursor:pointer;color:#374151;font-size:0.8rem;">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </button>
+                            <span id="booking-cal-month-label" style="font-size:0.85rem;font-weight:700;color:#1a3c34;"></span>
+                            <button type="button" id="booking-cal-next" style="background:#f3f4f6;border:none;width:30px;height:30px;border-radius:8px;cursor:pointer;color:#374151;font-size:0.8rem;">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                        </div>
+
+                        <!-- Weekday header -->
+                        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:4px;">
+                            <span style="text-align:center;font-size:0.65rem;font-weight:700;color:#9ca3af;">Mon</span>
+                            <span style="text-align:center;font-size:0.65rem;font-weight:700;color:#9ca3af;">Tue</span>
+                            <span style="text-align:center;font-size:0.65rem;font-weight:700;color:#9ca3af;">Wed</span>
+                            <span style="text-align:center;font-size:0.65rem;font-weight:700;color:#9ca3af;">Thu</span>
+                            <span style="text-align:center;font-size:0.65rem;font-weight:700;color:#9ca3af;">Fri</span>
+                            <span style="text-align:center;font-size:0.65rem;font-weight:700;color:#9ca3af;">Sat</span>
+                            <span style="text-align:center;font-size:0.65rem;font-weight:700;color:#9ca3af;">Sun</span>
+                        </div>
+
                         <div id="booking-days-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">
                             <!-- Populated by JS -->
                         </div>
