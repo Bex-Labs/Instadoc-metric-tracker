@@ -114,16 +114,21 @@ if (supabaseClient) {
             }
 
             // US-1 & US-2: Role-Based Routing
-            const metaRole = (session.user.user_metadata && session.user.user_metadata.role) ? session.user.user_metadata.role : 'patient';
-            userRole = metaRole;
-
-            // Load tenant (hospital) context from profile
+            // Read the live role from `profiles` — NOT session.user_metadata.role.
+            // Metadata is frozen at signup time; if an admin changes a user's
+            // role later via the admin panel, only `profiles.role` updates,
+            // so that must be the source of truth for routing.
             const { data: profileData } = await supabaseClient
                 .from('profiles')
-                .select('hospital_id')
+                .select('role, hospital_id')
                 .eq('id', session.user.id)
                 .single();
-            currentHospitalId = profileData?.hospital_id || null; 
+
+            const metaRole = profileData?.role
+                || (session.user.user_metadata && session.user.user_metadata.role)
+                || 'patient';
+            userRole = metaRole;
+            currentHospitalId = profileData?.hospital_id || null;
 
             // --- RESTORED VISUAL SWITCH LOGIC ---
             landing.style.display = 'none';
