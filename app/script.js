@@ -3482,6 +3482,22 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
         // 1. Create or fetch Daily.co room
         const roomUrl = await createDailyRoom(appointmentId);
 
+        // Doctor's room is confirmed ready — NOW alert the patient, not
+        // before. patientId/patientName are only ever passed on the
+        // doctor's "Start Call" button, so this naturally never fires
+        // when a patient clicks their own "Join Call" button, and it
+        // never fires on a failed room creation.
+        if (userRole === 'doctor' && patientId) {
+            const callerName = currentUser?.user_metadata?.full_name || currentUser?.email?.split('@')[0] || 'Your doctor';
+            notifyUser(
+                patientId,
+                'call_started',
+                'Your call has started',
+                `${callerName} has started your ${callType === 'audio' ? 'audio' : 'video'} consultation. Tap to join.`,
+                { appointment_id: appointmentId, call_type: callType, doctor_name: callerName }
+            );
+        }
+
         // 2. Create Daily call frame inside our container
         const container = document.getElementById('daily-call-container');
         
@@ -3528,7 +3544,15 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
                 showToast(`${e.participant.user_name || 'Other participant'} joined the call`, 'success');
             })
             .on('participant-left', (e) => {
-                showToast('Other participant left the call', 'error');
+                const leftName = e.participant?.user_name;
+                showToast(leftName ? `${leftName} left the call` : 'Other participant left the call', 'error');
+                // If the doctor is the one who left, close out the patient's
+                // call view automatically instead of leaving them staring
+                // at a frozen/empty room — mirrors the doctor's own
+                // closeVideoCall() cleanup, run here on the patient's client.
+                if (userRole !== 'doctor') {
+                    setTimeout(() => closeVideoCall(), 1200);
+                }
             })
             .on('error', (e) => {
                 console.error('Daily.co error:', e);
@@ -3613,6 +3637,22 @@ async function closeVideoCall() {
     // Hide modal
     const modal = document.getElementById('video-modal');
     if (modal) modal.classList.remove('active');
+
+    // Doctor ending the call → alert the patient, whether or not they
+    // ever joined. If they were mid-call, this backs up Daily.co's own
+    // participant-left event; if they never joined at all, this is the
+    // only signal they'll get that it happened (shows as a missed call
+    // in their notification inbox).
+    if (userRole === 'doctor' && currentCallContext?.patientId) {
+        const callerName = currentUser?.user_metadata?.full_name || currentUser?.email?.split('@')[0] || 'Your doctor';
+        notifyUser(
+            currentCallContext.patientId,
+            'call_ended',
+            'Call ended',
+            `Your consultation with ${callerName} has ended.`,
+            { appointment_id: currentCallContext.appointmentId }
+        );
+    }
 
     // Post-call: open notes modal for doctors
     if (userRole !== 'doctor') return;
@@ -3747,7 +3787,28 @@ function startNotificationEngine() {
                 filter: `user_id=eq.${currentUser.id}` 
             }, (payload) => {
                 const newNotif = payload.new;
-                showToast(`🔔 ${newNotif.title}`, 'success');
+
+                if (newNotif.type === 'call_started') {
+                    // Time-sensitive — show the assertive incoming-call
+                    // modal instead of a toast that could be missed.
+                    showIncomingCallModal(newNotif);
+                } else if (newNotif.type === 'call_ended') {
+                    // If an incoming-call prompt for this same appointment
+                    // is still showing (patient never joined), dismiss it
+                    // and make clear they missed it.
+                    const modal = document.getElementById('incoming-call-modal');
+                    const stillShowing = modal && modal.classList.contains('active')
+                        && incomingCallPayload?.payload?.appointment_id === newNotif.payload?.appointment_id;
+                    if (stillShowing) {
+                        dismissIncomingCall();
+                        showToast('Missed call — ' + newNotif.body, 'error');
+                    } else {
+                        showToast(`🔔 ${newNotif.title}`, 'success');
+                    }
+                } else {
+                    showToast(`🔔 ${newNotif.title}`, 'success');
+                }
+
                 updateNotificationBadge();
                 const panel = document.getElementById('notif-panel');
                 if (panel && panel.classList.contains('open')) {
@@ -3758,7 +3819,45 @@ function startNotificationEngine() {
     }
 }
 
-// Write a notification record to Supabase
+// Tracks the notification currently shown in the incoming-call modal, so
+// a later call_ended for the SAME appointment can detect a missed call.
+let incomingCallPayload = null;
+
+function showIncomingCallModal(notif) {
+    incomingCallPayload = notif;
+    const p = notif.payload || {};
+
+    document.getElementById('incoming-call-doctor-name').textContent = p.doctor_name || 'Your doctor';
+    document.getElementById('incoming-call-subtext').textContent =
+        `has started your ${p.call_type === 'audio' ? 'audio' : 'video'} consultation`;
+    document.getElementById('incoming-call-icon').className =
+        p.call_type === 'audio' ? 'fa-solid fa-phone' : 'fa-solid fa-video';
+
+    const joinBtn = document.getElementById('incoming-call-join-btn');
+    joinBtn.onclick = () => {
+        dismissIncomingCall();
+        startVideoCall(p.appointment_id, p.call_type || 'video');
+    };
+
+    document.getElementById('incoming-call-modal').classList.add('active');
+
+    // Also play a gentle repeating chime/vibration cue if the browser
+    // tab isn't focused, so it's noticeable even if they're not looking.
+    if (document.hidden && Notification?.permission === 'granted') {
+        new Notification('Incoming call — Instadoc', {
+            body: `${p.doctor_name || 'Your doctor'} has started your consultation.`,
+            icon: 'assets/INN.png'
+        });
+    }
+}
+
+function dismissIncomingCall() {
+    incomingCallPayload = null;
+    const modal = document.getElementById('incoming-call-modal');
+    if (modal) modal.classList.remove('active');
+}
+
+// Write a notification record to Supabase, for the CURRENT logged-in user
 async function saveNotification(type, title, body, payload = {}) {
     if (!currentUser) return;
     await supabaseClient.from('notifications').insert({
@@ -3767,6 +3866,20 @@ async function saveNotification(type, title, body, payload = {}) {
         payload
     });
     updateNotificationBadge();
+}
+
+// Write a notification record targeting a SPECIFIC other user — used for
+// call_started / call_ended so the patient is alerted the moment the
+// doctor starts or ends a call, even if they're elsewhere in the app.
+// Relies on the same notifications table + realtime subscription that
+// already pushes new rows to that user's client instantly.
+async function notifyUser(targetUserId, type, title, body, payload = {}) {
+    if (!targetUserId) return;
+    await supabaseClient.from('notifications').insert({
+        user_id: targetUserId,
+        type, title, body,
+        payload
+    });
 }
 
 // Load unread count and update bell badge
