@@ -3744,6 +3744,11 @@ function startNotificationEngine() {
         notificationChannel = null;
     }
 
+    // Ask for OS-level notification permission once per session. Safe to
+    // call repeatedly — the browser only actually prompts the very first
+    // time; after that it's a no-op unless permission was revoked.
+    requestNotificationPermissionIfNeeded();
+
     // Load appointment notifications from DB on startup
     loadInboxNotifications();
 
@@ -3823,6 +3828,63 @@ function startNotificationEngine() {
 // a later call_ended for the SAME appointment can detect a missed call.
 let incomingCallPayload = null;
 
+// --- Incoming-call ringtone (Web Audio API — no external sound file,
+// nothing that can 404 or fail to load) ---
+let ringtoneIntervalId = null;
+let ringtoneAudioCtx = null;
+
+function playRingtoneOnce() {
+    try {
+        if (!ringtoneAudioCtx) {
+            ringtoneAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const ctx = ringtoneAudioCtx;
+        const now = ctx.currentTime;
+
+        // Two quick tones, like a classic phone ring "brrring".
+        [0, 0.18].forEach(offset => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            gain.gain.setValueAtTime(0.0001, now + offset);
+            gain.gain.exponentialRampToValueAtTime(0.25, now + offset + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.16);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(now + offset);
+            osc.stop(now + offset + 0.18);
+        });
+    } catch (e) {
+        console.warn('Ringtone playback failed:', e);
+    }
+}
+
+function startRingtone() {
+    stopRingtone();
+    playRingtoneOnce();
+    ringtoneIntervalId = setInterval(playRingtoneOnce, 2000);
+}
+
+function stopRingtone() {
+    if (ringtoneIntervalId) {
+        clearInterval(ringtoneIntervalId);
+        ringtoneIntervalId = null;
+    }
+}
+
+// Ask for browser notification permission once, proactively — without
+// this, the "tab not focused" native Notification() fallback below can
+// never fire, since permission defaults to "default" (never asked).
+// Safe to call repeatedly; the browser only prompts once per origin.
+function requestNotificationPermissionIfNeeded() {
+    if (typeof Notification === 'undefined') return;
+    if (Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+    }
+}
+
+let incomingCallAutoTimeout = null;
+
 function showIncomingCallModal(notif) {
     incomingCallPayload = notif;
     const p = notif.payload || {};
@@ -3840,19 +3902,28 @@ function showIncomingCallModal(notif) {
     };
 
     document.getElementById('incoming-call-modal').classList.add('active');
+    startRingtone();
 
-    // Also play a gentle repeating chime/vibration cue if the browser
-    // tab isn't focused, so it's noticeable even if they're not looking.
-    if (document.hidden && Notification?.permission === 'granted') {
+    // Native OS-level notification cue if the tab isn't focused right now.
+    if (document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         new Notification('Incoming call — Instadoc', {
             body: `${p.doctor_name || 'Your doctor'} has started your consultation.`,
             icon: 'assets/INN.png'
         });
     }
+
+    // Auto-dismiss after 30s of no response, same as an unanswered phone
+    // call — avoids ringing indefinitely if they've stepped away.
+    if (incomingCallAutoTimeout) clearTimeout(incomingCallAutoTimeout);
+    incomingCallAutoTimeout = setTimeout(() => {
+        if (incomingCallPayload?.id === notif.id) dismissIncomingCall();
+    }, 30000);
 }
 
 function dismissIncomingCall() {
     incomingCallPayload = null;
+    stopRingtone();
+    if (incomingCallAutoTimeout) { clearTimeout(incomingCallAutoTimeout); incomingCallAutoTimeout = null; }
     const modal = document.getElementById('incoming-call-modal');
     if (modal) modal.classList.remove('active');
 }
