@@ -1092,9 +1092,9 @@ function renderDetailedList(container, data) {
         let actionBtn = '';
         if(appt.status === 'Confirmed' || appt.status === 'confirmed') {
             if(appt.type.toLowerCase().includes('video')) {
-                actionBtn = `<button class="btn-sm bg-blue-500 text-white border-none justify-center" onclick="startVideoCall('${appt.id}', 'video')"><i class="fa-solid fa-video"></i> Join Video Call</button>`;
+                actionBtn = `<button class="btn-sm bg-blue-500 text-white border-none justify-center" onclick="startVideoCall('${appt.id}', 'video', '', '', '${appt.doctor_id}', '${(appt.doctor_name || '').replace(/'/g, "\\'")}')"><i class="fa-solid fa-video"></i> Join Video Call</button>`;
             } else if (appt.type.toLowerCase().includes('audio')) {
-                actionBtn = `<button class="btn-sm bg-purple-500 text-white border-none justify-center" onclick="startVideoCall('${appt.id}', 'audio')"><i class="fa-solid fa-phone"></i> Join Audio Call</button>`;
+                actionBtn = `<button class="btn-sm bg-purple-500 text-white border-none justify-center" onclick="startVideoCall('${appt.id}', 'audio', '', '', '${appt.doctor_id}', '${(appt.doctor_name || '').replace(/'/g, "\\'")}')"><i class="fa-solid fa-phone"></i> Join Audio Call</button>`;
             }
         }
 
@@ -3461,8 +3461,8 @@ async function createDailyRoom(appointmentId) {
     return room.url;
 }
 
-async function startVideoCall(appointmentId, callType = 'video', patientId = '', patientName = '') {
-    currentCallContext = { appointmentId, patientId, patientName };
+async function startVideoCall(appointmentId, callType = 'video', patientId = '', patientName = '', doctorId = '', doctorName = '') {
+    currentCallContext = { appointmentId, patientId, patientName, doctorId, doctorName };
     activeCallTranscript = "";
     callSeconds = 0;
 
@@ -3494,7 +3494,7 @@ async function startVideoCall(appointmentId, callType = 'video', patientId = '',
                 'call_started',
                 'Your call has started',
                 `${callerName} has started your ${callType === 'audio' ? 'audio' : 'video'} consultation. Tap to join.`,
-                { appointment_id: appointmentId, call_type: callType, doctor_name: callerName }
+                { appointment_id: appointmentId, call_type: callType, doctor_name: callerName, doctor_id: currentUser?.id || '' }
             );
         }
 
@@ -3638,18 +3638,19 @@ async function closeVideoCall() {
     const modal = document.getElementById('video-modal');
     if (modal) modal.classList.remove('active');
 
-    // Doctor ending the call → alert the patient, whether or not they
-    // ever joined. If they were mid-call, this backs up Daily.co's own
+    // Whoever ends the call → alert the OTHER party, regardless of role.
+    // If the other person was mid-call, this backs up Daily.co's own
     // participant-left event; if they never joined at all, this is the
     // only signal they'll get that it happened (shows as a missed call
     // in their notification inbox).
-    if (userRole === 'doctor' && currentCallContext?.patientId) {
-        const callerName = currentUser?.user_metadata?.full_name || currentUser?.email?.split('@')[0] || 'Your doctor';
+    const counterpartId = userRole === 'doctor' ? currentCallContext?.patientId : currentCallContext?.doctorId;
+    if (counterpartId) {
+        const enderName = currentUser?.user_metadata?.full_name || currentUser?.email?.split('@')[0] || (userRole === 'doctor' ? 'Your doctor' : 'Your patient');
         notifyUser(
-            currentCallContext.patientId,
+            counterpartId,
             'call_ended',
             'Call ended',
-            `Your consultation with ${callerName} has ended.`,
+            `Your consultation with ${enderName} has ended.`,
             { appointment_id: currentCallContext.appointmentId }
         );
     }
@@ -3796,36 +3797,43 @@ function startNotificationEngine() {
                 table: 'notifications',
                 filter: `user_id=eq.${currentUser.id}` 
             }, (payload) => {
-                const newNotif = payload.new;
+                try {
+                    console.log('[Realtime] notification INSERT received:', payload);
+                    const newNotif = payload.new;
 
-                if (newNotif.type === 'call_started') {
-                    // Time-sensitive — show the assertive incoming-call
-                    // modal instead of a toast that could be missed.
-                    showIncomingCallModal(newNotif);
-                } else if (newNotif.type === 'call_ended') {
-                    // If an incoming-call prompt for this same appointment
-                    // is still showing (patient never joined), dismiss it
-                    // and make clear they missed it.
-                    const modal = document.getElementById('incoming-call-modal');
-                    const stillShowing = modal && modal.classList.contains('active')
-                        && incomingCallPayload?.payload?.appointment_id === newNotif.payload?.appointment_id;
-                    if (stillShowing) {
-                        dismissIncomingCall();
-                        showToast('Missed call — ' + newNotif.body, 'error');
+                    if (newNotif.type === 'call_started') {
+                        // Time-sensitive — show the assertive incoming-call
+                        // modal instead of a toast that could be missed.
+                        showIncomingCallModal(newNotif);
+                    } else if (newNotif.type === 'call_ended') {
+                        // If an incoming-call prompt for this same appointment
+                        // is still showing (never joined), dismiss it and
+                        // make clear it was missed.
+                        const modal = document.getElementById('incoming-call-modal');
+                        const stillShowing = modal && modal.classList.contains('active')
+                            && incomingCallPayload?.payload?.appointment_id === newNotif.payload?.appointment_id;
+                        if (stillShowing) {
+                            dismissIncomingCall();
+                            showToast('Missed call — ' + newNotif.body, 'error');
+                        } else {
+                            showToast(`🔔 ${newNotif.title}`, 'success');
+                        }
                     } else {
                         showToast(`🔔 ${newNotif.title}`, 'success');
                     }
-                } else {
-                    showToast(`🔔 ${newNotif.title}`, 'success');
-                }
 
-                updateNotificationBadge();
-                const panel = document.getElementById('notif-panel');
-                if (panel && panel.classList.contains('open')) {
-                    loadInboxNotifications();
+                    updateNotificationBadge();
+                    const panel = document.getElementById('notif-panel');
+                    if (panel && panel.classList.contains('open')) {
+                        loadInboxNotifications();
+                    }
+                } catch (err) {
+                    console.error('[Realtime] Error handling notification payload:', err);
                 }
             })
-            .subscribe();
+            .subscribe((status, err) => {
+                console.log('[Realtime] notifications channel status:', status, err || '');
+            });
     }
 }
 
@@ -3966,7 +3974,7 @@ function showIncomingCallModal(notif) {
     const joinBtn = document.getElementById('incoming-call-join-btn');
     joinBtn.onclick = () => {
         dismissIncomingCall();
-        startVideoCall(p.appointment_id, p.call_type || 'video');
+        startVideoCall(p.appointment_id, p.call_type || 'video', '', '', p.doctor_id || '', p.doctor_name || '');
     };
 
     document.getElementById('incoming-call-modal').classList.add('active');
