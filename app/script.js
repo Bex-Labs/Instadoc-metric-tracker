@@ -3749,6 +3749,11 @@ function startNotificationEngine() {
     // time; after that it's a no-op unless permission was revoked.
     requestNotificationPermissionIfNeeded();
 
+    // Arm the audio unlock on the next click/tap/keypress, so the
+    // incoming-call ringtone (triggered later by a realtime push, not a
+    // direct gesture) is actually allowed to play by the browser.
+    unlockAudioOnFirstGesture();
+
     // Load appointment notifications from DB on startup
     loadInboxNotifications();
 
@@ -3832,6 +3837,38 @@ let incomingCallPayload = null;
 // nothing that can 404 or fail to load) ---
 let ringtoneIntervalId = null;
 let ringtoneAudioCtx = null;
+let audioUnlocked = false;
+
+// Browsers block audio (including Web Audio) from playing unless it's
+// triggered by a direct user gesture. An incoming call arrives via a
+// realtime push — not a click — so without this, the ringtone is
+// silently blocked every time. Fix: create + resume the AudioContext
+// once, tied to the very first click/tap/keypress anywhere in the app.
+// Most browsers only require ONE such unlock per page session; after
+// that, sounds triggered programmatically later (like a ringing call)
+// play normally.
+function unlockAudioOnFirstGesture() {
+    if (audioUnlocked) return;
+    const unlock = () => {
+        try {
+            if (!ringtoneAudioCtx) {
+                ringtoneAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (ringtoneAudioCtx.state === 'suspended') {
+                ringtoneAudioCtx.resume();
+            }
+            audioUnlocked = true;
+        } catch (e) {
+            console.warn('Audio unlock failed:', e);
+        }
+        document.removeEventListener('click', unlock);
+        document.removeEventListener('touchstart', unlock);
+        document.removeEventListener('keydown', unlock);
+    };
+    document.addEventListener('click', unlock, { once: true });
+    document.addEventListener('touchstart', unlock, { once: true });
+    document.addEventListener('keydown', unlock, { once: true });
+}
 
 function playRingtoneOnce() {
     try {
@@ -3839,6 +3876,9 @@ function playRingtoneOnce() {
             ringtoneAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
         const ctx = ringtoneAudioCtx;
+        // Defensive: try to resume even without a fresh gesture. Works if
+        // the session was already unlocked earlier; harmless no-op if not.
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
         const now = ctx.currentTime;
 
         // Two quick tones, like a classic phone ring "brrring".
@@ -3863,12 +3903,40 @@ function startRingtone() {
     stopRingtone();
     playRingtoneOnce();
     ringtoneIntervalId = setInterval(playRingtoneOnce, 2000);
+    startTitleFlash('📞 Incoming Call — Instadoc');
 }
 
 function stopRingtone() {
     if (ringtoneIntervalId) {
         clearInterval(ringtoneIntervalId);
         ringtoneIntervalId = null;
+    }
+    stopTitleFlash();
+}
+
+// --- Flashing tab title — a second indicator that works even if audio
+// stays blocked or the tab is in the background. Needs no permission. ---
+let titleFlashIntervalId = null;
+let originalDocumentTitle = null;
+
+function startTitleFlash(flashText) {
+    if (titleFlashIntervalId) return; // already flashing
+    originalDocumentTitle = document.title;
+    let showingFlash = false;
+    titleFlashIntervalId = setInterval(() => {
+        document.title = showingFlash ? originalDocumentTitle : flashText;
+        showingFlash = !showingFlash;
+    }, 1000);
+}
+
+function stopTitleFlash() {
+    if (titleFlashIntervalId) {
+        clearInterval(titleFlashIntervalId);
+        titleFlashIntervalId = null;
+    }
+    if (originalDocumentTitle !== null) {
+        document.title = originalDocumentTitle;
+        originalDocumentTitle = null;
     }
 }
 
