@@ -756,7 +756,7 @@ function initDoctorCharts() {
             datasets: [{
                 label: 'Appointments',
                 data: [0, 0, 0, 0, 0, 0, 0], // Init empty
-                backgroundColor: '#2ecc71',
+                backgroundColor: '#117a7a',
                 borderRadius: 5
             }]
         },
@@ -779,9 +779,9 @@ function initDoctorCharts() {
             datasets: [{
                 label: 'Total Patients',
                 data: [], 
-                borderColor: '#2ecc71',
+                borderColor: '#117a7a',
                 tension: 0.4,
-                pointBackgroundColor: '#2ecc71',
+                pointBackgroundColor: '#117a7a',
                 pointRadius: 4
             }]
         },
@@ -932,7 +932,7 @@ async function loadDashboardDoctorCard() {
         <div style="display:flex; align-items:center; gap:1rem;">
             <div style="position:relative; flex-shrink:0;">
                 <div style="width:50px; height:50px; border-radius:50%;
-                            background:linear-gradient(135deg,#2f8f46,#16a34a);
+                            background:linear-gradient(135deg,#117a7a,#16a34a);
                             display:flex; align-items:center; justify-content:center;
                             font-weight:800; color:#fff; font-size:0.95rem;">
                     ${initials}
@@ -944,7 +944,7 @@ async function loadDashboardDoctorCard() {
             <div style="flex:1; min-width:0;">
                 <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                     <span style="font-weight:700; font-size:0.92rem; color:#1a1a2e;">Dr. ${name}</span>
-                    ${isVerified ? '<span style="background:#dbeafe;color:#1d4ed8;font-size:0.62rem;font-weight:700;padding:1px 7px;border-radius:9999px;"><i class="fa-solid fa-shield-halved" style="margin-right:2px;"></i>Verified</span>' : ''}
+                    ${isVerified ? '<span style="background:#d9f1ef;color:#116d6a;font-size:0.62rem;font-weight:700;padding:1px 7px;border-radius:9999px;"><i class="fa-solid fa-shield-halved" style="margin-right:2px;"></i>Verified</span>' : ''}
                 </div>
                 <div style="font-size:0.78rem; color:#6b7280;">${specialty}${hospital ? ' · ' + hospital : ''}</div>
                 <div style="font-size:0.72rem; margin-top:3px; display:flex; align-items:center; gap:4px;">
@@ -1230,11 +1230,11 @@ async function updateChart(tableName, btnRef) {
     const labels = data.map(d => new Date(d.date).toLocaleDateString(undefined, {month:'short', day:'numeric'}));
     let dataset = [];
     const ctx = document.getElementById('healthChart').getContext('2d');
-    let gradient = ctx.createLinearGradient(0, 0, 0, 400); gradient.addColorStop(0, 'rgba(46, 204, 113, 0.2)'); gradient.addColorStop(1, 'rgba(46, 204, 113, 0)');
-    if (tableName === 'bp_logs') { dataset = [ { label: 'Systolic', data: data.map(d => d.systolic), borderColor: '#dc2626', tension: 0.4 }, { label: 'Diastolic', data: data.map(d => d.diastolic), borderColor: '#2563eb', tension: 0.4 } ]; } 
+    let gradient = ctx.createLinearGradient(0, 0, 0, 400); gradient.addColorStop(0, 'rgba(17, 122, 122, 0.2)'); gradient.addColorStop(1, 'rgba(17, 122, 122, 0)');
+    if (tableName === 'bp_logs') { dataset = [ { label: 'Systolic', data: data.map(d => d.systolic), borderColor: '#dc2626', tension: 0.4 }, { label: 'Diastolic', data: data.map(d => d.diastolic), borderColor: '#117a7a', tension: 0.4 } ]; }
     else { 
         let key = tableName === 'glucose_logs' ? 'level' : (tableName === 'height_logs' ? 'height' : 'weight'); 
-        dataset = [{ label: key.toUpperCase(), data: data.map(d => d[key]), borderColor: '#2ecc71', backgroundColor: gradient, borderWidth: 3, tension: 0.4, fill: true }]; 
+        dataset = [{ label: key.toUpperCase(), data: data.map(d => d[key]), borderColor: '#117a7a', backgroundColor: gradient, borderWidth: 3, tension: 0.4, fill: true }];
     }
     if (myChart) myChart.destroy();
     myChart = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: dataset }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { grid: { borderDash: [5, 5] } } } } });
@@ -2609,7 +2609,7 @@ async function loadDoctorsForBooking() {
         if (isInstadocHospital) {
             container.innerHTML = `
                 <div style="display:flex;align-items:center;gap:8px;padding:8px 4px;margin-bottom:8px;border-bottom:1px solid #e5e7eb;">
-                    <i class="fa-solid fa-hospital" style="color:#3b82f6;font-size:0.85rem;"></i>
+                    <i class="fa-solid fa-hospital" style="color:#1c9290;font-size:0.85rem;"></i>
                     <span style="font-size:0.8rem;color:#6b7280;font-weight:600;">Instadoc Hospital — Book with any available doctor</span>
                 </div>
             `;
@@ -2759,7 +2759,7 @@ function renderBookingDaysGrid() {
         btn.style.cssText = `
             display:flex;flex-direction:column;align-items:center;justify-content:center;
             padding:6px 2px;min-height:40px;border-radius:8px;
-            border:2px solid ${isActive ? (isToday ? '#2ecc71' : '#d1fae5') : 'transparent'};
+            border:2px solid ${isActive ? (isToday ? '#117a7a' : '#d1fae5') : 'transparent'};
             background:${isPast ? 'transparent' : (isActive ? '#f0fdf4' : '#f9fafb')};
             color:${isPast ? '#d1d5db' : (isActive ? '#1a3c34' : '#9ca3af')};
             cursor:${isActive ? 'pointer' : 'not-allowed'};
@@ -2767,7 +2767,7 @@ function renderBookingDaysGrid() {
         `;
         btn.innerHTML = `
             <span>${d}</span>
-            ${isToday ? '<span style="font-size:0.55rem;font-weight:600;color:#2ecc71;">Today</span>' : ''}
+            ${isToday ? '<span style="font-size:0.55rem;font-weight:600;color:#117a7a;">Today</span>' : ''}
         `;
 
         if (isActive) {
@@ -2778,7 +2778,7 @@ function renderBookingDaysGrid() {
                         b.style.color = '#1a3c34';
                     }
                 });
-                btn.style.background = '#2ecc71';
+                btn.style.background = '#117a7a';
                 btn.style.color = '#fff';
 
                 document.getElementById('schedule-date').value = dateStr;
@@ -2882,8 +2882,8 @@ async function renderBookingTimeSlots(docId, dateStr, start, end, dayName) {
                         b.style.color = '#1a3c34';
                     }
                 });
-                btn.style.background = '#2ecc71';
-                btn.style.borderColor = '#2ecc71';
+                btn.style.background = '#117a7a';
+                btn.style.borderColor = '#117a7a';
                 btn.style.color = '#fff';
 
                 document.getElementById('schedule-time').value = slot + ':00';
@@ -4088,7 +4088,7 @@ async function loadInboxNotifications() {
             'appointment_cancelled': '#ef4444',
             'appointment_declined':  '#f97316',
             'appointment_confirmed': '#22c55e',
-            'reminder':              '#3b82f6',
+            'reminder':              '#1c9290',
             // --- NEW HEALTHCARE WORKFLOW EXTENSIONS ---
             'appointment_completed': '#8b5cf6', // Professional Purple
             'record_shared':         '#10b981', // Emerald Green
@@ -4842,11 +4842,11 @@ async function loadMyDoctorView() {
             // Banner
             container.innerHTML = `
                 <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;
-                            background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+                            background:#edf7f5;border:1px solid #b9dfdc;border-radius:10px;
                             margin-bottom:1.25rem;">
-                    <i class="fa-solid fa-hospital" style="color:#3b82f6;font-size:1rem;"></i>
+                    <i class="fa-solid fa-hospital" style="color:#1c9290;font-size:1rem;"></i>
                     <div>
-                        <div style="font-size:0.82rem;font-weight:700;color:#1d4ed8;">Instadoc Hospital Doctors</div>
+                        <div style="font-size:0.82rem;font-weight:700;color:#116d6a;">Instadoc Hospital Doctors</div>
                         <div style="font-size:0.75rem;color:#6b7280;">You're not assigned to a specific doctor — you can book with any doctor below.</div>
                     </div>
                 </div>
@@ -4873,7 +4873,7 @@ async function loadMyDoctorView() {
                     return `
                     <div class="card" style="padding:1.25rem;margin-bottom:1.25rem;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
                         <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
-                            <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#2f8f46,#16a34a);
+                            <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#117a7a,#16a34a);
                                         display:flex;align-items:center;justify-content:center;
                                         font-weight:800;color:#fff;font-size:1rem;flex-shrink:0;">
                                 ${initials}
@@ -4881,7 +4881,7 @@ async function loadMyDoctorView() {
                             <div style="flex:1;min-width:0;">
                                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                                     <h2 style="font-size:0.95rem;font-weight:800;color:#1a1a2e;margin:0;">Dr. ${name}</h2>
-                                    ${isVerified ? '<span style="padding:2px 8px;background:#dbeafe;color:#1d4ed8;border-radius:9999px;font-size:0.65rem;font-weight:700;"><i class=\"fa-solid fa-shield-halved\"></i> Verified</span>' : ''}
+                                    ${isVerified ? '<span style="padding:2px 8px;background:#d9f1ef;color:#116d6a;border-radius:9999px;font-size:0.65rem;font-weight:700;"><i class=\"fa-solid fa-shield-halved\"></i> Verified</span>' : ''}
                                 </div>
                                 <div style="font-size:0.8rem;color:#6b7280;margin-top:2px;">${specialty}</div>
                                 <div style="font-size:0.7rem;color:#9ca3af;margin-top:2px;">
@@ -4897,15 +4897,15 @@ async function loadMyDoctorView() {
                         </div>
                         <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
                             <button onclick="openScheduleFormForDoctor('${safeDocId}', '${safeName}')"
-                                style="flex:1;min-width:120px;padding:9px 14px;background:#2f8f46;color:#fff;
+                                style="flex:1;min-width:120px;padding:9px 14px;background:#117a7a;color:#fff;
                                        border:none;border-radius:10px;font-size:0.8rem;font-weight:700;
                                        cursor:pointer;font-family:inherit;display:flex;align-items:center;
                                        justify-content:center;gap:6px;">
                                 <i class="fa-regular fa-calendar-plus"></i> Book
                             </button>
                             <button onclick="openSendMessageModal('${safeDocId}', '${safeName}')"
-                                style="flex:1;min-width:120px;padding:9px 14px;background:#fff;color:#2f8f46;
-                                       border:2px solid #2f8f46;border-radius:10px;font-size:0.8rem;font-weight:700;
+                                style="flex:1;min-width:120px;padding:9px 14px;background:#fff;color:#117a7a;
+                                       border:2px solid #117a7a;border-radius:10px;font-size:0.8rem;font-weight:700;
                                        cursor:pointer;font-family:inherit;display:flex;align-items:center;
                                        justify-content:center;gap:6px;">
                                 <i class="fa-regular fa-paper-plane"></i> Message
@@ -5025,7 +5025,7 @@ async function loadMyDoctorView() {
                     <!-- Doctor header -->
                     <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.25rem;">
                         <div style="position:relative; flex-shrink:0;">
-                            <div style="width:60px; height:60px; border-radius:50%; background:linear-gradient(135deg,#2f8f46,#16a34a);
+                            <div style="width:60px; height:60px; border-radius:50%; background:linear-gradient(135deg,#117a7a,#16a34a);
                                         display:flex; align-items:center; justify-content:center;
                                         font-weight:800; color:#fff; font-size:1.1rem;">
                                 ${initials}
@@ -5042,7 +5042,7 @@ async function loadMyDoctorView() {
                                 </h2>
                                 ${isVerified ? `
                                 <span style="display:inline-flex; align-items:center; gap:3px; padding:2px 8px;
-                                             background:#dbeafe; color:#1d4ed8; border-radius:9999px;
+                                             background:#d9f1ef; color:#116d6a; border-radius:9999px;
                                              font-size:0.65rem; font-weight:700;">
                                     <i class="fa-solid fa-shield-halved"></i> Verified
                                 </span>` : ''}
@@ -5052,8 +5052,8 @@ async function loadMyDoctorView() {
                             <div style="font-size:0.75rem; color:#9ca3af; margin-top:2px; display:flex; align-items:center; gap:4px;">
                                 <i class="fa-solid fa-hospital" style="font-size:0.68rem;"></i>
                                 ${hospital.name}
-                                <span style="font-family:monospace; font-size:0.65rem; color:#3b82f6;
-                                             background:#eff6ff; padding:1px 5px; border-radius:4px;">
+                                <span style="font-family:monospace; font-size:0.65rem; color:#1c9290;
+                                             background:#edf7f5; padding:1px 5px; border-radius:4px;">
                                     ${hospital.code}
                                 </span>
                             </div>` : ''}
@@ -5092,7 +5092,7 @@ async function loadMyDoctorView() {
                     <!-- Action Buttons -->
                     <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
                         <button onclick="openScheduleFormForDoctor('${a.doctor_id}', '${name.replace(/'/g, "\\'")}')"
-                            style="flex:1; min-width:140px; padding:10px 16px; background:#2f8f46; color:#fff;
+                            style="flex:1; min-width:140px; padding:10px 16px; background:#117a7a; color:#fff;
                                    border:none; border-radius:10px; font-size:0.82rem; font-weight:700;
                                    cursor:pointer; font-family:inherit; display:flex; align-items:center;
                                    justify-content:center; gap:6px; transition:opacity 0.15s;"
@@ -5101,8 +5101,8 @@ async function loadMyDoctorView() {
                             <i class="fa-regular fa-calendar-plus"></i> Book Appointment
                         </button>
                         <button onclick="openSendMessageModal('${a.doctor_id}', '${name.replace(/'/g, "\\'")}')"
-                            style="flex:1; min-width:140px; padding:10px 16px; background:#fff; color:#2f8f46;
-                                   border:2px solid #2f8f46; border-radius:10px; font-size:0.82rem; font-weight:700;
+                            style="flex:1; min-width:140px; padding:10px 16px; background:#fff; color:#117a7a;
+                                   border:2px solid #117a7a; border-radius:10px; font-size:0.82rem; font-weight:700;
                                    cursor:pointer; font-family:inherit; display:flex; align-items:center;
                                    justify-content:center; gap:6px; transition:all 0.15s;"
                             onmouseover="this.style.background='#f0fdf4'"
@@ -5240,9 +5240,9 @@ async function loadDoctorPatientsTab() {
 
         return `
             <div style="display:flex;align-items:center;gap:1rem;padding:0.85rem 0;border-bottom:1px solid #f3f4f6;">
-                <div style="width:42px;height:42px;border-radius:50%;background:#dbeafe;
+                <div style="width:42px;height:42px;border-radius:50%;background:#d9f1ef;
                             display:flex;align-items:center;justify-content:center;
-                            font-weight:700;color:#2563eb;font-size:0.85rem;flex-shrink:0;">
+                            font-weight:700;color:#117a7a;font-size:0.85rem;flex-shrink:0;">
                     ${initials}
                 </div>
                 <div style="flex:1;min-width:0;">

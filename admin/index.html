@@ -318,8 +318,8 @@
             <div class="chart-header">
               <div class="chart-title"><i class="fa-solid fa-chart-column"></i> This Week's Platform Activity</div>
               <div class="chart-legend">
-                <span class="legend-item"><span class="legend-dot" style="background:#2daa2d"></span>Health Logs</span>
-                <span class="legend-item"><span class="legend-dot" style="background:#3b82f6"></span>New Users</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#117a7a"></span>Health Logs</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#1c9290"></span>New Users</span>
                 <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>Tickets</span>
                 <span class="legend-item"><span class="legend-dot" style="background:#8b5cf6"></span>Appointments</span>
               </div>
@@ -505,7 +505,7 @@
           <div class="card p-6 mb-6" style="background: white; border-radius: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                 <h3 style="font-weight: 700; font-size: 1.125rem; color: #1f2937;">
-                    <i class="fa-solid fa-user-doctor" style="color: #3b82f6; margin-right: 0.5rem;"></i> Doctor Activity & Workflows
+                    <i class="fa-solid fa-user-doctor" style="color: #1c9290; margin-right: 0.5rem;"></i> Doctor Activity & Workflows
                 </h3>
                 <div style="position: relative; width: 300px;">
                     <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #9ca3af;"></i>
@@ -783,7 +783,7 @@
     <div id="inviteNewDoctorModal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content">
         <button class="modal-close" type="button" onclick="const m=$('inviteNewDoctorModal'); m.classList.add('hidden'); m.style.display='none';">×</button>
-        <h3>Invite New Doctor to <span id="inviteNewHospitalName" style="color:#2563eb;"></span></h3>
+        <h3>Invite New Doctor to <span id="inviteNewHospitalName" style="color:#117a7a;"></span></h3>
         <input type="hidden" id="inviteNewHospitalId" />
         <p style="font-size:0.85rem; color:#6b7280; margin-bottom:14px;">Enter the doctor's email. They'll get a signup link pre-linked to your hospital.</p>
         <form id="inviteNewDoctorForm">
@@ -796,7 +796,7 @@
           <label style="font-size:0.82rem; font-weight:600; color:#374151; display:block; margin-bottom:6px;">Share this link with the doctor:</label>
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="text" id="inviteLinkBox" readonly style="flex:1; font-size:0.75rem; background:#f9fafb; color:#374151; padding:8px;" />
-            <button type="button" onclick="copyInviteLink()" style="padding:8px 14px; background:#2563eb; color:#fff; border:none; border-radius:7px; font-size:0.8rem; cursor:pointer; white-space:nowrap; font-weight:600;">Copy</button>
+            <button type="button" onclick="copyInviteLink()" style="padding:8px 14px; background:#117a7a; color:#fff; border:none; border-radius:7px; font-size:0.8rem; cursor:pointer; white-space:nowrap; font-weight:600;">Copy</button>
           </div>
           <p style="font-size:0.75rem; color:#9ca3af; margin-top:6px;">Link expires in 7 days. The doctor will be automatically linked to this hospital on signup.</p>
         </div>
@@ -866,7 +866,7 @@
     <div id="inviteDoctorModal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content">
         <button class="modal-close" type="button" onclick="hide($('inviteDoctorModal'))">×</button>
-        <h3>Invite Doctor to <span id="inviteHospitalName" style="color:#2563eb;"></span></h3>
+        <h3>Invite Doctor to <span id="inviteHospitalName" style="color:#117a7a;"></span></h3>
         <input type="hidden" id="inviteHospitalId" />
         <p style="font-size:0.85rem; color:#6b7280; margin-bottom:12px;">Select a verified doctor to invite. They will see a notification in their dashboard to accept or decline.</p>
         <input type="text" id="inviteDoctorSearch" placeholder="Search doctors..." style="width:100%; padding:8px 12px; border:1px solid #ddd; border-radius:6px; font-size:13px; margin-bottom:10px;" oninput="filterInviteDoctorList()" />

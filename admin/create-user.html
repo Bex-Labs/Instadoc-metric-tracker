@@ -25,10 +25,10 @@
         }
         .topbar-left { display: flex; align-items: center; gap: 1rem; }
         .logo { font-size: 1.15rem; font-weight: 700; color: #1a1a2e; text-decoration: none; }
-        .logo span { color: #2f8f46; }
+        .logo span { color: #117a7a; }
         .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6b7280; }
         .breadcrumb a { color: #6b7280; text-decoration: none; }
-        .breadcrumb a:hover { color: #2f8f46; }
+        .breadcrumb a:hover { color: #117a7a; }
         .breadcrumb .sep { color: #d1d5db; }
         .breadcrumb .current { color: #1a1a2e; font-weight: 500; }
         .btn-back {
@@ -87,7 +87,7 @@
             outline: none;
             width: 100%;
         }
-        .field input:focus, .field select:focus { border-color: #2f8f46; box-shadow: 0 0 0 3px rgba(47,143,70,0.1); background: #fff; }
+        .field input:focus, .field select:focus { border-color: #117a7a; box-shadow: 0 0 0 3px rgba(47,143,70,0.1); background: #fff; }
         .field input::placeholder { color: #c4c4c4; }
         .field .hint { font-size: 11px; color: #9ca3af; margin-top: 2px; }
         .field .error-msg { font-size: 11px; color: #dc2626; margin-top: 2px; display: none; }
@@ -106,14 +106,14 @@
             background: #fafafa;
         }
         .role-option:hover { border-color: #a7d9b3; background: #f0fdf4; }
-        .role-option.selected { border-color: #2f8f46; background: #f0fdf4; }
+        .role-option.selected { border-color: #117a7a; background: #f0fdf4; }
         .role-option .role-icon {
             width: 32px; height: 32px; border-radius: 8px;
             display: flex; align-items: center; justify-content: center;
             font-size: 14px; margin: 0 auto 6px;
         }
         .role-option .role-name { font-size: 11px; font-weight: 600; color: #374151; }
-        .role-option.selected .role-name { color: #2f8f46; }
+        .role-option.selected .role-name { color: #117a7a; }
         .role-option input[type=radio] { display: none; }
 
         /* Hospital group */
@@ -139,7 +139,7 @@
         .btn-cancel:hover { background: #f9fafb; border-color: #d1d5db; }
         .btn-submit {
             padding: 9px 22px; border: none; border-radius: 9px;
-            background: #2f8f46; color: #fff; font-size: 13px; font-weight: 600;
+            background: #117a7a; color: #fff; font-size: 13px; font-weight: 600;
             font-family: 'Poppins', sans-serif; cursor: pointer;
             display: flex; align-items: center; gap: 7px; transition: opacity 0.15s;
         }
@@ -209,7 +209,7 @@
             border-radius: 9px; font-size: 13px; font-family: 'Poppins', sans-serif;
             resize: vertical; min-height: 80px; outline: none;
         }
-        .reason-box textarea:focus { border-color: #2f8f46; }
+        .reason-box textarea:focus { border-color: #117a7a; }
         .reason-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
 
         @media (max-width: 768px) {
@@ -238,7 +238,7 @@
 
     <div class="page">
         <div class="page-header">
-            <h1><i class="fa-solid fa-user-plus" style="color:#2f8f46; margin-right:8px;"></i>Create new user</h1>
+            <h1><i class="fa-solid fa-user-plus" style="color:#117a7a; margin-right:8px;"></i>Create new user</h1>
             <p>Fill in the details below. The account will be active immediately after creation.</p>
         </div>
 
@@ -371,7 +371,7 @@
     <!-- Reason modal -->
     <div class="reason-overlay" id="reason-overlay">
         <div class="reason-box">
-            <h3><i class="fa-solid fa-clipboard-list" style="color:#2f8f46;margin-right:6px;"></i>Reason for audit</h3>
+            <h3><i class="fa-solid fa-clipboard-list" style="color:#117a7a;margin-right:6px;"></i>Reason for audit</h3>
             <p>Please provide a reason for creating this account. This is logged for security and compliance.</p>
             <textarea id="reason-input" placeholder="e.g. New doctor onboarded for Harmony Hospital"></textarea>
             <div class="reason-actions">

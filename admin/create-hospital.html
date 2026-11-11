@@ -21,10 +21,10 @@
         }
         .topbar-left { display: flex; align-items: center; gap: 1rem; }
         .logo { font-size: 1.15rem; font-weight: 700; color: #1a1a2e; text-decoration: none; }
-        .logo span { color: #2f8f46; }
+        .logo span { color: #117a7a; }
         .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6b7280; }
         .breadcrumb a { color: #6b7280; text-decoration: none; }
-        .breadcrumb a:hover { color: #2f8f46; }
+        .breadcrumb a:hover { color: #117a7a; }
         .breadcrumb .sep { color: #d1d5db; }
         .breadcrumb .current { color: #1a1a2e; font-weight: 500; }
         .btn-back {
@@ -67,7 +67,7 @@
             background: #fafafa; transition: border-color 0.2s, box-shadow 0.2s; outline: none;
         }
         .field input:focus, .field select:focus {
-            border-color: #2f8f46; box-shadow: 0 0 0 3px rgba(47,143,70,0.1); background: #fff;
+            border-color: #117a7a; box-shadow: 0 0 0 3px rgba(47,143,70,0.1); background: #fff;
         }
         .field input::placeholder { color: #c4c4c4; }
         .field .hint { font-size: 11px; color: #9ca3af; }
@@ -78,13 +78,13 @@
         /* Code preview pill */
         .code-preview {
             display: inline-flex; align-items: center; gap: 6px;
-            background: #eff6ff; border: 1px solid #bfdbfe;
+            background: #edf7f5; border: 1px solid #b9dfdc;
             border-radius: 8px; padding: 6px 12px;
             font-size: 13px; margin-top: 6px;
         }
         .code-preview .code-val {
             font-family: monospace; font-weight: 700;
-            font-size: 15px; color: #2563eb; letter-spacing: 2px;
+            font-size: 15px; color: #117a7a; letter-spacing: 2px;
         }
         .code-preview .code-label { font-size: 11px; color: #6b7280; }
 
@@ -97,7 +97,7 @@
             transition: all 0.15s; background: #fafafa;
         }
         .status-opt:hover { border-color: #d1d5db; }
-        .status-opt.selected-active { border-color: #2f8f46; background: #f0fdf4; color: #15803d; }
+        .status-opt.selected-active { border-color: #117a7a; background: #f0fdf4; color: #15803d; }
         .status-opt.selected-suspended { border-color: #fca5a5; background: #fef2f2; color: #dc2626; }
         .status-opt i { display: block; font-size: 16px; margin-bottom: 4px; }
 
@@ -117,7 +117,7 @@
         .btn-cancel:hover { background: #f9fafb; }
         .btn-submit {
             padding: 9px 22px; border: none; border-radius: 9px;
-            background: #2f8f46; color: #fff; font-size: 13px; font-weight: 600;
+            background: #117a7a; color: #fff; font-size: 13px; font-weight: 600;
             font-family: 'Poppins', sans-serif; cursor: pointer;
             display: flex; align-items: center; gap: 7px; transition: opacity 0.15s;
         }
@@ -137,14 +137,14 @@
         .preview-body { padding: 1.25rem; }
         .preview-hospital-icon {
             width: 56px; height: 56px; border-radius: 14px;
-            background: #eff6ff; color: #2563eb;
+            background: #edf7f5; color: #117a7a;
             display: flex; align-items: center; justify-content: center;
             font-size: 22px; margin: 0 auto 1rem;
         }
         .preview-name { font-size: 15px; font-weight: 700; color: #1a1a2e; text-align: center; min-height: 22px; }
         .preview-code {
             font-family: monospace; font-size: 13px; font-weight: 700;
-            color: #2563eb; letter-spacing: 3px; text-align: center;
+            color: #117a7a; letter-spacing: 3px; text-align: center;
             margin-top: 4px; min-height: 20px;
         }
         .preview-badges { display: flex; gap: 6px; justify-content: center; margin-top: 10px; }
@@ -186,7 +186,7 @@
 
     <div class="page">
         <div class="page-header">
-            <h1><i class="fa-solid fa-hospital" style="color:#2563eb; margin-right:8px;"></i>Add new hospital</h1>
+            <h1><i class="fa-solid fa-hospital" style="color:#117a7a; margin-right:8px;"></i>Add new hospital</h1>
             <p>Register a new hospital tenant on Instadoc. The hospital code is auto-generated from the name.</p>
         </div>
 
@@ -273,7 +273,7 @@
                     <div class="preview-divider"></div>
                     <div class="preview-field">
                         <span class="pf-label">Code</span>
-                        <span class="pf-value" id="preview-code-field" style="font-family:monospace;color:#2563eb;letter-spacing:2px;">—</span>
+                        <span class="pf-value" id="preview-code-field" style="font-family:monospace;color:#117a7a;letter-spacing:2px;">—</span>
                     </div>
                     <div class="preview-field">
                         <span class="pf-label">Manager</span>

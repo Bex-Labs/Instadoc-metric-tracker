@@ -46,8 +46,8 @@
     -->
     <div id="landing-view" style="display:flex; position:fixed; inset:0; background:#f0fdf4; z-index:1000; align-items:center; justify-content:center; flex-direction:column; gap:1rem;">
         <img src="assets/INN.png" alt="InstaDoc" style="height:56px; opacity:0.9;">
-        <div style="display:flex; align-items:center; gap:.6rem; color:#2f8f46; font-size:1rem; font-weight:500; font-family:'Poppins',sans-serif;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2f8f46" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite;">
+        <div style="display:flex; align-items:center; gap:.6rem; color:#117a7a; font-size:1rem; font-weight:500; font-family:'Poppins',sans-serif;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#117a7a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite;">
                 <circle cx="12" cy="12" r="10" stroke-opacity=".25"/>
                 <path d="M12 2a10 10 0 0 1 10 10"/>
             </svg>
@@ -69,8 +69,8 @@
                         <!-- Hospital tenant badge -->
                         <div id="hospital-badge" style="display:none; margin: 0.75rem 1rem 0; padding: 0.5rem 0.75rem; background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.18); border-radius: 8px; text-align:center;">
                             <div style="font-size:0.65rem; text-transform:uppercase; letter-spacing:1px; color:#6b7280; margin-bottom:2px;">Hospital</div>
-                            <div id="hospital-badge-name" style="font-weight:700; font-size:0.82rem; color:#1d4ed8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
-                            <div id="hospital-badge-code" style="font-size:0.7rem; font-family:monospace; color:#3b82f6; letter-spacing:2px;"></div>
+                            <div id="hospital-badge-name" style="font-weight:700; font-size:0.82rem; color:#116d6a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+                            <div id="hospital-badge-code" style="font-size:0.7rem; font-family:monospace; color:#1c9290; letter-spacing:2px;"></div>
                         </div>
                         <nav class="nav-menu">
                             <ul class="nav-list" id="nav-list-container">
@@ -470,7 +470,7 @@
                                     <div class="toggle-item"><div><h4 class="font-bold text-sm">Share Health Data</h4><p class="text-xs text-gray-500">Allow data sharing with healthcare providers</p></div><div class="toggle-switch checked" id="toggle-share-data" onclick="this.classList.toggle('checked')"><div class="toggle-thumb"></div></div></div>
                                     <div class="toggle-item"><div><h4 class="font-bold text-sm">Research Participation</h4><p class="text-xs text-gray-500">Contribute anonymized data for research</p></div><div class="toggle-switch" id="toggle-research" onclick="this.classList.toggle('checked')"><div class="toggle-thumb"></div></div></div>
                                     <div class="mt-4 flex flex-col gap-2">
-                                        <button class="btn-outline-gray" style="border-color: #2ecc71; color: #16a34a;" onclick="openModal('reports')">
+                                        <button class="btn-outline-gray" style="border-color: #117a7a; color: #16a34a;" onclick="openModal('reports')">
                                             <i class="fa-regular fa-file-pdf mr-2"></i> Download Health Report
                                         </button>
                                         
@@ -625,7 +625,7 @@
                             </div>
                         </div>
 
-                        <div class="card p-6 mb-6" style="border-left: 4px solid #2ecc71;">
+                        <div class="card p-6 mb-6" style="border-left: 4px solid #117a7a;">
                             <h3 class="font-bold text-md mb-4 text-green-600"><i class="fa-regular fa-calendar-check mr-2"></i>Upcoming Schedule</h3>
                             <div class="flex flex-col gap-4" id="doc-upcoming-list">
                                 <div class="loading-cell text-xs text-gray-500">Loading schedule...</div>
@@ -762,7 +762,7 @@
                 <!-- DOCTOR: Hospital Invitations View -->
                 <div id="view-doctor-invitations" class="doctor-view hidden-view">
                     <div class="mb-6">
-                        <h1 class="text-2xl font-bold text-gray-800"><i class="fa-solid fa-hospital-user" style="color:#2563eb"></i> Hospital Affiliations</h1>
+                        <h1 class="text-2xl font-bold text-gray-800"><i class="fa-solid fa-hospital-user" style="color:#117a7a"></i> Hospital Affiliations</h1>
                         <p class="text-gray-500 text-sm">Manage your hospital memberships and pending invitations</p>
                     </div>
 
@@ -915,7 +915,7 @@
             </select>
           </div>
           <div class="form-group" style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;">
-            <input type="checkbox" id="gluc-diabetic" style="width:18px;height:18px;accent-color:#2ecc71;cursor:pointer;">
+            <input type="checkbox" id="gluc-diabetic" style="width:18px;height:18px;accent-color:#117a7a;cursor:pointer;">
             <label for="gluc-diabetic" style="font-size:0.875rem;color:#374151;cursor:pointer;margin:0;">I am a diabetic patient</label>
           </div>
           <div class="form-group">
@@ -948,7 +948,7 @@
                     style="width:100%; padding:0.75rem; border:1.5px solid #e5e7eb; border-radius:10px;
                            font-size:0.85rem; font-family:inherit; resize:vertical; outline:none;
                            line-height:1.6; color:#1a1a2e;"
-                    onfocus="this.style.borderColor='#2f8f46'"
+                    onfocus="this.style.borderColor='#117a7a'"
                     onblur="this.style.borderColor='#e5e7eb'"
                 ></textarea>
             </div>
@@ -956,7 +956,7 @@
             <button
                 id="msg-send-btn"
                 onclick="sendMessageToDoctor()"
-                style="width:100%; padding:12px; background:#2f8f46; color:#fff; border:none;
+                style="width:100%; padding:12px; background:#117a7a; color:#fff; border:none;
                        border-radius:10px; font-size:0.88rem; font-weight:700; cursor:pointer;
                        font-family:inherit; display:flex; align-items:center; justify-content:center; gap:6px;"
                 onmouseover="this.style.opacity='0.88'"
@@ -988,7 +988,7 @@
         <div style="background:#fff;border-radius:16px;width:100%;max-width:620px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
             
             <!-- Header -->
-            <div style="background:linear-gradient(135deg,#1a3c34,#2ecc71);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+            <div style="background:linear-gradient(135deg,#1a3c34,#117a7a);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
                 <div>
                     <h2 style="color:#fff;font-size:1.1rem;font-weight:700;margin:0;">Book Appointment</h2>
                     <p style="color:rgba(255,255,255,0.8);font-size:0.8rem;margin:4px 0 0;" id="schedule-doc-name">With Dr. Name</p>
@@ -1009,7 +1009,7 @@
                     <!-- STEP 1: Availability -->
                     <div style="margin-bottom:20px;">
                         <p style="font-size:0.75rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">
-                            <i class="fa-solid fa-calendar-days" style="color:#2ecc71;margin-right:6px;"></i>Step 1 — Select a Day
+                            <i class="fa-solid fa-calendar-days" style="color:#117a7a;margin-right:6px;"></i>Step 1 — Select a Day
                         </p>
 
                         <!-- Month navigation -->
@@ -1045,7 +1045,7 @@
                     <!-- STEP 2: Time Slots -->
                     <div id="booking-slots-section" style="display:none;margin-bottom:20px;">
                         <p style="font-size:0.75rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">
-                            <i class="fa-solid fa-clock" style="color:#2ecc71;margin-right:6px;"></i>Step 2 — Select a Time Slot
+                            <i class="fa-solid fa-clock" style="color:#117a7a;margin-right:6px;"></i>Step 2 — Select a Time Slot
                         </p>
                         <p id="booking-selected-day-label" style="font-size:0.8rem;color:#374151;margin-bottom:10px;"></p>
                         <div id="booking-slots-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
@@ -1057,7 +1057,7 @@
                     <!-- STEP 3: Details -->
                     <div id="booking-details-section" style="display:none;">
                         <p style="font-size:0.75rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;">
-                            <i class="fa-solid fa-notes-medical" style="color:#2ecc71;margin-right:6px;"></i>Step 3 — Appointment Details
+                            <i class="fa-solid fa-notes-medical" style="color:#117a7a;margin-right:6px;"></i>Step 3 — Appointment Details
                         </p>
 
                         <div class="form-group">
@@ -1081,7 +1081,7 @@
 
                         <div class="form-group" style="margin-top:0.5rem;">
                             <div style="display:flex;align-items:flex-start;gap:0.75rem;padding:0.75rem;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
-                                <input type="checkbox" id="share-records-consent" style="width:18px;height:18px;accent-color:#2ecc71;cursor:pointer;margin-top:2px;">
+                                <input type="checkbox" id="share-records-consent" style="width:18px;height:18px;accent-color:#117a7a;cursor:pointer;margin-top:2px;">
                                 <label for="share-records-consent" style="font-size:0.8rem;color:#374151;cursor:pointer;margin:0;line-height:1.5;">
                                     <strong>Share my health records with this doctor</strong><br>
                                     <span style="color:#6b7280;">Your logged vitals (BP, weight, glucose, BMI) will be visible to this doctor for this consultation.</span>
@@ -1141,7 +1141,7 @@
     <div class="modal-overlay" id="incoming-call-modal" style="z-index:10001;">
         <div class="auth-modal" style="text-align:center;max-width:340px;">
             <div style="width:64px;height:64px;border-radius:50%;background:#f0fdf4;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-                <i class="fa-solid fa-phone" id="incoming-call-icon" style="font-size:26px;color:#2ecc71;animation:pulse 1.2s infinite;"></i>
+                <i class="fa-solid fa-phone" id="incoming-call-icon" style="font-size:26px;color:#117a7a;animation:pulse 1.2s infinite;"></i>
             </div>
             <h2 class="modal-title" style="margin-bottom:4px;">Incoming Call</h2>
             <p id="incoming-call-doctor-name" style="color:#374151;font-weight:600;font-size:1rem;margin-bottom:4px;"></p>
@@ -1150,7 +1150,7 @@
                 <button type="button" onclick="dismissIncomingCall()" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #e5e7eb;background:#fff;color:#6b7280;font-weight:600;cursor:pointer;font-family:inherit;">
                     Not now
                 </button>
-                <button type="button" id="incoming-call-join-btn" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2ecc71;color:#fff;font-weight:600;cursor:pointer;font-family:inherit;">
+                <button type="button" id="incoming-call-join-btn" style="flex:1;padding:10px;border-radius:8px;border:none;background:#117a7a;color:#fff;font-weight:600;cursor:pointer;font-family:inherit;">
                     <i class="fa-solid fa-phone" style="margin-right:5px;"></i>Join Now
                 </button>
             </div>
@@ -1202,7 +1202,7 @@
                     box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
 
             <!-- Header -->
-            <div style="background:linear-gradient(135deg,#1a3c34,#2ecc71);padding:18px 24px;
+            <div style="background:linear-gradient(135deg,#1a3c34,#117a7a);padding:18px 24px;
                         display:flex;align-items:center;justify-content:space-between;">
                 <div>
                     <h2 style="color:#fff;font-size:1rem;font-weight:700;margin:0;">
@@ -1227,7 +1227,7 @@
                 <div style="padding:20px 24px;border-right:1px solid #f3f4f6;">
                     <div style="font-size:0.72rem;font-weight:700;color:#6b7280;text-transform:uppercase;
                                 letter-spacing:0.05em;margin-bottom:12px;">
-                        <i class="fa-solid fa-pen-to-square" style="color:#2ecc71;margin-right:6px;"></i>
+                        <i class="fa-solid fa-pen-to-square" style="color:#117a7a;margin-right:6px;"></i>
                         Current Appointment Notes
                     </div>
 
@@ -1254,7 +1254,7 @@
 
                         <!-- Save button -->
                         <button type="submit" id="notes-btn"
-                            style="width:100%;margin-top:12px;padding:12px;background:#2ecc71;color:#fff;
+                            style="width:100%;margin-top:12px;padding:12px;background:#117a7a;color:#fff;
                                    border:none;border-radius:10px;font-size:0.88rem;font-weight:700;
                                    cursor:pointer;font-family:inherit;display:flex;align-items:center;
                                    justify-content:center;gap:8px;">

@@ -46,7 +46,7 @@ async function boot() {
                 <i class="fa-solid fa-triangle-exclamation" style="font-size:2rem; color:#f59e0b; margin-bottom:1rem; display:block;"></i>
                 <h2 style="font-size:1.1rem; font-weight:700;">No Hospital Assigned</h2>
                 <p style="color:#6b7280; font-size:0.85rem; margin-top:0.5rem;">Your account hasn't been linked to a hospital yet. Please contact the Instadoc admin.</p>
-                <button onclick="logout()" style="margin-top:1.5rem; padding:8px 20px; background:#2f8f46; color:#fff; border:none; border-radius:8px; font-size:0.85rem; cursor:pointer; font-family:'Poppins',sans-serif;">Log Out</button>
+                <button onclick="logout()" style="margin-top:1.5rem; padding:8px 20px; background:#117a7a; color:#fff; border:none; border-radius:8px; font-size:0.85rem; cursor:pointer; font-family:'Poppins',sans-serif;">Log Out</button>
             </div>`;
         return;
     }
@@ -313,7 +313,7 @@ function renderSchedules() {
             <div class="card">
                 <div class="card-title" style="justify-content:space-between;">
                     <div style="display:flex; align-items:center; gap:0.5rem;">
-                        <div style="width:36px;height:36px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-weight:700;color:#2563eb;font-size:0.85rem;">${getInitials(d.full_name)}</div>
+                        <div style="width:36px;height:36px;border-radius:50%;background:#d9f1ef;display:flex;align-items:center;justify-content:center;font-weight:700;color:#117a7a;font-size:0.85rem;">${getInitials(d.full_name)}</div>
                         <div>
                             <div style="font-size:0.9rem;">${esc(d.full_name || 'Doctor')}</div>
                             <div style="font-size:0.72rem; color:#9ca3af; font-weight:400;">${esc(d.specialty || 'General')}</div>
@@ -585,7 +585,7 @@ function renderExistingDoctorPicker() {
     container.innerHTML = list.map(d => {
         const initials = (d.full_name || 'D').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
         const verifiedBadge = d.is_verified
-            ? '<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;background:#dbeafe;color:#1d4ed8;border-radius:9999px;font-size:0.62rem;font-weight:700;"><i class="fa-solid fa-shield-halved"></i> Verified</span>'
+            ? '<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;background:#d9f1ef;color:#116d6a;border-radius:9999px;font-size:0.62rem;font-weight:700;"><i class="fa-solid fa-shield-halved"></i> Verified</span>'
             : '<span style="padding:1px 6px;background:#f3f4f6;color:#9ca3af;border-radius:9999px;font-size:0.62rem;font-weight:700;">Unverified</span>';
 
         let action = '';
@@ -606,9 +606,9 @@ function renderExistingDoctorPicker() {
                         border-bottom:1px solid #f3f4f6; transition:background 0.12s;"
                  onmouseover="this.style.background='#f9fafb'"
                  onmouseout="this.style.background=''">
-                <div style="width:36px; height:36px; border-radius:50%; background:#dbeafe;
+                <div style="width:36px; height:36px; border-radius:50%; background:#d9f1ef;
                             display:flex; align-items:center; justify-content:center;
-                            font-weight:700; color:#2563eb; font-size:0.78rem; flex-shrink:0;">
+                            font-weight:700; color:#117a7a; font-size:0.78rem; flex-shrink:0;">
                     ${initials}
                 </div>
                 <div style="flex:1; min-width:0;">
@@ -822,7 +822,7 @@ function renderPatients() {
             </div>
             <button
                 onclick="openAssignPatientToDoctorModal('${p.id}', '${esc(p.full_name || 'Patient')}')"
-                style="padding:5px 14px; background:#2563eb; color:#fff; border:none;
+                style="padding:5px 14px; background:#117a7a; color:#fff; border:none;
                        border-radius:7px; font-size:0.8rem; font-weight:600; cursor:pointer;">
                 <i class="fa-solid fa-user-doctor"></i> Assign Doctor
             </button>

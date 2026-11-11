@@ -1,14 +1,14 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
 :root {
-  --primary-color: #2daa2d;
-  --secondary-color: #8aec8b;
+  --primary-color: #117a7a;
+  --secondary-color: #a9dfe6;
   --success-color: #27ae60;
   --warning-color: #f39c12;
   --danger-color: #004085;
   --info-color: #17a2b8;
-  --light-gray: #ecf0f1;
-  --dark-gray: #7f8c8d;
+  --light-gray: #f2f6f8;
+  --dark-gray: #64748b;
   --white: #ffffff;
   --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.15);
@@ -156,13 +156,13 @@ body.view-login {
 .form-group input:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(45, 170, 45, 0.1);
+  box-shadow: 0 0 0 3px rgba(17, 122, 122, 0.1);
 }
 
 .btn-primary {
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, var(--primary-color), #03b34d);
+  background: linear-gradient(135deg, var(--primary-color), #0b6965);
   color: var(--white);
   border: none;
   border-radius: 8px;
@@ -174,7 +174,7 @@ body.view-login {
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(45, 170, 45, 0.3);
+  box-shadow: 0 5px 15px rgba(17, 122, 122, 0.3);
 }
 
 .alert {
@@ -207,7 +207,7 @@ body.view-login {
   display: none;
   position: absolute;
   border-radius: 50%;
-  background: rgba(45, 170, 45, 0.1);
+  background: rgba(17, 122, 122, 0.1);
 }
 
 .circle-1 {
@@ -342,7 +342,7 @@ body.view-dashboard {
 
 .nav-tab:hover {
   color: var(--primary-color);
-  background-color: rgba(45, 170, 45, 0.05);
+  background-color: rgba(17, 122, 122, 0.05);
 }
 
 .nav-tab.active {
@@ -410,7 +410,7 @@ body.view-dashboard {
 .search-box input:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(45, 170, 45, 0.1);
+  box-shadow: 0 0 0 3px rgba(17, 122, 122, 0.1);
 }
 
 .filter-group {
@@ -447,9 +447,9 @@ body.view-dashboard {
 }
 
 .btn-refresh:hover {
-  background-color: #03b34d;
+  background-color: #0b6965;
   transform: translateY(-1px);
-  box-shadow: 0 3px 10px rgba(45, 170, 45, 0.3);
+  box-shadow: 0 3px 10px rgba(17, 122, 122, 0.3);
 }
 
 /* Table Container */
@@ -999,7 +999,7 @@ body.view-dashboard {
 }
 
 .bar:hover {
-  background: linear-gradient(to top, #03b34d, var(--primary-color));
+  background: linear-gradient(to top, #0b6965, var(--primary-color));
   transform: scaleY(1.05);
 }
 
@@ -1403,7 +1403,7 @@ tr.selected .select-indicator {
 }
 
 tr.selected {
-  background: rgba(45, 170, 45, 0.08) !important;
+  background: rgba(17, 122, 122, 0.08) !important;
   border-left: 4px solid var(--primary-color);
 }
 
@@ -1429,7 +1429,7 @@ tr.selected {
 }
 
 .list-item:hover {
-  background: rgba(45, 170, 45, 0.04);
+  background: rgba(17, 122, 122, 0.04);
 }
 
 .list-item .meta {
@@ -1504,7 +1504,7 @@ body {
 }
 
 .priority-select[data-priority="low"] {
-  background-color: #e8f5e9;
+  background-color: #e8f4f7;
   color: #2e7d32;
   border-color: #c8e6c9;
 }
@@ -1558,7 +1558,7 @@ body {
 
 /* Resolved - completed safely */
 .status-resolved {
-  background-color: #e8f5e9;
+  background-color: #e8f4f7;
   color: #2e7d32;
   border-color: #c8e6c9;
 }
@@ -1629,7 +1629,7 @@ i.fa-solid {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: linear-gradient(135deg, var(--primary-color), #03b34d);
+    background: linear-gradient(135deg, var(--primary-color), #0b6965);
     font-size: 16px;
     border-radius: 8px;
 }
@@ -1639,7 +1639,7 @@ i.fa-solid {
   position: fixed;
   bottom: 20px;
   right: 20px;
-  background-color: #2563eb;
+  background-color: #117a7a;
   color: white;
   border: none;
   padding: 12px 20px;
@@ -1708,7 +1708,7 @@ i.fa-solid {
 }
 
 #submit-feedback-btn {
-  background-color: #2563eb;
+  background-color: #117a7a;
   color: white;
   padding: 10px;
   border: none;
@@ -1749,7 +1749,7 @@ i.fa-solid {
   height: 38px;
   border-radius: 10px;
   background: #eaf3de;
-  color: #2f8f46;
+  color: #117a7a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1842,7 +1842,7 @@ i.fa-solid {
 }
 .cu-field input:focus,
 .cu-field select:focus {
-  border-color: #2f8f46;
+  border-color: #117a7a;
   box-shadow: 0 0 0 3px rgba(47,143,70,0.1);
   background: #fff;
 }
@@ -1912,7 +1912,7 @@ i.fa-solid {
   padding: 8px 18px;
   border: none;
   border-radius: 8px;
-  background: #2f8f46;
+  background: #117a7a;
   color: #fff;
   font-size: 13px;
   font-weight: 600;

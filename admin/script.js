@@ -1892,8 +1892,8 @@ async function loadWeeklyChart() {
       const th  = t  > 0 ? Math.max(6, Math.round((t  / maxVal) * BAR_MAX_H)) : 0;
       const aph = ap > 0 ? Math.max(6, Math.round((ap / maxVal) * BAR_MAX_H)) : 0;
 
-      const healthBar = h  > 0 ? `<div class="day-bar" style="height:${hh}px;background:#2daa2d;"   title="Health logs: ${h}"></div>`   : `<div class="day-bar" style="height:0;background:transparent;"></div>`;
-      const userBar   = u  > 0 ? `<div class="day-bar" style="height:${uh}px;background:#3b82f6;"   title="New users: ${u}"></div>`     : `<div class="day-bar" style="height:0;background:transparent;"></div>`;
+      const healthBar = h  > 0 ? `<div class="day-bar" style="height:${hh}px;background:#117a7a;"   title="Health logs: ${h}"></div>`   : `<div class="day-bar" style="height:0;background:transparent;"></div>`;
+      const userBar   = u  > 0 ? `<div class="day-bar" style="height:${uh}px;background:#1c9290;"   title="New users: ${u}"></div>`     : `<div class="day-bar" style="height:0;background:transparent;"></div>`;
       const ticketBar = t  > 0 ? `<div class="day-bar" style="height:${th}px;background:#f59e0b;"   title="Tickets: ${t}"></div>`       : `<div class="day-bar" style="height:0;background:transparent;"></div>`;
       const apptBar   = ap > 0 ? `<div class="day-bar" style="height:${aph}px;background:#8b5cf6;"  title="Appointments: ${ap}"></div>` : `<div class="day-bar" style="height:0;background:transparent;"></div>`;
 
@@ -2327,7 +2327,7 @@ function renderDoctorList(doctors) {
 
     const isDefaultHospital = d.hospital_name === "Instadoc Hospital";
     const hospitalBadge = isDefaultHospital
-      ? `<span style="font-size:10px;padding:2px 7px;border-radius:9999px;background:#dbeafe;color:#1d4ed8;font-weight:600;white-space:nowrap;">Instadoc Hospital</span>`
+      ? `<span style="font-size:10px;padding:2px 7px;border-radius:9999px;background:#d9f1ef;color:#116d6a;font-weight:600;white-space:nowrap;">Instadoc Hospital</span>`
       : `<span style="font-size:10px;padding:2px 7px;border-radius:9999px;background:#f0fdf4;color:#16a34a;font-weight:600;white-space:nowrap;">${escapeHtml(d.hospital_name)}</span>`;
 
     item.innerHTML = `
@@ -3045,7 +3045,7 @@ function getActivityBadge(action) {
     if (['cancelled', 'declined', 'suspended', 'unassigned_patient'].includes(a))
         return { label: 'Alert', style: 'background:#fef2f2;color:#dc2626;border:1px solid #fecaca;' };
     if (['completed'].includes(a))
-        return { label: 'Completed', style: 'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;' };
+        return { label: 'Completed', style: 'background:#edf7f5;color:#116d6a;border:1px solid #b9dfdc;' };
     if (['updated', 'revoked'].includes(a))
         return { label: 'Updated', style: 'background:#fffbeb;color:#b45309;border:1px solid #fde68a;' };
     return { label: 'Logged', style: 'background:#f3f4f6;color:#4b5563;border:1px solid #e5e7eb;' };
@@ -3227,7 +3227,7 @@ function renderHospitals(hospitals, doctorCounts, patientCounts, managerNames) {
 
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td><strong style="font-family:monospace;letter-spacing:1px;color:#2563eb">${escapeHtml(h.code)}</strong></td>
+            <td><strong style="font-family:monospace;letter-spacing:1px;color:#117a7a">${escapeHtml(h.code)}</strong></td>
             <td><strong>${escapeHtml(h.name)}</strong></td>
             <td>${managerDisplay}</td>
             <td style="text-align:center">${doctorCounts[h.id] || 0}</td>
@@ -3242,7 +3242,7 @@ function renderHospitals(hospitals, doctorCounts, patientCounts, managerNames) {
                             <i class="fa-solid fa-ellipsis-vertical"></i>
                         </button>
                         <div class="dropdown-menu">
-                            <button class="dropdown-item" style="color:#2563eb;" onclick="openInviteDoctorModal('${h.id}', '${escapeHtml(h.name)}'); closeAllDropdowns()">
+                            <button class="dropdown-item" style="color:#117a7a;" onclick="openInviteDoctorModal('${h.id}', '${escapeHtml(h.name)}'); closeAllDropdowns()">
                                 <i class="fa-solid fa-user-plus"></i> Invite Doctor
                             </button>
                             <button class="dropdown-item" style="color:#16a34a;" onclick="openInviteNewDoctorModal('${h.id}', '${escapeHtml(h.name)}'); closeAllDropdowns()">
@@ -3519,7 +3519,7 @@ function renderInviteDoctorList() {
     $('inviteDoctorList').innerHTML = list.map(d => {
         const initials = (d.full_name || 'D').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
         const verifiedBadge = d.is_verified
-            ? '<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;background:#dbeafe;color:#1d4ed8;border-radius:9999px;font-size:0.62rem;font-weight:700;"><i class="fa-solid fa-shield-halved"></i> Verified</span>'
+            ? '<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;background:#d9f1ef;color:#116d6a;border-radius:9999px;font-size:0.62rem;font-weight:700;"><i class="fa-solid fa-shield-halved"></i> Verified</span>'
             : '<span style="padding:1px 6px;background:#f3f4f6;color:#9ca3af;border-radius:9999px;font-size:0.62rem;font-weight:700;">Unverified</span>';
 
         let actionHtml = '';
@@ -3529,7 +3529,7 @@ function renderInviteDoctorList() {
             actionHtml = '<span style="padding:4px 10px;background:#fef9c3;color:#ca8a04;border-radius:9999px;font-size:0.72rem;font-weight:700;white-space:nowrap;"><i class="fa-solid fa-clock" style="margin-right:3px;"></i>Invited</span>';
         } else {
             actionHtml = `<button onclick="sendDoctorInvite('${d.id}', '${escapeHtml(d.full_name)}')"
-                style="padding:5px 14px;background:#2563eb;color:#fff;border:none;border-radius:7px;
+                style="padding:5px 14px;background:#117a7a;color:#fff;border:none;border-radius:7px;
                        font-size:0.78rem;font-weight:600;cursor:pointer;white-space:nowrap;
                        display:inline-flex;align-items:center;gap:4px;"
                 onmouseover="this.style.opacity='0.85'"
@@ -3543,9 +3543,9 @@ function renderInviteDoctorList() {
                         border-bottom:1px solid #f3f4f6;transition:background 0.12s;"
                  onmouseover="this.style.background='#f9fafb'"
                  onmouseout="this.style.background=''">
-                <div style="width:36px;height:36px;border-radius:50%;background:#dbeafe;
+                <div style="width:36px;height:36px;border-radius:50%;background:#d9f1ef;
                             display:flex;align-items:center;justify-content:center;
-                            font-weight:700;color:#2563eb;font-size:0.78rem;flex-shrink:0;">
+                            font-weight:700;color:#117a7a;font-size:0.78rem;flex-shrink:0;">
                     ${initials}
                 </div>
                 <div style="flex:1;min-width:0;">
@@ -3681,7 +3681,7 @@ function copyInviteLink() {
         btn.style.background = '#16a34a';
         setTimeout(() => {
             btn.textContent = 'Copy';
-            btn.style.background = '#2563eb';
+            btn.style.background = '#117a7a';
         }, 2000);
     });
 }
