@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InstaDoc - Your Health, All in One Place</title>
+    <title>Instadoc - Your Health, All in One Place</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,12 +14,9 @@
     <style>
 
          .hero {
-            background:
-                linear-gradient(135deg, rgba(245,245,245,0.82) 0%, rgba(245,245,245,0.70) 100%),
-                url('top-view-tensiometer-checking-blood-pressure_bw.jpg') center center / cover no-repeat !important;
+            background: linear-gradient(135deg, #f3f7f7 0%, #e8f2f2 100%) !important;
             position: relative;
             overflow: hidden;
-            
         }
 
         /* =============================================
@@ -98,6 +95,7 @@
         .hero .auth-section { margin-top:1.5rem; }
         .hero .auth-buttons { display:flex; align-items:center; gap:1rem; }
     </style>
+<link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body>
 
@@ -105,7 +103,7 @@
     <nav class="main-nav">
         <div class="nav-container">
             <a href="index.html" class="logo">
-                <img src="INN.png" alt="InstaDoc Logo" class="logo-img">
+                <img src="INN.png" alt="Instadoc Logo" class="logo-img">
             </a>
             <button class="mobile-menu-toggle" aria-label="Toggle menu">
                 <span></span><span></span><span></span>
@@ -139,49 +137,64 @@
         <div class="small-circle sc-1"></div>
         <div class="small-circle sc-2"></div>
 
-        <div class="hero-container" style="padding-top:150px;">
+        <div class="hero-container">
             <div class="hero-left">
+                <span class="hero-eyebrow"><span class="hero-eyebrow-dot"></span>Telehealth, made simple</span>
                 <h1 class="hero-title">Your Health,<br>All in <span class="text-green">One Place</span></h1>
                 <p class="hero-description">
-                    Connect with your doctor, track your vitals, and take charge of your health journey — from anywhere.
+                    Connect with your doctor, track your vitals, and take charge of your health journey, from anywhere.
                 </p>
                 <div class="auth-section">
                     <div class="auth-buttons">
                         <button class="btn-signup" onclick="lpOpenModal('signup')">Get Started</button>
-                        <button class="btn-read-more" onclick="lpOpenModal('login')">Log In →</button>
+                        <button class="btn-read-more" onclick="lpOpenModal('login')">Log In <span aria-hidden="true">→</span></button>
                     </div>
-                    <p style="margin-top:0.75rem; font-size:0.82rem; color:#6b7280;">
-                        Are you a doctor? <a href="doctor-signup.html" style="color:#117a7a; font-weight:600; text-decoration:none;">Join Instadoc as a Doctor →</a>
+                    <p class="hero-doctor-join">
+                        Are you a doctor? <a href="doctor-signup.html">Join Instadoc as a Doctor →</a>
                     </p>
                 </div>
             </div>
 
             <div class="hero-center">
-                <img src="INN 2.png" alt="Healthcare Professional" class="hero-image">
+                <div class="hero-photo">
+                    <div class="hero-photo-frame">
+                        <img src="hero-doctor.webp" alt="Smiling doctor ready to help" class="hero-image">
+                    </div>
+                    <div class="hero-float-chip hero-chip-rating">
+                        <span class="hero-rating-stars" aria-label="Five stars">★★★★★</span>
+                        <small>from patient reviews</small>
+                    </div>
+                    <div class="hero-float-chip hero-chip-availability">
+                        <span class="hero-chip-icon" aria-hidden="true"><i class="fa-regular fa-clock"></i></span>
+                        <span>Same-day appointments<small>Video or audio</small></span>
+                    </div>
+                </div>
             </div>
 
             <div class="hero-right">
                 <div class="appointment-card">
-                    <button class="btn-appointment">Make an appointment</button>
+                    <h2 class="btn-appointment">Make an appointment</h2>
                     <p class="appointment-description">
-                        Enter your contacts below to schedule an appointment or discuss it with us in details.
+                        Enter your details below to schedule an appointment or discuss your care with us.
                     </p>
                     <form class="appointment-form" id="quickAppointmentForm">
-                        <input type="text" id="quick-name" placeholder="Your name*" required>
-                        <input type="email" id="quick-email" placeholder="Your email address*" required>
-                        <input type="tel" id="quick-phone" placeholder="Phone number*" required>
+                        <label for="quick-name">Your name</label>
+                        <input type="text" id="quick-name" placeholder="Your name*" autocomplete="name" required>
+                        <label for="quick-email">Your email address</label>
+                        <input type="email" id="quick-email" placeholder="Your email address*" autocomplete="email" required>
+                        <label for="quick-phone">Phone number</label>
+                        <input type="tel" id="quick-phone" placeholder="Phone number*" autocomplete="tel" required>
                         <button type="submit" class="btn-book-now">Book now</button>
                     </form>
                 </div>
             </div>
         </div>
     </section>
-
     <!-- Why Choose Section -->
     <section class="why-choose-section">
         <div class="container">
             <div class="section-header">
-                <h2>Why Should You Choose InstaDoc?</h2>
+                <h2>Why Should You Choose Instadoc?</h2>
                 <p>Our platform is trusted by leading healthcare providers across the world for delivering exceptional insights and measurable improvements in patient care.</p>
             </div>
             <div class="features-grid">
@@ -228,7 +241,7 @@
     <footer class="main-footer">
         <div class="footer-container">
             <div class="footer-brand">
-                <img src="INN.png" alt="InstaDoc Logo" class="footer-logo">
+                <img src="INN.png" alt="Instadoc Logo" class="footer-logo">
                 <div class="footer-socials">
                     <a href="#" aria-label="LinkedIn" class="social-link"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M4.98 3.5C4.98 4.88 3.87 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1 4.98 2.12 4.98 3.5zM.5 8h4V24h-4V8zm7.5 0h3.8v2.2h.1c.53-1 1.83-2.2 3.77-2.2C19.9 8 24 10.1 24 15.3V24h-4v-7.7c0-1.84-.03-4.2-2.56-4.2-2.56 0-2.95 2-2.95 4.06V24h-4V8z"/></svg></a>
                     <a href="#" aria-label="Twitter" class="social-link"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
@@ -265,7 +278,7 @@
         </div>
         <div class="footer-bottom">
             <div class="footer-container footer-bottom-inner">
-                <p>&copy; 2026 InstaDoc Inc. All rights reserved.</p>
+                <p>&copy; 2026 Instadoc Inc. All rights reserved.</p>
             </div>
         </div>
     </footer>
@@ -281,7 +294,7 @@
         <div class="lp-auth-modal">
             <button class="lp-modal-close" onclick="lpCloseModals()">&times;</button>
             <h2 class="lp-modal-title">Welcome Back</h2>
-            <p class="lp-modal-subtitle">Sign in to your InstaDoc account</p>
+            <p class="lp-modal-subtitle">Sign in to your Instadoc account</p>
             <p class="lp-msg lp-error" id="lp-login-error"></p>
             <form id="lp-login-form" onsubmit="lpHandleLogin(event)">
                 <div class="lp-form-group">
@@ -307,7 +320,7 @@
         <div class="lp-auth-modal">
             <button class="lp-modal-close" onclick="lpCloseModals()">&times;</button>
             <h2 class="lp-modal-title">Create Account</h2>
-            <p class="lp-modal-subtitle">Join InstaDoc; it's free</p>
+            <p class="lp-modal-subtitle">Join Instadoc; it's free</p>
             <p class="lp-msg lp-error" id="lp-signup-error"></p>
             <form id="lp-signup-form" onsubmit="lpHandleSignup(event)">
                 <div class="lp-form-group">

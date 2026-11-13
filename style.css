@@ -345,12 +345,12 @@ section {
 
 /* Hero Content */
 .hero-container {
-    max-width: 1400px;
+    max-width: 1340px;
     margin: 0 auto;
-    padding: 0 3rem;
+    padding: 112px 24px 42px;
     display: grid;
-    grid-template-columns: 1fr 1fr 400px;
-    gap: 3rem;
+    grid-template-columns: minmax(0, 1.05fr) minmax(260px, 0.8fr) minmax(340px, 0.95fr);
+    gap: clamp(20px, 2.2vw, 30px);
     align-items: center;
     min-height: 100vh;
     position: relative;
@@ -358,16 +358,37 @@ section {
 }
 
 .hero-left {
-    padding-right: 2rem;
+    padding-right: 0;
+}
 
+.hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border: 1px solid #d9e4e4;
+    border-radius: 999px;
+    background: var(--white);
+    color: var(--dark-green);
+    box-shadow: var(--shadow-sm);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.hero-eyebrow-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #36b76a;
 }
 
 .hero-title {
-    font-size: 4rem;
+    font-size: clamp(3rem, 4.5vw, 3.8rem);
     font-weight: 800;
-    line-height: 1.1;
-    color: var(--text-dark);
-    margin-bottom: 1.5rem;
+    line-height: 1.03;
+    letter-spacing: -0.035em;
+    color: #24323e;
+    margin: 22px 0 18px;
 }
 
 .text-green {
@@ -375,17 +396,18 @@ section {
 }
 
 .hero-description {
-    font-size: 0.95rem;
-    color: var(--dark-gray);
-    line-height: 1.8;
-    margin-bottom: 2rem;
+    max-width: 44ch;
+    font-size: 1.04rem;
+    color: #5b6d78;
+    line-height: 1.65;
+    margin-bottom: 1.5rem;
 }
 
 .btn-read-more {
     background: transparent;
     border: 2px solid var(--primary-green);
     color: var(--primary-green);
-    padding: 0.875rem 2.5rem;
+    padding: 0.8rem 1.75rem;
     border-radius: 50px;
     font-size: 1rem;
     font-weight: 600;
@@ -401,8 +423,8 @@ section {
 }
 
 .auth-section {
-    margin-top: 3rem;
-    padding-bottom: 100px;
+    margin-top: 1.5rem;
+    padding-bottom: 0;
 }
 
 .auth-question {
@@ -414,7 +436,7 @@ section {
 .auth-buttons {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.85rem;
 }
 
 .btn-login {
@@ -443,7 +465,7 @@ section {
     background: var(--primary-green);
     color: var(--white);
     border: none;
-    padding: 0.875rem 2.5rem;
+    padding: 0.8rem 1.75rem;
     border-radius: 50px;
     font-size: 1rem;
     font-weight: 600;
@@ -460,18 +482,104 @@ section {
 /* Hero Center - Image */
 .hero-center {
     display: flex;
-    align-items: flex-end; /* Anchors the image to the bottom of its flex container */
+    align-items: flex-end;
     justify-content: center;
-    align-self: end; /* Pushes this specific grid column to the very bottom */
+    align-self: end;
     height: 100%;
 }
 
+.hero-photo {
+    position: relative;
+    width: 100%;
+    max-width: 350px;
+    margin: 0 auto;
+}
+
+.hero-photo-frame {
+    aspect-ratio: 4 / 4.6;
+    overflow: hidden;
+    border: 5px solid var(--white);
+    border-radius: 210px 210px 18px 18px;
+    background: #d9e7e8;
+    box-shadow: var(--shadow-lg);
+}
+
 .hero-image {
-    max-width: 150%; /* Fixed from 1000% to prevent horizontal scrolling bugs */
-    height: auto;
-    max-height: 85vh; /* Ensures it never outgrows the screen height */
-    filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.1));
-    margin-bottom: -5px; /* Removes any fractional pixel gaps at the base */
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    object-fit: cover;
+    object-position: 50% 16%;
+}
+
+.hero-float-chip {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: var(--white);
+    box-shadow: var(--shadow-md);
+    color: #24323e;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.hero-float-chip small {
+    display: block;
+    margin-top: 2px;
+    color: #64748b;
+    font-size: 0.72rem;
+    font-weight: 500;
+}
+
+.hero-chip-rating {
+    top: 58px;
+    right: -16px;
+    display: block;
+}
+
+.hero-rating-stars {
+    color: #f2a81d;
+    letter-spacing: 1px;
+    font-size: 0.82rem;
+}
+
+.hero-chip-availability {
+    bottom: 72px;
+    left: -34px;
+}
+
+.hero-chip-icon {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    flex: none;
+    place-items: center;
+    border-radius: 10px;
+    background: #d7eceb;
+    color: var(--primary-green);
+    font-size: 1rem;
+}
+
+.hero-doctor-join {
+    margin: 1.15rem 0 0;
+    color: #64748b;
+    font-size: 0.84rem;
+}
+
+.hero-doctor-join a {
+    color: var(--dark-green);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.hero-doctor-join a:hover {
+    text-decoration: underline;
 }
 
 /* Hero Right - Appointment Card */
@@ -483,49 +591,53 @@ section {
 .appointment-card {
     background: var(--white);
     border-radius: 20px;
-    padding: 2rem;
+    padding: 1.5rem 1.55rem 1.65rem;
     box-shadow: var(--shadow-lg);
     width: 100%;
 }
 
 .btn-appointment {
+    display: block;
     background: var(--primary-green);
     color: var(--white);
     border: none;
-    padding: 1rem 2rem;
+    padding: 0.9rem 1rem;
     border-radius: 50px;
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
-    cursor: pointer;
+    text-align: center;
     width: 100%;
-    margin-bottom: 1.5rem;
-    transition: var(--transition);
-}
-
-.btn-appointment:hover {
-    background: var(--dark-green);
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(17, 122, 122, 0.3);
+    margin: 0 0 0.8rem;
 }
 
 .appointment-description {
     font-size: 0.9rem;
-    color: var(--dark-gray);
-    line-height: 1.6;
-    margin-bottom: 1.5rem;
+    color: #5b6d78;
+    line-height: 1.55;
+    margin: 0 0 1rem;
 }
 
 .appointment-form {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.45rem;
+}
+
+.appointment-form label {
+    margin-top: 0.2rem;
+    color: #24323e;
+    font-size: 0.78rem;
+    font-weight: 700;
 }
 
 .appointment-form input {
-    padding: 1rem;
-    border: 1px solid var(--medium-gray);
-    border-radius: 8px;
-    font-size: 0.95rem;
+    width: 100%;
+    min-height: 47px;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid #d9e4e4;
+    border-radius: 10px;
+    color: #24323e;
+    font-size: 0.9rem;
     font-family: 'Poppins', sans-serif;
     transition: var(--transition);
 }
@@ -537,20 +649,20 @@ section {
 }
 
 .appointment-form input::placeholder {
-    color: var(--dark-gray);
+    color: #64748b;
 }
 
 .btn-book-now {
     background: var(--primary-green);
     color: var(--white);
     border: none;
-    padding: 1rem 2rem;
+    padding: 0.85rem 1rem;
     border-radius: 50px;
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
     transition: var(--transition);
-    margin-top: 0.5rem;
+    margin-top: 0.4rem;
 }
 
 .btn-book-now:hover {
@@ -1543,4 +1655,55 @@ section {
   margin-top: 10px;
   font-size: 0.9em;
   text-align: center;
+}
+
+/* Landing hero layout at tablet and phone widths */
+@media (max-width: 1100px) {
+    .hero-container {
+        grid-template-columns: minmax(0, 1fr) minmax(240px, 0.85fr);
+        min-height: auto;
+        padding: 130px 32px 48px;
+        gap: 24px;
+    }
+
+    .hero-left { grid-column: 1; grid-row: 1; }
+    .hero-center { grid-column: 2; grid-row: 1; height: auto; align-self: center; }
+    .hero-right { grid-column: 1 / -1; grid-row: 2; justify-content: center; }
+    .hero-photo { max-width: 320px; }
+    .appointment-card { max-width: 600px; }
+    .hero-title { font-size: clamp(2.8rem, 5vw, 3.5rem); }
+}
+
+@media (max-width: 768px) {
+    .hero-container {
+        grid-template-columns: minmax(0, 1fr);
+        min-height: auto;
+        padding: 130px 22px 48px;
+        gap: 32px;
+    }
+
+    .hero-left,
+    .hero-center,
+    .hero-right { grid-column: 1; grid-row: auto; }
+
+    .hero-center { width: 100%; height: auto; }
+    .hero-photo { max-width: min(350px, 85vw); }
+    .hero-title { font-size: clamp(2.8rem, 10vw, 3.6rem); }
+    .hero-description { max-width: 48ch; }
+    .appointment-card { width: 100%; max-width: 560px; margin: 0 auto; }
+    .hero-chip-rating { right: -8px; }
+    .hero-chip-availability { left: -14px; bottom: 48px; }
+}
+
+@media (max-width: 480px) {
+    .hero-container { padding: 116px 18px 40px; gap: 28px; }
+    .hero-title { font-size: clamp(2.6rem, 11vw, 3.25rem); }
+    .hero-float-chip { padding: 8px 10px; font-size: 0.74rem; }
+    .hero-float-chip small { font-size: 0.68rem; }
+    .hero-chip-availability { left: -8px; bottom: 34px; }
+    .hero-chip-rating { right: -4px; }
+    .auth-buttons { flex-direction: row; align-items: center; }
+    .auth-buttons button { width: auto; }
+    .btn-signup,
+    .btn-read-more { padding: 0.75rem 1.25rem; }
 }
