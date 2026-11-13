@@ -98,8 +98,9 @@ section {
 }
 
 .logo-img {
-    height: 100px;
+    height: 36px;
     width: auto;
+    max-width: 180px;
 }
 
 .mobile-menu-toggle {
@@ -828,8 +829,16 @@ section {
 }
 
 .footer-logo {
-    height: 150px;
-    width: 180px;
+    display: block;
+    height: 54px;
+    width: 220px;
+    max-width: 100%;
+    padding: 6px 10px;
+    object-fit: contain;
+    object-position: center;
+    background: #f3f7f7;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 10px;
 }
 
 .footer-socials {
